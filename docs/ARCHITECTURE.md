@@ -170,6 +170,27 @@ Atacante envia mensagem maliciosa para um agente em modo `auto`; o Claude headle
 
 Regra: **toda feature nova chega com teste no mesmo commit.**
 
+### Golden tests (contratos congelados)
+
+| Golden | Onde | Protege |
+|---|---|---|
+| `hub/tests/golden/openapi.json` | hub | contrato REST completo |
+| `hub/tests/golden/ws_frames.json` | hub **e** bridge | protocolo WS — o bridge lê o MESMO arquivo (`tests/golden/protocol-mirror.test.ts`), travando o espelhamento hub↔bridge |
+| `bridge/tests/golden/prompt-*.golden.txt` | bridge | prompt anti-injection do auto-respond (contramedida de segurança) |
+| `web/src/**/__snapshots__/` | web | markup dos componentes do chat |
+
+Mudança intencional de contrato: regenerar (`AMP_UPDATE_GOLDEN=1 pytest tests/golden` no hub, `vitest -u` no bridge/web) e **revisar o diff do golden no commit**.
+
+## Linters (obrigatórios — CI e pré-commit)
+
+| Projeto | Ferramenta | Comando |
+|---|---|---|
+| `hub/` | ruff (lint + format, com regras de segurança S) | `ruff check app tests && ruff format --check app tests` |
+| `bridge/` | Biome | `pnpm lint` |
+| `web/` | Biome (com domínio react + a11y) | `pnpm lint` |
+
+Código novo não entra com violação de linter.
+
 ## Commits
 
 Conventional Commits, um commit por feature/modificação relevante:

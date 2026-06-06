@@ -1,0 +1,73 @@
+{
+  "client.hello": {
+    "agent_id": "backend-julio",
+    "key": "amp_abababababababababababababababababababababababababababababababab",
+    "type": "hello"
+  },
+  "client.message": {
+    "body": "Existe endpoint de reset de senha?",
+    "to": "backend-julio",
+    "type": "message"
+  },
+  "server.delivered": {
+    "message_id": 1,
+    "to": "backend-julio",
+    "type": "delivered"
+  },
+  "server.error": {
+    "code": "rate_limited",
+    "detail": "Limite de mensagens excedido.",
+    "type": "error"
+  },
+  "server.hello_ack": {
+    "agent_id": "backend-julio",
+    "online": [
+      "backend-julio",
+      "mobile-eduardo"
+    ],
+    "pending": [
+      {
+        "body": "Existe endpoint de reset de senha?",
+        "created_at": "2026-06-06T12:00:00Z",
+        "delivered_at": null,
+        "from": "mobile-eduardo",
+        "id": 1,
+        "to": "backend-julio"
+      }
+    ],
+    "settings": {
+      "allowed_senders": null,
+      "auto_timeout_secs": 120,
+      "instructions": "",
+      "max_auto_per_hour": 10,
+      "mode": "inbox"
+    },
+    "type": "hello_ack"
+  },
+  "server.message": {
+    "message": {
+      "body": "Existe endpoint de reset de senha?",
+      "created_at": "2026-06-06T12:00:00Z",
+      "delivered_at": null,
+      "from": "mobile-eduardo",
+      "id": 1,
+      "to": "backend-julio"
+    },
+    "type": "message"
+  },
+  "server.presence": {
+    "agent_id": "infra-maria",
+    "status": "offline",
+    "type": "presence"
+  },
+  "server.settings_update": {
+    "settings": {
+      "allowed_senders": null,
+      "auto_timeout_secs": 120,
+      "instructions": "",
+      "max_auto_per_hour": 10,
+      "mode": "inbox"
+    },
+    "type": "settings_update"
+  }
+}

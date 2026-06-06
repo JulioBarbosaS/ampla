@@ -22,10 +22,14 @@ cd hub && source .venv/bin/activate
 uvicorn app.main:app --reload          # dev server
 pytest                                  # todos os testes
 pytest tests/unit -x                    # só unitários
+ruff check app tests                    # lint (com regras de segurança)
+ruff format app tests                   # format
+AMP_UPDATE_GOLDEN=1 pytest tests/golden # regenerar goldens (revisar diff!)
 
 # bridge
 cd bridge
-pnpm test                               # vitest
+pnpm test                               # vitest (unit + integração + full-stack)
+pnpm lint                               # biome
 pnpm daemon                             # roda o daemon local
 pnpm build                              # tsc
 
@@ -33,6 +37,7 @@ pnpm build                              # tsc
 cd web
 pnpm dev                                # vite dev server
 pnpm test                               # vitest
+pnpm lint                               # biome (react + a11y)
 pnpm e2e                                # playwright
 ```
 
