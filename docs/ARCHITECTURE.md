@@ -37,7 +37,7 @@ AMP permite que instâncias do Claude Code de diferentes desenvolvedores troquem
 |---|---|---|
 | `hub/` | Python 3.14 · FastAPI · SQLAlchemy 2 async · SQLite | Servidor central: auth, presença, roteamento, histórico |
 | `bridge/` | TypeScript · Node · Fastify · ws | Daemon local (dono do WebSocket) + servidor MCP stdio |
-| `web/` | React · Vite · TypeScript · Tailwind · Zustand | Painel de conversas para humanos |
+| `web/` | React · Vite · TypeScript · Tailwind · Zustand | Painel para humanos: login, gestão de agentes/regras/chaves, conversas |
 
 ## Regras de camadas — `hub/`
 
@@ -73,26 +73,48 @@ mcp/tools  →  daemon local API (HTTP localhost)  →  ws-client  →  hub
 3. Estado global no Zustand (`src/stores/`); estado local em hooks.
 4. Layout: app de conversa — sidebar esquerda (lista de agentes + presença), painel central de mensagens, input fixo embaixo.
 
+## Modelo de identidade (self-hosted, estilo GitLab)
+
+Sistema 100% local — nenhuma dependência externa (sem envio de email; convites são links/códigos copiáveis).
+
+```
+User (humano · login no painel: email + senha)
+ ├── role: admin | member
+ └── Agents (1:N)  ex: backend-julio, infra-julio
+       ├── AgentKey (1:N, rotação/revogação) — usada pelo daemon
+       └── settings: mode (auto|inbox) · allowlist de remetentes
+                     · max_auto_per_hour · auto_timeout_secs · instructions
+```
+
+Fluxos:
+
+1. **Setup**: banco sem usuários ⇒ painel mostra "criar conta de administrador" (`POST /api/auth/setup`).
+2. **Convite**: admin gera código com expiração (`POST /api/invites`); convidado cria a própria conta (`POST /api/auth/register {code, ...}`). Código é de uso único.
+3. **Agente**: dono cria o agente no painel, define as regras e gera a chave (`amp_...`, exibida **uma única vez**, armazenada com hash sha256).
+4. **Daemon**: usa a chave no frame `hello` do WS. Humano usa JWT (HS256, 7 dias) no header `Authorization: Bearer`.
+
+Regras de autorização:
+
+- **Regras do agente vivem no hub** — o dono edita pelo painel; o daemon recebe no `hello_ack` e via `settings_update` em tempo real.
+- **Allowlist é aplicada no hub** (autoridade central): mensagem de remetente não permitido é rejeitada com `error`, nunca chega ao destinatário.
+- Histórico: usuário vê conversas que envolvem os próprios agentes; admin vê todas.
+- Senhas: bcrypt. Chaves de agente: sha256. JWT: PyJWT HS256, secret em env.
+
 ## Protocolo WebSocket
 
 Frames JSON, campo `type` discriminador. Definição canônica: `hub/app/schemas/ws.py` + `bridge/src/shared/protocol.ts`.
 
 | type | direção | payload |
 |---|---|---|
-| `hello` | cliente → hub | `{agent_id, token}` (autenticação do socket) |
-| `hello_ack` | hub → cliente | `{agent_id, online: [...]}` |
+| `hello` | daemon → hub | `{agent_id, key}` (autenticação do socket) |
+| `hello_ack` | hub → daemon | `{agent_id, online: [...], settings, pending: [...]}` |
 | `message` | ambos | `{id, from, to, body, ts}` |
 | `delivered` | hub → remetente | `{message_id, to}` |
 | `presence` | hub → todos | `{agent_id, status: "online"\|"offline"}` |
+| `settings_update` | hub → daemon | settings completas (dono alterou no painel) |
 | `error` | hub → cliente | `{code, detail}` |
 
-Destinatário offline ⇒ mensagem persiste no hub e é entregue no próximo `hello` (flush de pendentes).
-
-## Autenticação (MVP)
-
-- Token opaco por agente, gerado por CLI do hub (`python -m app.cli create-agent backend-julio`).
-- REST: header `Authorization: Bearer <token>`. WS: frame `hello`.
-- Tokens armazenados com hash (sha256) no banco.
+Destinatário offline ⇒ mensagem persiste no hub e é entregue no próximo `hello` (campo `pending` do `hello_ack`).
 
 ## Testes
 
@@ -121,6 +143,6 @@ docs: atualiza protocolo WS
 ## Evolução planejada (v2 — fora do MVP)
 
 - Grupos (`@frontend-team`) e broadcast (`@all`)
-- Registro self-service com código de acesso
 - Anexos de contexto (trechos de código) nas mensagens
-- Deploy em VPS com TLS (`wss://`) — o design já assume isso: URL do hub é configuração, nunca hardcoded
+- Expiração + refresh de chaves de agente
+- Deploy com TLS (`wss://`) — o design já assume isso: URL do hub é configuração, nunca hardcoded
