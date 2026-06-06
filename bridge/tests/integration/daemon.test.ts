@@ -131,6 +131,41 @@ describe("daemon ↔ hub", () => {
     });
   });
 
+  it("memória: segunda pergunta recebe o histórico da conversa no prompt", async () => {
+    const runner = vi.fn().mockResolvedValue("resposta qualquer");
+    hub.settings = { ...hub.settings, mode: "auto" };
+    await startDaemon(runner);
+
+    hub.pushMessage(AGENT, wireMessage(20, "mobile-eduardo", AGENT, "primeira pergunta?"));
+    await waitFor(() => runner.mock.calls.length === 1, 5000, "primeira resposta");
+    hub.pushMessage(AGENT, wireMessage(21, "mobile-eduardo", AGENT, "segunda pergunta?"));
+    await waitFor(() => runner.mock.calls.length === 2, 5000, "segunda resposta");
+
+    const secondPrompt = runner.mock.calls[1]?.[0] as string;
+    expect(secondPrompt).toContain("<amp-history>");
+    expect(secondPrompt).toContain("primeira pergunta?");
+    expect(secondPrompt).toContain("resposta qualquer"); // a própria resposta anterior
+  });
+
+  it("loop guard: thread para de auto-responder após o limite de hops", async () => {
+    const runner = vi.fn().mockResolvedValue("vai");
+    hub.settings = { ...hub.settings, mode: "auto", max_auto_per_hour: 120 };
+    const d = await startDaemon(runner);
+
+    // 7 requests na MESMA thread (id raiz 500) — guard corta na 6ª
+    for (let i = 0; i < 7; i++) {
+      hub.pushMessage(
+        AGENT,
+        wireMessage(500 + i, "mobile-eduardo", AGENT, `hop ${i}`, { thread_id: 500 }),
+      );
+      await waitFor(() => d.store.inbox(false).length >= i + 1, 5000, `msg ${i} no store`);
+      await new Promise((resolve) => setTimeout(resolve, 30)); // deixa o respond completar
+    }
+    await waitFor(() => hub.sentMessages().length >= 5, 5000, "5 auto-respostas");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(hub.sentMessages().length).toBe(5); // guard segurou as demais
+  });
+
   it("resposta com segredo é bloqueada e vira aviso neutro", async () => {
     const runner = vi.fn().mockResolvedValue("claro: postgres://app:senha123@db:5432/prod");
     hub.settings = { ...hub.settings, mode: "auto" };

@@ -23,6 +23,13 @@ import { HubClient } from "./ws-client.js";
  * auto-respond na outra ponta (anti-loop entre dois agentes em modo auto). */
 export const AUTO_REPLY_PREFIX = "[auto] ";
 
+/** Quantas mensagens da conversa entram no prompt como memória. */
+export const HISTORY_LIMIT = 6;
+
+/** Loop guard por hops: máximo de auto-respostas numa MESMA thread.
+ * Terceira camada anti-loop (além do prefixo [auto] e da semântica de types). */
+export const MAX_AUTO_REPLIES_PER_THREAD = 5;
+
 export interface Daemon {
   hub: HubClient;
   store: MessageStore;
@@ -72,7 +79,29 @@ export function createDaemon(
     // response/notification/status/ack/alert nunca disparam — anti-loop por design.
     if (message.type !== "request" && message.type !== "task") return;
 
-    const result = await responder.handle(message, settings);
+    // Loop guard por hops: thread com auto-respostas demais para de responder
+    const conversation = store.conversation(message.from, 50);
+    const threadId = message.thread_id;
+    if (threadId !== null) {
+      const autoRepliesInThread = conversation.filter(
+        (m) =>
+          m.direction === "out" && m.thread_id === threadId && m.body.startsWith(AUTO_REPLY_PREFIX),
+      ).length;
+      if (autoRepliesInThread >= MAX_AUTO_REPLIES_PER_THREAD) {
+        console.error(
+          `[amp] loop guard: thread ${threadId} atingiu ${MAX_AUTO_REPLIES_PER_THREAD} auto-respostas — mensagem fica na inbox`,
+        );
+        return;
+      }
+    }
+
+    // Memória de conversa: últimas mensagens entram no prompt como contexto
+    const history = conversation
+      .filter((m) => m.id !== message.id)
+      .slice(-HISTORY_LIMIT)
+      .map((m) => ({ from: m.from, body: m.body, ts: m.ts }));
+
+    const result = await responder.handle(message, settings, history);
     const replyOpts = {
       msgType: "response" as const,
       priority: message.priority, // resposta herda a prioridade do pedido

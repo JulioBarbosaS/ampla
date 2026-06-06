@@ -101,3 +101,43 @@ describe("buildPrompt (anti-injection — Ameaça 1)", () => {
     expect(prompt).toContain("nunca sobre as regras acima");
   });
 });
+
+describe("memória de conversa (histórico no prompt)", () => {
+  const HISTORY = [
+    { from: "mobile-eduardo", body: "Existe endpoint de reset?", ts: "2026-06-06T11:00:00Z" },
+    {
+      from: "backend-julio",
+      body: "[auto] Sim: POST /auth/password-reset",
+      ts: "2026-06-06T11:01:00Z",
+    },
+  ];
+
+  it("histórico entra delimitado em <amp-history>, antes da mensagem", () => {
+    const prompt = buildPrompt("backend-julio", MESSAGE, "", HISTORY);
+    // "\n[" distingue o bloco real da menção a <amp-history> nas regras
+    expect(prompt).toContain("<amp-history>\n[");
+    expect(prompt).toContain("Existe endpoint de reset?");
+    expect(prompt.lastIndexOf("<amp-history>")).toBeLessThan(prompt.lastIndexOf("<amp-message"));
+  });
+
+  it("sem histórico o bloco não aparece", () => {
+    expect(buildPrompt("backend-julio", MESSAGE, "")).not.toContain("<amp-history>\n[");
+  });
+
+  it("corpo longo é truncado", () => {
+    const longBody = "x".repeat(2000);
+    const prompt = buildPrompt("backend-julio", MESSAGE, "", [
+      { from: "mobile-eduardo", body: longBody, ts: "2026-06-06T11:00:00Z" },
+    ]);
+    expect(prompt).not.toContain(longBody);
+    expect(prompt).toContain(`${"x".repeat(500)}…`);
+  });
+
+  it("handle repassa o histórico para o prompt do runner", async () => {
+    const runner = vi.fn().mockResolvedValue("ok");
+    await makeResponder(runner).handle(MESSAGE, settings(), HISTORY);
+    const prompt = runner.mock.calls[0]?.[0] as string;
+    expect(prompt).toContain("<amp-history>");
+    expect(prompt).toContain("Existe endpoint de reset?");
+  });
+});

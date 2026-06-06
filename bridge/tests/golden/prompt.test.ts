@@ -40,4 +40,17 @@ describe("golden do prompt do auto-respond", () => {
       ),
     ).toMatchFileSnapshot("./prompt-com-instrucoes.golden.txt");
   });
+
+  it("com memória de conversa (histórico delimitado)", async () => {
+    await expect(
+      buildPrompt("backend-julio", MESSAGE, "", [
+        { from: "mobile-eduardo", body: "Existe endpoint de reset?", ts: "2026-06-06T11:00:00Z" },
+        {
+          from: "backend-julio",
+          body: "[auto] Sim: POST /api/v1/auth/password-reset",
+          ts: "2026-06-06T11:01:00Z",
+        },
+      ]),
+    ).toMatchFileSnapshot("./prompt-com-historico.golden.txt");
+  });
 });
