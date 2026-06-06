@@ -54,6 +54,15 @@ class MessageService:
             Message(from_agent=from_slug, to_agent=to_slug, body=body)
         )
 
+    async def send_as_user(self, actor: User, from_slug: str, to_slug: str, body: str) -> Message:
+        """Humano envia em nome do próprio agente (painel). Admin pode por qualquer um."""
+        sender = await self._agents.get(from_slug)
+        if sender is None:
+            raise NotFoundError(f"Agente {from_slug!r} não existe.")
+        if sender.user_id != actor.id and actor.role != "admin":
+            raise PermissionDeniedError("Você não envia mensagens por este agente.")
+        return await self.send(from_slug, to_slug, body)
+
     # ---- entrega ----
 
     async def pending_for(self, slug: str) -> list[Message]:
