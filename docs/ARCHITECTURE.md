@@ -116,6 +116,47 @@ Frames JSON, campo `type` discriminador. Definição canônica: `hub/app/schemas
 
 Destinatário offline ⇒ mensagem persiste no hub e é entregue no próximo `hello` (campo `pending` do `hello_ack`).
 
+## Segurança — modelo de ameaças e contramedidas
+
+> Mesmo 100% local, o sistema controla o que Claudes com acesso a código-fonte fazem. Tratar como sistema crítico. **Nenhuma contramedida desta seção é opcional.**
+
+### Ameaça 1 — Prompt injection no auto-respond (a mais grave)
+
+Atacante envia mensagem maliciosa para um agente em modo `auto`; o Claude headless da vítima executa instruções embutidas (vazar código, rodar comandos).
+
+- O auto-responder roda `claude -p` **somente com ferramentas read-only** (`Read`, `Grep`, `Glob`) — nunca `Bash`, `Write`, `Edit` ou rede.
+- A mensagem recebida entra no prompt **como dado não-confiável**, delimitada, com instrução explícita de não obedecer comandos embutidos nela.
+- Filtro de saída: a resposta passa por scan de padrões de segredo (chaves de API, senhas, blocos de `.env`, private keys) **antes** de ser enviada; match ⇒ resposta bloqueada e dono notificado.
+- Limites obrigatórios: `max_auto_per_hour` (anti-loop entre dois Claudes e anti-flood) e `auto_timeout_secs` aplicados no daemon.
+- Default seguro: agente novo nasce em modo `inbox`, nunca `auto`.
+
+### Ameaça 2 — Acesso não autorizado ao hub
+
+- Senhas: bcrypt (custo 12). Login com mensagem de erro genérica (não revela se o email existe) e **rate limit por IP + lockout incremental por conta**.
+- Chaves de agente: 256 bits de entropia (`amp_` + 64 hex), armazenadas como sha256, comparação constant-time, exibidas uma única vez.
+- JWT HS256 com expiração; em produção o hub **recusa subir** com `jwt_secret` default.
+- Convites: uso único, expiração, código com entropia alta (`secrets`).
+- Revogação de chave **derruba o WebSocket do agente imediatamente**.
+
+### Ameaça 3 — Abuso do canal WebSocket
+
+- Primeiro frame deve ser `hello` válido em até 10s, senão a conexão cai.
+- Limite de tamanho de frame (64 KiB) e de corpo de mensagem (16 KiB); excedeu ⇒ `error` + desconexão.
+- Rate limit de mensagens por conexão (token bucket); frames malformados repetidos ⇒ desconexão.
+- Allowlist do destinatário aplicada **no hub** — mensagem bloqueada nunca chega ao daemon da vítima.
+
+### Ameaça 4 — Processo local malicioso na máquina do dev
+
+- Daemon ↔ MCP: **unix socket** `~/.amp/daemon.sock` com permissão `0600` (nunca porta TCP).
+- `~/.amp/` (config + chave do agente + inbox): `0700` no diretório, `0600` nos arquivos.
+
+### Transversal
+
+- Validação estrita de toda entrada (Pydantic, limites de tamanho, slug `^[a-z][a-z0-9-]{1,48}[a-z0-9]$`).
+- Auditoria: tabela `audit_log` no hub — login (sucesso/falha), setup, registro, criação/revogação de chave, mudança de settings, mensagens bloqueadas por allowlist ou filtro de segredos.
+- CORS restrito à origem do painel; headers de segurança nas respostas.
+- Produção em rede: hub atrás de reverse proxy com TLS (`wss://`); bind padrão `127.0.0.1`.
+
 ## Testes
 
 | Onde | Unitários | Integração |
