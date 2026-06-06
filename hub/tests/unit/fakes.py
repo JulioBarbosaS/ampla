@@ -144,17 +144,13 @@ class FakeMessageRepository:
 
     async def conversation(self, agent_a: str, agent_b: str, limit: int = 50) -> list[Message]:
         pair = {agent_a, agent_b}
-        found = [
-            m for m in self._messages.values() if {m.from_agent, m.to_agent} == pair
-        ]
+        found = [m for m in self._messages.values() if {m.from_agent, m.to_agent} == pair]
         found.sort(key=lambda m: (m.created_at, m.id), reverse=True)
         return found[:limit]
 
     async def pending_for(self, to_agent: str) -> list[Message]:
         found = [
-            m
-            for m in self._messages.values()
-            if m.to_agent == to_agent and m.delivered_at is None
+            m for m in self._messages.values() if m.to_agent == to_agent and m.delivered_at is None
         ]
         found.sort(key=lambda m: (m.created_at, m.id))
         return found
@@ -166,10 +162,6 @@ class FakeMessageRepository:
 
     async def involving(self, agent_slugs: list[str], limit: int = 200) -> list[Message]:
         slugs = set(agent_slugs)
-        found = [
-            m
-            for m in self._messages.values()
-            if m.from_agent in slugs or m.to_agent in slugs
-        ]
+        found = [m for m in self._messages.values() if m.from_agent in slugs or m.to_agent in slugs]
         found.sort(key=lambda m: (m.created_at, m.id), reverse=True)
         return found[:limit]

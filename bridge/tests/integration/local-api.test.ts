@@ -6,7 +6,7 @@ import { createDaemon, type Daemon } from "../../src/daemon/index.js";
 import { FakeHub, waitFor, wireMessage } from "./fake-hub.js";
 
 const AGENT = "backend-julio";
-const KEY = "amp_" + "cd".repeat(32);
+const KEY = `amp_${"cd".repeat(32)}`;
 
 let hub: FakeHub;
 let daemon: Daemon;
@@ -19,7 +19,7 @@ beforeEach(async () => {
   const url = await hub.start();
   daemon = createDaemon(
     { hub_url: url, agent_id: AGENT, agent_key: KEY, claude_bin: "claude" },
-    { store: join(dir, "messages.jsonl") }
+    { store: join(dir, "messages.jsonl") },
   );
   daemon.hub.start();
   await waitFor(() => daemon.hub.connected, 5000, "conexão com o hub");

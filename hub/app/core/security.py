@@ -10,7 +10,7 @@ Decisões (docs/ARCHITECTURE.md · seção Segurança):
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 import jwt
@@ -45,7 +45,7 @@ def generate_invite_code() -> str:
 
 
 def create_jwt(user_id: int, secret: str, expires_days: int) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {"sub": str(user_id), "iat": now, "exp": now + timedelta(days=expires_days)}
     return jwt.encode(payload, secret, algorithm="HS256")
 

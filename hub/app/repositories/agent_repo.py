@@ -40,9 +40,7 @@ class AgentRepository:
         return key
 
     async def get_key_by_hash(self, key_hash: str) -> AgentKey | None:
-        result = await self._session.execute(
-            select(AgentKey).where(AgentKey.key_hash == key_hash)
-        )
+        result = await self._session.execute(select(AgentKey).where(AgentKey.key_hash == key_hash))
         return result.scalar_one_or_none()
 
     async def get_key(self, key_id: int) -> AgentKey | None:

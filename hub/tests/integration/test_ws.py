@@ -102,9 +102,7 @@ class TestRouting:
         _, key_a, key_b = setup_two_agents(client)
         with connect_agent_ws(client, "mobile-eduardo", key_b) as ws_b:
             recv_until(ws_b, "hello_ack")
-            ws_b.send_json(
-                {"type": "message", "to": "backend-julio", "body": "está aí?"}
-            )
+            ws_b.send_json({"type": "message", "to": "backend-julio", "body": "está aí?"})
             # destinatário offline ⇒ sem frame delivered
             ws_b.send_json({"type": "message", "to": "backend-julio", "body": "segunda"})
             # barreira: frames são processados em ordem — o error do destino
@@ -167,14 +165,10 @@ class TestSettingsPush:
 class TestRevocation:
     def test_revogar_chave_derruba_websocket(self, client):
         token, key_a, _ = setup_two_agents(client)
-        key_id = client.get(
-            "/api/agents/backend-julio/keys", headers=auth(token)
-        ).json()[0]["id"]
+        key_id = client.get("/api/agents/backend-julio/keys", headers=auth(token)).json()[0]["id"]
         with connect_agent_ws(client, "backend-julio", key_a) as ws:
             recv_until(ws, "hello_ack")
-            client.delete(
-                f"/api/agents/backend-julio/keys/{key_id}", headers=auth(token)
-            )
+            client.delete(f"/api/agents/backend-julio/keys/{key_id}", headers=auth(token))
             # a conexão deve cair — qualquer recv subsequente termina em disconnect
             import pytest
             from starlette.websockets import WebSocketDisconnect
@@ -216,9 +210,7 @@ class TestObserver:
 
                 with connect_agent_ws(client, "mobile-eduardo", key_b) as ws_b:
                     recv_until(ws_b, "hello_ack")
-                    ws_b.send_json(
-                        {"type": "message", "to": "backend-julio", "body": "olá"}
-                    )
+                    ws_b.send_json({"type": "message", "to": "backend-julio", "body": "olá"})
                     mirrored = recv_until(observer, "message")
                     assert mirrored["message"]["from"] == "mobile-eduardo"
 
@@ -240,9 +232,7 @@ class TestAbuse:
                 recv_until(ws, "hello_ack")
                 got_limited = False
                 for i in range(8):
-                    ws.send_json(
-                        {"type": "message", "to": "backend-julio", "body": f"m{i}"}
-                    )
+                    ws.send_json({"type": "message", "to": "backend-julio", "body": f"m{i}"})
                 for _ in range(20):
                     frame = ws.receive_json()
                     if frame["type"] == "error" and frame["code"] == "rate_limited":

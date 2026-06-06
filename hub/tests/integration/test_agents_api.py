@@ -49,7 +49,11 @@ class TestSettings:
         create_agent(client, token, "backend-julio")
         response = client.patch(
             "/api/agents/backend-julio/settings",
-            json={"mode": "auto", "allowed_senders": ["mobile-eduardo"], "instructions": "Só responda sobre o repo backend."},
+            json={
+                "mode": "auto",
+                "allowed_senders": ["mobile-eduardo"],
+                "instructions": "Só responda sobre o repo backend.",
+            },
             headers=auth(token),
         )
         assert response.status_code == 200
@@ -103,9 +107,7 @@ class TestKeys:
         create_agent(client, token, "backend-julio")
         create_key(client, token, "backend-julio")
         key_id = client.get("/api/agents/backend-julio/keys", headers=auth(token)).json()[0]["id"]
-        response = client.delete(
-            f"/api/agents/backend-julio/keys/{key_id}", headers=auth(token)
-        )
+        response = client.delete(f"/api/agents/backend-julio/keys/{key_id}", headers=auth(token))
         assert response.status_code == 200
         assert response.json()["revoked_at"] is not None
 
@@ -118,8 +120,6 @@ class TestKeys:
             admin_token,
             {"email": "joao@example.com", "name": "João", "password": "senha-do-joao-123"},
         )
-        response = client.post(
-            "/api/agents/backend-julio/keys", json={}, headers=auth(second)
-        )
+        response = client.post("/api/agents/backend-julio/keys", json={}, headers=auth(second))
         assert response.status_code == 403
         assert member_token  # silencia lint de variável

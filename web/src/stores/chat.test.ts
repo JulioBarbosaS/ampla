@@ -37,9 +37,12 @@ describe("chat store", () => {
   it("setConversation ordena cronologicamente (REST chega invertido)", () => {
     useChatStore
       .getState()
-      .setConversation("a-x", "b-y", [msg(3, "a-x", "b-y"), msg(2, "b-y", "a-x"), msg(1, "a-x", "b-y")]);
-    const conversation =
-      useChatStore.getState().conversations[conversationKey("a-x", "b-y")]!;
+      .setConversation("a-x", "b-y", [
+        msg(3, "a-x", "b-y"),
+        msg(2, "b-y", "a-x"),
+        msg(1, "a-x", "b-y"),
+      ]);
+    const conversation = useChatStore.getState().conversations[conversationKey("a-x", "b-y")]!;
     expect(conversation.map((m) => m.id)).toEqual([1, 2, 3]);
   });
 

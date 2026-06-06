@@ -4,7 +4,7 @@ ESPELHO: bridge/src/shared/protocol.ts. Alterou aqui, altera lá NO MESMO COMMIT
 (docs/ARCHITECTURE.md · Protocolo WebSocket).
 """
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter
 
@@ -29,7 +29,7 @@ class SendMessageFrame(BaseModel):
     body: str = Field(min_length=1)
 
 
-ClientFrame = Annotated[Union[HelloFrame, SendMessageFrame], Field(discriminator="type")]
+ClientFrame = Annotated[HelloFrame | SendMessageFrame, Field(discriminator="type")]
 client_frame_adapter: TypeAdapter[ClientFrame] = TypeAdapter(ClientFrame)
 
 # ---------- hub → cliente ----------
@@ -71,11 +71,11 @@ class ErrorFrame(BaseModel):
     detail: str
 
 
-ServerFrame = Union[
-    HelloAckFrame,
-    MessageDeliveryFrame,
-    DeliveredFrame,
-    PresenceFrame,
-    SettingsUpdateFrame,
-    ErrorFrame,
-]
+ServerFrame = (
+    HelloAckFrame
+    | MessageDeliveryFrame
+    | DeliveredFrame
+    | PresenceFrame
+    | SettingsUpdateFrame
+    | ErrorFrame
+)

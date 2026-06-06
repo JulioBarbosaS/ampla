@@ -45,9 +45,7 @@ class MessageRepository:
         if not message_ids:
             return
         await self._session.execute(
-            update(Message)
-            .where(Message.id.in_(message_ids))
-            .values(delivered_at=when or utcnow())
+            update(Message).where(Message.id.in_(message_ids)).values(delivered_at=when or utcnow())
         )
         await self._session.commit()
 
@@ -57,9 +55,7 @@ class MessageRepository:
             return []
         result = await self._session.execute(
             select(Message)
-            .where(
-                or_(Message.from_agent.in_(agent_slugs), Message.to_agent.in_(agent_slugs))
-            )
+            .where(or_(Message.from_agent.in_(agent_slugs), Message.to_agent.in_(agent_slugs)))
             .order_by(Message.created_at.desc(), Message.id.desc())
             .limit(limit)
         )

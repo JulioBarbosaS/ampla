@@ -14,9 +14,10 @@ import { scanForSecrets } from "./secret-filter.js";
 
 export const READ_ONLY_TOOLS = "Read,Grep,Glob";
 
-export interface ClaudeRunner {
-  (prompt: string, opts: { bin: string; cwd?: string; timeoutMs: number }): Promise<string>;
-}
+export type ClaudeRunner = (
+  prompt: string,
+  opts: { bin: string; cwd?: string; timeoutMs: number },
+) => Promise<string>;
 
 export type AutoRespondResult =
   | { kind: "replied"; reply: string }
@@ -44,7 +45,14 @@ export const defaultClaudeRunner: ClaudeRunner = (prompt, { bin, cwd, timeoutMs 
   new Promise((resolve, reject) => {
     execFile(
       bin,
-      ["-p", prompt, "--allowedTools", READ_ONLY_TOOLS, "--disallowedTools", "Bash,Write,Edit,NotebookEdit,WebFetch,WebSearch"],
+      [
+        "-p",
+        prompt,
+        "--allowedTools",
+        READ_ONLY_TOOLS,
+        "--disallowedTools",
+        "Bash,Write,Edit,NotebookEdit,WebFetch,WebSearch",
+      ],
       {
         ...(cwd ? { cwd } : {}),
         timeout: timeoutMs,
@@ -58,7 +66,7 @@ export const defaultClaudeRunner: ClaudeRunner = (prompt, { bin, cwd, timeoutMs 
         } else {
           resolve(stdout.trim());
         }
-      }
+      },
     );
   });
 
@@ -69,7 +77,7 @@ export class AutoResponder {
     private readonly agentId: string,
     private readonly opts: { bin: string; projectDir?: string },
     private readonly runner: ClaudeRunner = defaultClaudeRunner,
-    private readonly now: () => number = Date.now
+    private readonly now: () => number = Date.now,
   ) {}
 
   async handle(message: WireMessage, settings: AgentSettings): Promise<AutoRespondResult> {

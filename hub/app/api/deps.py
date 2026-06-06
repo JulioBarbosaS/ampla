@@ -27,9 +27,7 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
-def get_auth_service(
-    request: Request, session: AsyncSession = Depends(get_session)
-) -> AuthService:
+def get_auth_service(request: Request, session: AsyncSession = Depends(get_session)) -> AuthService:
     return AuthService(
         users=UserRepository(session),
         invites=InviteRepository(session),

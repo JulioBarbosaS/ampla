@@ -4,7 +4,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEV_JWT_SECRET = "dev-secret-change-me"
+DEV_JWT_SECRET = "dev-secret-change-me"  # noqa: S105 — sentinela, produção recusa subir com ele
 
 
 class Settings(BaseSettings):

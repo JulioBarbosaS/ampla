@@ -10,7 +10,7 @@ const BASE = import.meta.env.VITE_HUB_URL ?? "http://localhost:8000";
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
-    message: string
+    message: string,
   ) {
     super(message);
   }
@@ -19,7 +19,7 @@ export class ApiError extends Error {
 async function request<T>(
   method: "GET" | "POST" | "PATCH" | "DELETE",
   path: string,
-  body?: unknown
+  body?: unknown,
 ): Promise<T> {
   const token = useAuthStore.getState().token;
   const response = await fetch(`${BASE}${path}`, {
@@ -56,5 +56,5 @@ export const api = {
 };
 
 export function wsUrl(): string {
-  return BASE.replace(/^http/, "ws") + "/ws";
+  return `${BASE.replace(/^http/, "ws")}/ws`;
 }

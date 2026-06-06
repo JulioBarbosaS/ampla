@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  AutoResponder,
-  buildPrompt,
-  type ClaudeRunner,
-} from "../../src/daemon/auto-responder.js";
+import { AutoResponder, buildPrompt, type ClaudeRunner } from "../../src/daemon/auto-responder.js";
 import type { AgentSettings, WireMessage } from "../../src/shared/protocol.js";
 
 const MESSAGE: WireMessage = {
@@ -78,7 +74,10 @@ describe("AutoResponder", () => {
   it("passa o timeout das settings para o runner", async () => {
     const runner = vi.fn().mockResolvedValue("ok");
     await makeResponder(runner).handle(MESSAGE, settings({ auto_timeout_secs: 45 }));
-    expect(runner).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ timeoutMs: 45_000 }));
+    expect(runner).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ timeoutMs: 45_000 }),
+    );
   });
 });
 

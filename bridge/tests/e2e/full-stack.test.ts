@@ -68,7 +68,7 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
         return healthy;
       },
       15_000,
-      "hub de pé"
+      "hub de pé",
     );
 
     // setup do time: admin + 2 agentes + chaves
@@ -85,21 +85,33 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
     const keyB = (await api("POST", "/api/agents/mobile-eduardo/keys", { label: "e2e" })).key;
 
     // dois daemons reais; o de B usa um "claude" fake que responde na hora
-    const runnerB = vi
-      .fn()
-      .mockResolvedValue("Sim: POST /api/v1/auth/password-reset (auth.py:42)");
+    const runnerB = vi.fn().mockResolvedValue("Sim: POST /api/v1/auth/password-reset (auth.py:42)");
     daemonA = createDaemon(
-      { hub_url: `ws://127.0.0.1:${PORT}/ws`, agent_id: "backend-julio", agent_key: keyA, claude_bin: "claude" },
-      { store: join(dir, "store-a.jsonl") }
+      {
+        hub_url: `ws://127.0.0.1:${PORT}/ws`,
+        agent_id: "backend-julio",
+        agent_key: keyA,
+        claude_bin: "claude",
+      },
+      { store: join(dir, "store-a.jsonl") },
     );
     daemonB = createDaemon(
-      { hub_url: `ws://127.0.0.1:${PORT}/ws`, agent_id: "mobile-eduardo", agent_key: keyB, claude_bin: "claude" },
+      {
+        hub_url: `ws://127.0.0.1:${PORT}/ws`,
+        agent_id: "mobile-eduardo",
+        agent_key: keyB,
+        claude_bin: "claude",
+      },
       { store: join(dir, "store-b.jsonl") },
-      runnerB
+      runnerB,
     );
     daemonA.hub.start();
     daemonB.hub.start();
-    await waitFor(() => daemonA!.hub.connected && daemonB!.hub.connected, 10_000, "daemons conectados");
+    await waitFor(
+      () => daemonA!.hub.connected && daemonB!.hub.connected,
+      10_000,
+      "daemons conectados",
+    );
   }, 60_000);
 
   afterAll(async () => {
@@ -113,7 +125,7 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
     await waitFor(
       () => daemonA!.hub.onlineAgents().includes("mobile-eduardo"),
       5_000,
-      "B online para A"
+      "B online para A",
     );
     expect(daemonB!.hub.onlineAgents()).toContain("backend-julio");
   });
@@ -147,7 +159,7 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
           .conversation("mobile-eduardo")
           .some((m) => m.direction === "in" && m.body.startsWith(AUTO_REPLY_PREFIX)),
       10_000,
-      "auto-resposta em A"
+      "auto-resposta em A",
     );
     const reply = daemonA!.store
       .conversation("mobile-eduardo")
@@ -174,14 +186,14 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
   it("histórico no hub bate com o fluxo (REST)", async () => {
     const messages = await api(
       "GET",
-      "/api/messages/conversation?a=backend-julio&b=mobile-eduardo&limit=50"
+      "/api/messages/conversation?a=backend-julio&b=mobile-eduardo&limit=50",
     );
     const bodies = messages.map((m: { body: string }) => m.body);
     expect(bodies.some((b: string) => b.includes("reset de senha"))).toBe(true);
     expect(bodies.some((b: string) => b.startsWith(AUTO_REPLY_PREFIX))).toBe(true);
     // tudo entregue (ambos online)
     expect(messages.every((m: { delivered_at: string | null }) => m.delivered_at !== null)).toBe(
-      true
+      true,
     );
   });
 });

@@ -15,7 +15,10 @@ export function ChatPage() {
 
   // diretório + perspectiva inicial (primeiro agente meu)
   useEffect(() => {
-    agentsApi.directory().then(setDirectory).catch(() => {});
+    agentsApi
+      .directory()
+      .then(setDirectory)
+      .catch(() => {});
     agentsApi
       .mine()
       .then((mine) => {

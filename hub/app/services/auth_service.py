@@ -53,10 +53,14 @@ class AuthService:
 
     # ---- registro por convite ----
 
-    async def register(self, invite_code: str, email: str, name: str, password: str) -> tuple[User, str]:
+    async def register(
+        self, invite_code: str, email: str, name: str, password: str
+    ) -> tuple[User, str]:
         invite = await self._invites.get_by_code(invite_code.strip().upper())
         if invite is None or invite.used_at is not None or invite.expires_at < utcnow():
-            await self._audit.record("register_fail", actor=email.lower(), detail={"reason": "invite"})
+            await self._audit.record(
+                "register_fail", actor=email.lower(), detail={"reason": "invite"}
+            )
             raise PermissionDeniedError("Convite inválido, expirado ou já utilizado.")
         if await self._users.get_by_email(email.lower()) is not None:
             raise ConflictError("Já existe uma conta com este email.")

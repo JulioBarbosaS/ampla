@@ -34,6 +34,7 @@ export function AppShell() {
             )}
           </span>
           <button
+            type="button"
             onClick={logout}
             className="rounded-md px-2 py-1 text-zinc-500 hover:bg-zinc-800 hover:text-white"
           >

@@ -50,9 +50,7 @@ class MessageService:
             )
             raise PermissionDeniedError(f"{to_slug!r} não aceita mensagens deste agente.")
 
-        return await self._messages.add(
-            Message(from_agent=from_slug, to_agent=to_slug, body=body)
-        )
+        return await self._messages.add(Message(from_agent=from_slug, to_agent=to_slug, body=body))
 
     async def send_as_user(self, actor: User, from_slug: str, to_slug: str, body: str) -> Message:
         """Humano envia em nome do próprio agente (painel). Admin pode por qualquer um."""

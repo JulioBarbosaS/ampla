@@ -6,6 +6,7 @@ import { useChatStore } from "../../stores/chat";
 export function PresenceDot({ online }: { online: boolean }) {
   return (
     <span
+      role="img"
       aria-label={online ? "online" : "offline"}
       className={`inline-block h-2.5 w-2.5 rounded-full ${
         online ? "bg-emerald-500" : "bg-zinc-600"
@@ -21,7 +22,10 @@ export function Sidebar() {
   const [mine, setMine] = useState<Agent[]>([]);
 
   useEffect(() => {
-    agentsApi.mine().then(setMine).catch(() => {});
+    agentsApi
+      .mine()
+      .then(setMine)
+      .catch(() => {});
   }, []);
 
   const others = directory.filter((entry) => entry.slug !== perspective);
@@ -61,6 +65,7 @@ export function Sidebar() {
           {others.map((entry) => (
             <li key={entry.slug}>
               <button
+                type="button"
                 onClick={() => setPartner(entry.slug)}
                 className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-zinc-900 ${
                   partner === entry.slug ? "bg-zinc-900" : ""
@@ -69,9 +74,7 @@ export function Sidebar() {
                 <PresenceDot online={online[entry.slug] ?? false} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-zinc-200">{entry.slug}</span>
-                  <span className="block truncate text-xs text-zinc-500">
-                    {entry.display_name}
-                  </span>
+                  <span className="block truncate text-xs text-zinc-500">{entry.display_name}</span>
                 </span>
               </button>
             </li>

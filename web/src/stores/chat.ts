@@ -48,8 +48,7 @@ export const useChatStore = create<ChatState>((set) => ({
         ...Object.fromEntries(slugs.map((s) => [s, true])),
       },
     })),
-  setPresence: (slug, online) =>
-    set((state) => ({ online: { ...state.online, [slug]: online } })),
+  setPresence: (slug, online) => set((state) => ({ online: { ...state.online, [slug]: online } })),
   setConversation: (a, b, messages) =>
     set((state) => ({
       conversations: {

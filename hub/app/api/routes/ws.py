@@ -67,12 +67,10 @@ async def ws_endpoint(ws: WebSocket) -> None:
 
     # ---- hello obrigatório dentro do timeout ----
     try:
-        raw = await asyncio.wait_for(
-            ws.receive_text(), timeout=settings.ws_hello_timeout_secs
-        )
+        raw = await asyncio.wait_for(ws.receive_text(), timeout=settings.ws_hello_timeout_secs)
     except WebSocketDisconnect:
         return  # cliente desistiu antes do hello
-    except (TimeoutError, asyncio.TimeoutError):
+    except TimeoutError:
         await ws.close(code=CLOSE_BAD_HELLO, reason="hello timeout")
         return
 
@@ -119,9 +117,7 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
         agent_settings = AgentSettings.model_validate(agent)
 
     await manager.connect_agent(slug, ws)
-    await manager.broadcast_presence(
-        {"type": "presence", "agent_id": slug, "status": "online"}
-    )
+    await manager.broadcast_presence({"type": "presence", "agent_id": slug, "status": "online"})
 
     ack = HelloAckFrame(
         agent_id=slug,
@@ -135,9 +131,7 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
 
         async def _flush() -> None:
             async with session_factory() as session:
-                await _build_message_service(ws, session).mark_delivered(
-                    [m.id for m in pending]
-                )
+                await _build_message_service(ws, session).mark_delivered([m.id for m in pending])
 
         # shield: desconexão no meio do flush não pode interromper a escrita
         await asyncio.shield(_flush())
@@ -188,9 +182,7 @@ async def _handle_send(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -
     # operação não pode deixar o banco/conexão em estado inconsistente.
     async def _persist():
         async with session_factory() as session:
-            return await _build_message_service(ws, session).send(
-                from_slug, frame.to, frame.body
-            )
+            return await _build_message_service(ws, session).send(from_slug, frame.to, frame.body)
 
     try:
         msg = await asyncio.shield(_persist())
@@ -210,9 +202,7 @@ async def _handle_send(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -
 
     await manager.notify_message(payload, from_slug, frame.to)
     if delivered:
-        await ws.send_json(
-            DeliveredFrame(message_id=msg.id, to=frame.to).model_dump(mode="json")
-        )
+        await ws.send_json(DeliveredFrame(message_id=msg.id, to=frame.to).model_dump(mode="json"))
 
 
 # ---------------------------------------------------------------- observers
@@ -239,9 +229,7 @@ async def _run_observer_connection(ws: WebSocket, hello: HelloFrame) -> None:
 
     conn = ObserverConn(ws=ws, user_id=user.id, role=user.role, owned_slugs=owned)
     await manager.add_observer(conn)
-    ack = HelloAckFrame(
-        agent_id=None, online=manager.online_slugs(), settings=None, pending=[]
-    )
+    ack = HelloAckFrame(agent_id=None, online=manager.online_slugs(), settings=None, pending=[])
     await ws.send_json(ack.model_dump(mode="json", by_alias=True))
 
     try:

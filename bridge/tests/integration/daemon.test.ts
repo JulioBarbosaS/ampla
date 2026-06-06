@@ -7,7 +7,7 @@ import type { DaemonConfig } from "../../src/shared/config.js";
 import { FakeHub, waitFor, wireMessage } from "./fake-hub.js";
 
 const AGENT = "backend-julio";
-const KEY = "amp_" + "ab".repeat(32);
+const KEY = `amp_${"ab".repeat(32)}`;
 
 let hub: FakeHub;
 let daemon: Daemon | null = null;
@@ -77,7 +77,7 @@ describe("daemon ↔ hub", () => {
 
     const sent = hub.sentMessages()[0]!;
     expect(sent.to).toBe("mobile-eduardo");
-    expect(sent.body).toBe(AUTO_REPLY_PREFIX + "Sim: POST /api/v1/auth/password-reset");
+    expect(sent.body).toBe(`${AUTO_REPLY_PREFIX}Sim: POST /api/v1/auth/password-reset`);
     // resposta enviada também fica no histórico local
     expect(d.store.conversation("mobile-eduardo").some((m) => m.direction === "out")).toBe(true);
   });
@@ -87,7 +87,10 @@ describe("daemon ↔ hub", () => {
     hub.settings = { ...hub.settings, mode: "auto" };
     const d = await startDaemon(runner);
 
-    hub.pushMessage(AGENT, wireMessage(10, "mobile-eduardo", AGENT, AUTO_REPLY_PREFIX + "resposta de outro auto"));
+    hub.pushMessage(
+      AGENT,
+      wireMessage(10, "mobile-eduardo", AGENT, `${AUTO_REPLY_PREFIX}resposta de outro auto`),
+    );
     await waitFor(() => d.store.inbox(false).length === 1, 5000, "mensagem registrada");
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(runner).not.toHaveBeenCalled();

@@ -37,7 +37,9 @@ ADMIN = make_user(3, role="admin")
 
 class TestCreate:
     async def test_cria_com_defaults_seguros(self, service):
-        agent = await service.create(OWNER, AgentCreate(slug="backend-julio", display_name="Backend"))
+        agent = await service.create(
+            OWNER, AgentCreate(slug="backend-julio", display_name="Backend")
+        )
         assert agent.mode == "inbox"  # nunca nasce em auto (Ameaça 1)
         assert agent.allowed_senders is None
         assert agent.user_id == OWNER.id

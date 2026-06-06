@@ -33,7 +33,7 @@ export interface Daemon {
 export function createDaemon(
   config: DaemonConfig,
   paths: { store: string },
-  runner?: ClaudeRunner
+  runner?: ClaudeRunner,
 ): Daemon {
   const store = new MessageStore(paths.store);
   const hub = new HubClient(config.hub_url, config.agent_id, config.agent_key);
@@ -43,7 +43,7 @@ export function createDaemon(
       bin: config.claude_bin,
       ...(config.project_dir ? { projectDir: config.project_dir } : {}),
     },
-    ...(runner ? [runner] : [])
+    ...(runner ? [runner] : []),
   );
   const api = buildLocalApi({ agentId: config.agent_id, hub, store });
 
@@ -87,7 +87,7 @@ export function createDaemon(
         hub.send(
           message.from,
           AUTO_REPLY_PREFIX +
-            "Resposta automática bloqueada pelo filtro de segurança. O dono do agente foi notificado."
+            "Resposta automática bloqueada pelo filtro de segurança. O dono do agente foi notificado.",
         );
         console.error(`[amp] resposta bloqueada (${result.reason}) — mensagem de ${message.from}`);
         break;
@@ -102,14 +102,14 @@ export function createDaemon(
   hub.on("ack", (ack) => {
     console.error(
       `[amp] conectado como ${ack.agent_id} — online: ${ack.online.join(", ") || "ninguém"}` +
-        (ack.pending.length ? ` — ${ack.pending.length} pendente(s)` : "")
+        (ack.pending.length ? ` — ${ack.pending.length} pendente(s)` : ""),
     );
   });
   hub.on("down", ({ willRetry, delayMs }) => {
     console.error(
       willRetry
         ? `[amp] conexão caiu — reconectando em ${Math.round(delayMs / 1000)}s`
-        : "[amp] conexão encerrada (sem retry — verifique a chave do agente)"
+        : "[amp] conexão encerrada (sem retry — verifique a chave do agente)",
     );
   });
   hub.on("hubError", ({ code, detail }) => {

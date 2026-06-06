@@ -9,8 +9,8 @@ import {
   type AgentSettings,
   type ClientFrame,
   type HelloAckFrame,
-  type WireMessage,
   parseServerFrame,
+  type WireMessage,
 } from "../shared/protocol.js";
 
 export interface HubClientEvents {
@@ -39,7 +39,7 @@ export class HubClient extends EventEmitter<HubClientEvents> {
   constructor(
     private readonly hubUrl: string,
     private readonly agentId: string,
-    private readonly agentKey: string
+    private readonly agentKey: string,
   ) {
     super();
   }
@@ -65,9 +65,10 @@ export class HubClient extends EventEmitter<HubClientEvents> {
   }
 
   send(to: string, body: string): boolean {
-    if (!this.connected) return false;
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
     const frame: ClientFrame = { type: "message", to, body };
-    this.ws!.send(JSON.stringify(frame));
+    ws.send(JSON.stringify(frame));
     return true;
   }
 

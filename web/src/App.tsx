@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { authApi } from "./lib/api/auth";
-import { useAuthStore } from "./stores/auth";
+import { AppShell } from "./components/AppShell";
+import { AgentsPage } from "./features/agents/AgentsPage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { RegisterPage } from "./features/auth/RegisterPage";
 import { SetupPage } from "./features/auth/SetupPage";
 import { ChatPage } from "./features/chat/ChatPage";
-import { AgentsPage } from "./features/agents/AgentsPage";
-import { AppShell } from "./components/AppShell";
+import { authApi } from "./lib/api/auth";
+import { useAuthStore } from "./stores/auth";
 
 export default function App() {
   const token = useAuthStore((s) => s.token);

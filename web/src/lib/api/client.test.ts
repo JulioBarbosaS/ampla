@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "../../stores/auth";
-import { api, ApiError } from "./client";
+import { ApiError, api } from "./client";
 
 const USER = {
   id: 1,
@@ -15,7 +15,7 @@ function mockFetch(status: number, payload: unknown) {
     new Response(JSON.stringify(payload), {
       status,
       headers: { "Content-Type": "application/json" },
-    })
+    }),
   );
   vi.stubGlobal("fetch", fn);
   return fn;
@@ -45,7 +45,7 @@ describe("api client", () => {
   it("erro do hub vira ApiError com o detail", async () => {
     mockFetch(403, { code: "permission_denied", detail: "Você não gerencia este agente." });
     await expect(api.get("/api/agents/x")).rejects.toThrowError(
-      new ApiError(403, "Você não gerencia este agente.")
+      new ApiError(403, "Você não gerencia este agente."),
     );
   });
 

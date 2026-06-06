@@ -24,7 +24,8 @@ const PATTERNS: SecretPattern[] = [
   },
   {
     name: "atribuição de segredo (.env)",
-    regex: /^\s*(?:export\s+)?[A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIALS)[A-Z0-9_]*\s*=\s*\S+/m,
+    regex:
+      /^\s*(?:export\s+)?[A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|CREDENTIALS)[A-Z0-9_]*\s*=\s*\S+/m,
   },
 ];
 

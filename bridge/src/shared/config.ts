@@ -51,7 +51,7 @@ export function loadConfig(): DaemonConfig {
   const path = configPath();
   if (!existsSync(path)) {
     throw new Error(
-      `Config não encontrada em ${path}. Crie com: {"hub_url", "agent_id", "agent_key"}.`
+      `Config não encontrada em ${path}. Crie com: {"hub_url", "agent_id", "agent_key"}.`,
     );
   }
   const mode = statSync(path).mode & 0o777;

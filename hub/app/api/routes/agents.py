@@ -67,9 +67,7 @@ async def update_settings(
     agent = await svc.update_settings(user, slug, body)
     # Push em tempo real para o daemon (docs/ARCHITECTURE.md · Protocolo WS)
     frame = SettingsUpdateFrame(settings=svc.settings_of(agent))
-    await request.app.state.manager.send_settings_update(
-        slug, frame.model_dump(mode="json")
-    )
+    await request.app.state.manager.send_settings_update(slug, frame.model_dump(mode="json"))
     return AgentOut.model_validate(agent)
 
 

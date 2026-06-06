@@ -10,7 +10,10 @@ export function AgentCard({ agent, onChanged }: { agent: Agent; onChanged: () =>
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    agentsApi.listKeys(agent.slug).then(setKeys).catch(() => {});
+    agentsApi
+      .listKeys(agent.slug)
+      .then(setKeys)
+      .catch(() => {});
   }, [agent.slug]);
 
   async function handleSettings(event: FormEvent<HTMLFormElement>) {
@@ -18,7 +21,10 @@ export function AgentCard({ agent, onChanged }: { agent: Agent; onChanged: () =>
     const data = new FormData(event.currentTarget);
     const allowRaw = String(data.get("allowed_senders") ?? "").trim();
     const allowList = allowRaw
-      ? allowRaw.split(",").map((s) => s.trim()).filter(Boolean)
+      ? allowRaw
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
       : [];
     setError(null);
     setSaved(false);
@@ -72,9 +78,7 @@ export function AgentCard({ agent, onChanged }: { agent: Agent; onChanged: () =>
         </div>
         <span
           className={`rounded px-2 py-0.5 text-xs font-medium ${
-            agent.mode === "auto"
-              ? "bg-amber-900/50 text-amber-300"
-              : "bg-zinc-800 text-zinc-400"
+            agent.mode === "auto" ? "bg-amber-900/50 text-amber-300" : "bg-zinc-800 text-zinc-400"
           }`}
         >
           {agent.mode === "auto" ? "auto-respond" : "inbox"}
@@ -149,6 +153,7 @@ export function AgentCard({ agent, onChanged }: { agent: Agent; onChanged: () =>
         <div className="mb-2 flex items-center justify-between">
           <h4 className="text-sm font-medium text-zinc-300">Chaves do daemon</h4>
           <button
+            type="button"
             onClick={handleCreateKey}
             className="rounded-md bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-200 hover:bg-zinc-700"
           >
@@ -172,12 +177,11 @@ export function AgentCard({ agent, onChanged }: { agent: Agent; onChanged: () =>
               <span className="text-zinc-400">
                 #{key.id} {key.label && `· ${key.label} `}· criada em{" "}
                 {new Date(key.created_at).toLocaleDateString("pt-BR")}
-                {key.revoked_at && (
-                  <span className="ml-1.5 text-red-400">revogada</span>
-                )}
+                {key.revoked_at && <span className="ml-1.5 text-red-400">revogada</span>}
               </span>
               {!key.revoked_at && (
                 <button
+                  type="button"
                   onClick={() => handleRevoke(key.id)}
                   className="text-red-400 hover:text-red-300"
                 >

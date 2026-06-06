@@ -8,7 +8,10 @@ describe("scanForSecrets", () => {
     ["chave de agente AMP", `a chave é amp_${"a1b2c3d4".repeat(8)}`],
     ["GitHub token", "ghp_abcdefghijklmnopqrstuvwxyz0123456789"],
     ["Anthropic API key", "sk-ant-api03-abcdefghijklmnopqrst"],
-    ["JWT", "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"],
+    [
+      "JWT",
+      "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
+    ],
     ["connection string com senha", "postgres://app:supersenha@db.local:5432/prod"],
     ["atribuição de segredo (.env)", "DATABASE_PASSWORD=hunter2segura"],
   ];
@@ -30,7 +33,8 @@ describe("scanForSecrets", () => {
   });
 
   it("não bloqueia menção a NOMES de variáveis sem valor", () => {
-    const text = "Configure DATABASE_PASSWORD e JWT_SECRET no seu .env (valores com o time de infra).";
+    const text =
+      "Configure DATABASE_PASSWORD e JWT_SECRET no seu .env (valores com o time de infra).";
     expect(scanForSecrets(text).clean).toBe(true);
   });
 });

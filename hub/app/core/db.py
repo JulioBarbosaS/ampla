@@ -1,6 +1,6 @@
 """Fábrica de engine/sessão. Única fonte do Base declarativo."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, event
 from sqlalchemy.ext.asyncio import (
@@ -23,12 +23,12 @@ class UTCDateTime(TypeDecorator):
 
     def process_bind_param(self, value: datetime | None, _dialect) -> datetime | None:
         if value is not None and value.tzinfo is not None:
-            value = value.astimezone(timezone.utc).replace(tzinfo=None)
+            value = value.astimezone(UTC).replace(tzinfo=None)
         return value
 
     def process_result_value(self, value: datetime | None, _dialect) -> datetime | None:
         if value is not None and value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
+            value = value.replace(tzinfo=UTC)
         return value
 
 

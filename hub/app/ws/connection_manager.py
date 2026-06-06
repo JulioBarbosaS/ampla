@@ -102,12 +102,12 @@ class ConnectionManager:
     async def _send_quietly(ws: WebSocket, payload: dict) -> None:
         try:
             await ws.send_json(payload)
-        except Exception:
+        except Exception:  # noqa: S110 — broadcast best-effort
             pass  # conexão morta é removida pelo loop dela própria
 
     @staticmethod
     async def _close_quietly(ws: WebSocket, code: int, reason: str) -> None:
         try:
             await ws.close(code=code, reason=reason)
-        except Exception:
+        except Exception:  # noqa: S110 — fechar conexão já morta é no-op
             pass

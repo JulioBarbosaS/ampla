@@ -3,13 +3,7 @@
  * Recebidas (direction=in) carregam flag de leitura para a inbox.
  */
 
-import {
-  appendFileSync,
-  chmodSync,
-  existsSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { appendFileSync, chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { z } from "zod";
 
 export const storedMessageSchema = z.object({
@@ -52,20 +46,16 @@ export class MessageStore {
       return;
     }
     this.messages.push(message);
-    appendFileSync(this.path, JSON.stringify(message) + "\n", { mode: 0o600 });
+    appendFileSync(this.path, `${JSON.stringify(message)}\n`, { mode: 0o600 });
   }
 
   /** Conversa com um parceiro, mais recentes por último (ordem de leitura). */
   conversation(partner: string, limit = 50): StoredMessage[] {
-    return this.messages
-      .filter((m) => m.from === partner || m.to === partner)
-      .slice(-limit);
+    return this.messages.filter((m) => m.from === partner || m.to === partner).slice(-limit);
   }
 
   inbox(unreadOnly = true): StoredMessage[] {
-    return this.messages.filter(
-      (m) => m.direction === "in" && (!unreadOnly || !m.read)
-    );
+    return this.messages.filter((m) => m.direction === "in" && (!unreadOnly || !m.read));
   }
 
   unreadCount(): number {
@@ -109,6 +99,6 @@ export class MessageStore {
 
   private rewrite(): void {
     const content = this.messages.map((m) => JSON.stringify(m)).join("\n");
-    writeFileSync(this.path, content ? content + "\n" : "", { mode: 0o600 });
+    writeFileSync(this.path, content ? `${content}\n` : "", { mode: 0o600 });
   }
 }

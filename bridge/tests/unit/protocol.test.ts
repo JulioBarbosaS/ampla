@@ -28,7 +28,7 @@ describe("parseServerFrame", () => {
         online: ["backend-julio"],
         settings: SETTINGS,
         pending: [WIRE_MESSAGE],
-      })
+      }),
     );
     expect(frame?.type).toBe("hello_ack");
     if (frame?.type === "hello_ack") {

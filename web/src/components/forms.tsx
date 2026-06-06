@@ -17,13 +17,7 @@ export function Field({
   );
 }
 
-export function PrimaryButton({
-  children,
-  disabled,
-}: {
-  children: ReactNode;
-  disabled?: boolean;
-}) {
+export function PrimaryButton({ children, disabled }: { children: ReactNode; disabled?: boolean }) {
   return (
     <button
       type="submit"

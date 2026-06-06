@@ -22,7 +22,7 @@ export class DaemonClient {
   }
 
   private async request(method: "GET" | "POST", path: string, body?: unknown): Promise<unknown> {
-    let response;
+    let response: Awaited<ReturnType<Client["request"]>>;
     try {
       response = await this.client.request({
         method,
@@ -36,7 +36,7 @@ export class DaemonClient {
       });
     } catch {
       throw new Error(
-        "Daemon AMP não está rodando. Inicie com `pnpm daemon` (no diretório bridge/) e tente de novo."
+        "Daemon AMP não está rodando. Inicie com `pnpm daemon` (no diretório bridge/) e tente de novo.",
       );
     }
     const text = await response.body.text();

@@ -13,7 +13,10 @@ export function AgentsPage() {
   const [inviteLink, setInviteLink] = useState<string | null>(null);
 
   const reload = useCallback(() => {
-    agentsApi.mine().then(setAgents).catch(() => {});
+    agentsApi
+      .mine()
+      .then(setAgents)
+      .catch(() => {});
   }, []);
 
   useEffect(reload, [reload]);
@@ -57,6 +60,7 @@ export function AgentsPage() {
               </p>
             </div>
             <button
+              type="button"
               onClick={handleInvite}
               className="rounded-md bg-zinc-800 px-3 py-1.5 text-sm font-medium text-zinc-200 hover:bg-zinc-700"
             >

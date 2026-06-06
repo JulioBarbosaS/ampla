@@ -19,7 +19,9 @@ export function MessageBubble({ message, mine }: { message: Message; mine: boole
         }`}
       >
         <p className="whitespace-pre-wrap break-words">{message.body}</p>
-        <p className={`mt-1 text-right text-[10px] ${mine ? "text-emerald-200/70" : "text-zinc-500"}`}>
+        <p
+          className={`mt-1 text-right text-[10px] ${mine ? "text-emerald-200/70" : "text-zinc-500"}`}
+        >
           {time}
           {mine && (message.delivered_at ? " · entregue" : " · pendente")}
         </p>
@@ -39,8 +41,10 @@ export function ChatWindow() {
     perspective && partner ? (conversations[conversationKey(perspective, partner)] ?? []) : [];
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+    if (messages.length > 0) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -12,7 +12,9 @@
     "daemon": "tsx src/daemon/index.ts",
     "mcp": "tsx src/mcp/index.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write ."
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
@@ -22,6 +24,7 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "@types/node": "^24.0.0",
     "@types/ws": "^8.18.0",
     "tsx": "^4.19.0",

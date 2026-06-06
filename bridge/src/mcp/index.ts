@@ -44,7 +44,7 @@ export function buildServer(): McpServer {
       } catch (error) {
         return asError(error);
       }
-    }
+    },
   );
 
   server.registerTool(
@@ -60,13 +60,11 @@ export function buildServer(): McpServer {
     },
     async ({ unread_only, mark_read }) => {
       try {
-        return asText(
-          await daemon.get(`/inbox?unread_only=${unread_only}&mark_read=${mark_read}`)
-        );
+        return asText(await daemon.get(`/inbox?unread_only=${unread_only}&mark_read=${mark_read}`));
       } catch (error) {
         return asError(error);
       }
-    }
+    },
   );
 
   server.registerTool(
@@ -82,12 +80,12 @@ export function buildServer(): McpServer {
     async ({ with: partner, limit }) => {
       try {
         return asText(
-          await daemon.get(`/history?with=${encodeURIComponent(partner)}&limit=${limit}`)
+          await daemon.get(`/history?with=${encodeURIComponent(partner)}&limit=${limit}`),
         );
       } catch (error) {
         return asError(error);
       }
-    }
+    },
   );
 
   server.registerTool(
@@ -103,7 +101,7 @@ export function buildServer(): McpServer {
       } catch (error) {
         return asError(error);
       }
-    }
+    },
   );
 
   server.registerTool(
@@ -120,7 +118,7 @@ export function buildServer(): McpServer {
       } catch (error) {
         return asError(error);
       }
-    }
+    },
   );
 
   return server;

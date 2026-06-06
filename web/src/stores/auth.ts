@@ -43,6 +43,6 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "amp-auth",
       storage: createJSONStorage(safeStorage),
-    }
-  )
+    },
+  ),
 );

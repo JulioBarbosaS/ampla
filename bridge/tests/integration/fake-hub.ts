@@ -4,8 +4,8 @@
  */
 
 import { once } from "node:events";
-import { type AddressInfo } from "node:net";
-import { WebSocket, WebSocketServer } from "ws";
+import type { AddressInfo } from "node:net";
+import { type WebSocket, WebSocketServer } from "ws";
 import type { AgentSettings, WireMessage } from "../../src/shared/protocol.js";
 
 export class FakeHub {
@@ -40,7 +40,7 @@ export class FakeHub {
                 type: "error",
                 code: "auth_failed",
                 detail: "Chave inválida ou revogada.",
-              })
+              }),
             );
             ws.close(4401, "auth failed");
             return;
@@ -54,12 +54,10 @@ export class FakeHub {
               online: [frame.agent_id],
               settings: this.settings,
               pending: this.pending,
-            })
+            }),
           );
         } else if (frame.type === "message" && agentId) {
-          ws.send(
-            JSON.stringify({ type: "delivered", message_id: this.nextId++, to: frame.to })
-          );
+          ws.send(JSON.stringify({ type: "delivered", message_id: this.nextId++, to: frame.to }));
         }
       });
       ws.on("close", () => {
@@ -108,7 +106,7 @@ export function wireMessage(id: number, from: string, to: string, body: string):
 export async function waitFor(
   condition: () => boolean,
   timeoutMs = 5000,
-  label = "condição"
+  label = "condição",
 ): Promise<void> {
   const start = Date.now();
   while (!condition()) {
