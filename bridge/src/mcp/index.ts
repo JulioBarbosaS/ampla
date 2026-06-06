@@ -1,5 +1,5 @@
 /**
- * Servidor MCP do AMP — expõe as tools de mensageria para o Claude Code.
+ * Servidor MCP da Ampla — expõe as tools de mensageria para o Claude Code.
  * Stateless: tudo é delegado ao daemon via unix socket.
  */
 
@@ -24,7 +24,7 @@ function asError(error: unknown): {
 }
 
 export function buildServer(): McpServer {
-  const server = new McpServer({ name: "amp", version: "0.1.0" });
+  const server = new McpServer({ name: "ampla", version: "0.1.0" });
 
   server.registerTool(
     "amp_send",

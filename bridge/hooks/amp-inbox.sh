@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hook UserPromptSubmit do Claude Code: injeta mensagens AMP não lidas
+# Hook UserPromptSubmit do Claude Code: injeta mensagens Ampla não lidas
 # no contexto a cada prompt do dev — o Claude fica sabendo das perguntas
 # de outros agentes sem o dev pedir.
 #
@@ -31,6 +31,6 @@ CONTEXT=$(printf '%s' "$RESPONSE" | jq -r \
 jq -n --arg ctx "$CONTEXT" '{
   hookSpecificOutput: {
     hookEventName: "UserPromptSubmit",
-    additionalContext: ("📨 Mensagens AMP de outros agentes (responda com a tool amp_send se fizer sentido):\n" + $ctx)
+    additionalContext: ("📨 Mensagens da rede Ampla (responda com a tool amp_send se fizer sentido):\n" + $ctx)
   }
 }'

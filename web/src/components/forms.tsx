@@ -43,7 +43,7 @@ export function AuthCard({ title, children }: { title: string; children: ReactNo
     <div className="flex h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-4">
         <div className="text-center">
-          <span className="text-2xl font-bold text-emerald-400">AMP</span>
+          <span className="text-2xl font-bold text-emerald-400">Ampla</span>
           <h1 className="mt-1 text-lg font-medium text-zinc-200">{title}</h1>
         </div>
         {children}

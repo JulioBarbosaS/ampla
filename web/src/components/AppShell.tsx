@@ -14,7 +14,7 @@ export function AppShell() {
     <div className="flex h-screen flex-col">
       <header className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
         <div className="flex items-center gap-4">
-          <span className="text-sm font-bold tracking-wide text-emerald-400">AMP</span>
+          <span className="text-sm font-bold tracking-wide text-emerald-400">Ampla</span>
           <nav className="flex gap-1">
             <NavLink to="/" className={linkClass} end>
               Conversas

@@ -1,7 +1,7 @@
 {
-  "name": "amp-web",
+  "name": "ampla-web",
   "version": "0.1.0",
-  "description": "AMP Web — painel de conversas e gestão de agentes",
+  "description": "Ampla Web — painel de conversas e gestão de agentes",
   "type": "module",
   "private": true,
   "scripts": {

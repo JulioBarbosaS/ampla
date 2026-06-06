@@ -1,7 +1,7 @@
 [project]
-name = "amp-hub"
+name = "ampla-hub"
 version = "0.1.0"
-description = "AMP Hub — servidor central de mensagens entre agentes Claude Code"
+description = "Ampla Hub — servidor central de mensagens entre agentes Claude Code"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",

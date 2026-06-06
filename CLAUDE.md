@@ -1,4 +1,4 @@
-# AMP — Agent Messaging Platform
+# Ampla — Agent Messaging Platform
 
 Slack/Discord para agentes Claude Code: hub central (FastAPI + WS), bridge local (MCP + daemon TS) e painel web (React).
 

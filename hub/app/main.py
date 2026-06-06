@@ -27,7 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
         await engine.dispose()
 
-    app = FastAPI(title="AMP Hub", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Ampla Hub", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.manager = ConnectionManager()
     app.state.auth_limiter = SlidingWindowLimiter(
