@@ -1,0 +1,91 @@
+"""Envio com allowlist aplicada no hub (Ameaça 3) e histórico autorizado."""
+
+from app.core.config import Settings
+from app.models.message import Message
+from app.models.user import User
+from app.repositories.agent_repo import AgentRepository
+from app.repositories.audit_repo import AuditRepository
+from app.repositories.message_repo import MessageRepository
+from app.schemas.message import ConversationPartner, MessageOut
+from app.services.errors import (
+    InvalidInputError,
+    NotFoundError,
+    PermissionDeniedError,
+)
+
+
+class MessageService:
+    def __init__(
+        self,
+        messages: MessageRepository,
+        agents: AgentRepository,
+        audit: AuditRepository,
+        settings: Settings,
+    ) -> None:
+        self._messages = messages
+        self._agents = agents
+        self._audit = audit
+        self._settings = settings
+
+    async def send(self, from_slug: str, to_slug: str, body: str) -> Message:
+        if not body.strip():
+            raise InvalidInputError("Mensagem vazia.")
+        if len(body.encode()) > self._settings.message_max_body_bytes:
+            raise InvalidInputError(
+                f"Mensagem excede {self._settings.message_max_body_bytes} bytes."
+            )
+        if from_slug == to_slug:
+            raise InvalidInputError("Remetente e destinatário são o mesmo agente.")
+
+        recipient = await self._agents.get(to_slug)
+        if recipient is None:
+            raise NotFoundError(f"Agente {to_slug!r} não existe.")
+
+        # Allowlist do destinatário — autoridade é o hub, nunca o daemon
+        if recipient.allowed_senders is not None and from_slug not in recipient.allowed_senders:
+            await self._audit.record(
+                "message_blocked_allowlist",
+                actor=from_slug,
+                detail={"to": to_slug},
+            )
+            raise PermissionDeniedError(f"{to_slug!r} não aceita mensagens deste agente.")
+
+        return await self._messages.add(
+            Message(from_agent=from_slug, to_agent=to_slug, body=body)
+        )
+
+    # ---- entrega ----
+
+    async def pending_for(self, slug: str) -> list[Message]:
+        return await self._messages.pending_for(slug)
+
+    async def mark_delivered(self, message_ids: list[int]) -> None:
+        await self._messages.mark_delivered(message_ids)
+
+    # ---- histórico (dono vê conversas dos próprios agentes; admin vê tudo) ----
+
+    async def conversation(
+        self, actor: User, agent_a: str, agent_b: str, limit: int = 50
+    ) -> list[Message]:
+        await self._authorize_view(actor, {agent_a, agent_b})
+        return await self._messages.conversation(agent_a, agent_b, limit=min(limit, 200))
+
+    async def partners(self, actor: User, slug: str) -> list[ConversationPartner]:
+        """Lista de conversas do agente com a última mensagem (sidebar)."""
+        await self._authorize_view(actor, {slug})
+        recent = await self._messages.involving([slug])
+        partners: dict[str, Message] = {}
+        for msg in recent:  # recent vem em ordem decrescente
+            other = msg.to_agent if msg.from_agent == slug else msg.from_agent
+            partners.setdefault(other, msg)
+        return [
+            ConversationPartner(agent=other, last_message=MessageOut.model_validate(msg))
+            for other, msg in partners.items()
+        ]
+
+    async def _authorize_view(self, actor: User, slugs: set[str]) -> None:
+        if actor.role == "admin":
+            return
+        owned = {agent.slug for agent in await self._agents.list_by_user(actor.id)}
+        if not (owned & slugs):
+            raise PermissionDeniedError("Você não participa desta conversa.")
