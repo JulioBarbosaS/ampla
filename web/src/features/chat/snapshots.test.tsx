@@ -22,7 +22,12 @@ const MESSAGE: Message = {
   to: "backend-julio",
   body: "Existe endpoint de reset de senha?",
   created_at: "2026-06-06T15:30:00Z",
+  type: "request",
+  priority: "normal",
+  thread_id: 1,
+  in_reply_to: null,
   delivered_at: "2026-06-06T15:30:01Z",
+  expires_at: null,
 };
 
 beforeEach(() => {

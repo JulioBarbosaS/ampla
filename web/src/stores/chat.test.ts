@@ -3,7 +3,19 @@ import type { Message } from "../lib/api/types";
 import { conversationKey, useChatStore } from "./chat";
 
 function msg(id: number, from: string, to: string, body = `m${id}`): Message {
-  return { id, from, to, body, created_at: "2026-06-06T12:00:00Z", delivered_at: null };
+  return {
+    id,
+    from,
+    to,
+    body,
+    type: "request" as const,
+    priority: "normal" as const,
+    thread_id: id,
+    in_reply_to: null,
+    created_at: "2026-06-06T12:00:00Z",
+    delivered_at: null,
+    expires_at: null,
+  };
 }
 
 beforeEach(() => {

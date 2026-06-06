@@ -11,7 +11,12 @@ function msg(id: number, from: string, to: string, body: string): Message {
     to,
     body,
     created_at: "2026-06-06T15:30:00Z",
+    type: "request" as const,
+    priority: "normal" as const,
+    thread_id: id,
+    in_reply_to: null,
     delivered_at: id % 2 === 0 ? "2026-06-06T15:30:01Z" : null,
+    expires_at: null,
   };
 }
 

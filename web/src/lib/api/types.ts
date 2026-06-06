@@ -56,13 +56,29 @@ export interface Invite {
   used_at: string | null;
 }
 
+export type MessageType =
+  | "request"
+  | "response"
+  | "notification"
+  | "task"
+  | "alert"
+  | "status"
+  | "ack";
+
+export type Priority = "urgent" | "high" | "normal" | "low";
+
 export interface Message {
   id: number;
   from: string;
   to: string;
   body: string;
+  type: MessageType;
+  priority: Priority;
+  thread_id: number | null;
+  in_reply_to: number | null;
   created_at: string;
   delivered_at: string | null;
+  expires_at: string | null;
 }
 
 export interface ConversationPartner {

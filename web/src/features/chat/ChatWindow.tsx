@@ -4,11 +4,17 @@ import type { Message } from "../../lib/api/types";
 import { conversationKey, useChatStore } from "../../stores/chat";
 import { PresenceDot } from "./Sidebar";
 
+const PRIORITY_BADGE: Record<string, string> = {
+  urgent: "bg-red-600 text-white",
+  high: "bg-amber-600 text-white",
+};
+
 export function MessageBubble({ message, mine }: { message: Message; mine: boolean }) {
   const time = new Date(message.created_at).toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
   });
+  const badge = PRIORITY_BADGE[message.priority];
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <div
@@ -18,6 +24,13 @@ export function MessageBubble({ message, mine }: { message: Message; mine: boole
             : "rounded-bl-sm bg-zinc-800 text-zinc-100"
         }`}
       >
+        {badge && (
+          <span
+            className={`mb-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${badge}`}
+          >
+            {message.priority}
+          </span>
+        )}
         <p className="whitespace-pre-wrap break-words">{message.body}</p>
         <p
           className={`mt-1 text-right text-[10px] ${mine ? "text-emerald-200/70" : "text-zinc-500"}`}
