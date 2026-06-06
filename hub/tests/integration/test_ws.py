@@ -123,6 +123,34 @@ class TestRouting:
         with connect_agent_ws(client, "backend-julio", key_a) as ws_a:
             assert recv_until(ws_a, "hello_ack")["pending"] == []
 
+    def test_threading_e_type_via_ws(self, client):
+        _, key_a, key_b = setup_two_agents(client)
+        with connect_agent_ws(client, "backend-julio", key_a) as ws_a:
+            recv_until(ws_a, "hello_ack")
+            with connect_agent_ws(client, "mobile-eduardo", key_b) as ws_b:
+                recv_until(ws_b, "hello_ack")
+
+                ws_b.send_json({"type": "message", "to": "backend-julio", "body": "pergunta?"})
+                root = recv_until(ws_a, "message")["message"]
+                assert root["type"] == "request"
+                assert root["thread_id"] == root["id"]
+
+                ws_a.send_json(
+                    {
+                        "type": "message",
+                        "to": "mobile-eduardo",
+                        "body": "resposta!",
+                        "msg_type": "response",
+                        "priority": "high",
+                        "in_reply_to": root["id"],
+                    }
+                )
+                reply = recv_until(ws_b, "message")["message"]
+                assert reply["type"] == "response"
+                assert reply["priority"] == "high"
+                assert reply["thread_id"] == root["id"]
+                assert reply["in_reply_to"] == root["id"]
+
     def test_destinatario_inexistente_gera_error(self, client):
         _, key_a, _ = setup_two_agents(client)
         with connect_agent_ws(client, "backend-julio", key_a) as ws:

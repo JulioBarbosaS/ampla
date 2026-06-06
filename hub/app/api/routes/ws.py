@@ -182,7 +182,14 @@ async def _handle_send(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -
     # operação não pode deixar o banco/conexão em estado inconsistente.
     async def _persist():
         async with session_factory() as session:
-            return await _build_message_service(ws, session).send(from_slug, frame.to, frame.body)
+            return await _build_message_service(ws, session).send(
+                from_slug,
+                frame.to,
+                frame.body,
+                type=frame.msg_type,
+                priority=frame.priority,
+                in_reply_to=frame.in_reply_to,
+            )
 
     try:
         msg = await asyncio.shield(_persist())

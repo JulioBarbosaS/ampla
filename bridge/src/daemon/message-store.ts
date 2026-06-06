@@ -5,12 +5,18 @@
 
 import { appendFileSync, chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { z } from "zod";
+import { messageTypeSchema, prioritySchema } from "../shared/protocol.js";
 
 export const storedMessageSchema = z.object({
   id: z.number().int().nullable(), // id do hub (null para registros locais)
   from: z.string(),
   to: z.string(),
   body: z.string(),
+  // defaults preservam compatibilidade com JSONL anterior ao threading
+  type: messageTypeSchema.default("request"),
+  priority: prioritySchema.default("normal"),
+  thread_id: z.number().int().nullable().default(null),
+  in_reply_to: z.number().int().nullable().default(null),
   ts: z.string(),
   direction: z.enum(["in", "out"]),
   read: z.boolean(),

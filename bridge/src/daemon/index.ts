@@ -53,6 +53,10 @@ export function createDaemon(
       from: message.from,
       to: message.to,
       body: message.body,
+      type: message.type,
+      priority: message.priority,
+      thread_id: message.thread_id,
+      in_reply_to: message.in_reply_to,
       ts: message.created_at,
       direction: "in",
       read: false,
@@ -63,18 +67,30 @@ export function createDaemon(
   async function maybeAutoRespond(message: WireMessage): Promise<void> {
     const settings = hub.settings;
     if (!settings) return;
-    if (message.body.startsWith(AUTO_REPLY_PREFIX)) return; // anti-loop
+    if (message.body.startsWith(AUTO_REPLY_PREFIX)) return; // anti-loop (legado)
+    // Semântica de tipos: só perguntas/tarefas disparam auto-respond.
+    // response/notification/status/ack/alert nunca disparam — anti-loop por design.
+    if (message.type !== "request" && message.type !== "task") return;
 
     const result = await responder.handle(message, settings);
+    const replyOpts = {
+      msgType: "response" as const,
+      priority: message.priority, // resposta herda a prioridade do pedido
+      inReplyTo: message.id,
+    };
     switch (result.kind) {
       case "replied": {
         const body = AUTO_REPLY_PREFIX + result.reply;
-        if (hub.send(message.from, body)) {
+        if (hub.send(message.from, body, replyOpts)) {
           store.append({
             id: null,
             from: config.agent_id,
             to: message.from,
             body,
+            type: "response",
+            priority: message.priority,
+            thread_id: message.thread_id,
+            in_reply_to: message.id,
             ts: new Date().toISOString(),
             direction: "out",
             read: true,
@@ -88,6 +104,7 @@ export function createDaemon(
           message.from,
           AUTO_REPLY_PREFIX +
             "Resposta automática bloqueada pelo filtro de segurança. O dono do agente foi notificado.",
+          replyOpts,
         );
         console.error(`[amp] resposta bloqueada (${result.reason}) — mensagem de ${message.from}`);
         break;

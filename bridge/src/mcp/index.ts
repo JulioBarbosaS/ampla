@@ -36,11 +36,21 @@ export function buildServer(): McpServer {
       inputSchema: {
         to: z.string().describe("slug do agente destinatário, ex: backend-julio"),
         body: z.string().max(16_384).describe("conteúdo da mensagem"),
+        type: z
+          .enum(["request", "response", "notification", "task", "alert", "status", "ack"])
+          .default("request")
+          .describe("semântica da mensagem: request/task disparam auto-resposta do destinatário"),
+        priority: z.enum(["urgent", "high", "normal", "low"]).default("normal"),
+        in_reply_to: z
+          .number()
+          .int()
+          .optional()
+          .describe("id da mensagem sendo respondida (threading)"),
       },
     },
-    async ({ to, body }) => {
+    async ({ to, body, type, priority, in_reply_to }) => {
       try {
-        return asText(await daemon.post("/send", { to, body }));
+        return asText(await daemon.post("/send", { to, body, type, priority, in_reply_to }));
       } catch (error) {
         return asError(error);
       }

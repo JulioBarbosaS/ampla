@@ -1,8 +1,10 @@
 """Envio com allowlist aplicada no hub (Ameaça 3) e histórico autorizado."""
 
+from datetime import timedelta
+
 from app.core.config import Settings
 from app.models.message import Message
-from app.models.user import User
+from app.models.user import User, utcnow
 from app.repositories.agent_repo import AgentRepository
 from app.repositories.audit_repo import AuditRepository
 from app.repositories.message_repo import MessageRepository
@@ -27,7 +29,16 @@ class MessageService:
         self._audit = audit
         self._settings = settings
 
-    async def send(self, from_slug: str, to_slug: str, body: str) -> Message:
+    async def send(
+        self,
+        from_slug: str,
+        to_slug: str,
+        body: str,
+        *,
+        type: str = "request",
+        priority: str = "normal",
+        in_reply_to: int | None = None,
+    ) -> Message:
         if not body.strip():
             raise InvalidInputError("Mensagem vazia.")
         if len(body.encode()) > self._settings.message_max_body_bytes:
@@ -50,16 +61,48 @@ class MessageService:
             )
             raise PermissionDeniedError(f"{to_slug!r} não aceita mensagens deste agente.")
 
-        return await self._messages.add(Message(from_agent=from_slug, to_agent=to_slug, body=body))
+        # Threading: resposta herda a thread da mensagem referenciada,
+        # que precisa pertencer à MESMA conversa (anti cross-thread injection)
+        thread_id: int | None = None
+        if in_reply_to is not None:
+            parent = await self._messages.get(in_reply_to)
+            if parent is None or {parent.from_agent, parent.to_agent} != {from_slug, to_slug}:
+                raise InvalidInputError("in_reply_to não pertence a esta conversa.")
+            thread_id = parent.thread_id or parent.id
 
-    async def send_as_user(self, actor: User, from_slug: str, to_slug: str, body: str) -> Message:
+        return await self._messages.add(
+            Message(
+                from_agent=from_slug,
+                to_agent=to_slug,
+                body=body,
+                type=type,
+                priority=priority,
+                thread_id=thread_id,
+                in_reply_to=in_reply_to,
+                expires_at=utcnow() + timedelta(days=self._settings.pending_ttl_days),
+            )
+        )
+
+    async def send_as_user(
+        self,
+        actor: User,
+        from_slug: str,
+        to_slug: str,
+        body: str,
+        *,
+        type: str = "request",
+        priority: str = "normal",
+        in_reply_to: int | None = None,
+    ) -> Message:
         """Humano envia em nome do próprio agente (painel). Admin pode por qualquer um."""
         sender = await self._agents.get(from_slug)
         if sender is None:
             raise NotFoundError(f"Agente {from_slug!r} não existe.")
         if sender.user_id != actor.id and actor.role != "admin":
             raise PermissionDeniedError("Você não envia mensagens por este agente.")
-        return await self.send(from_slug, to_slug, body)
+        return await self.send(
+            from_slug, to_slug, body, type=type, priority=priority, in_reply_to=in_reply_to
+        )
 
     # ---- entrega ----
 

@@ -9,6 +9,8 @@ import {
   type AgentSettings,
   type ClientFrame,
   type HelloAckFrame,
+  type MessageType,
+  type Priority,
   parseServerFrame,
   type WireMessage,
 } from "../shared/protocol.js";
@@ -64,10 +66,21 @@ export class HubClient extends EventEmitter<HubClientEvents> {
     this.ws = null;
   }
 
-  send(to: string, body: string): boolean {
+  send(
+    to: string,
+    body: string,
+    opts: { msgType?: MessageType; priority?: Priority; inReplyTo?: number } = {},
+  ): boolean {
     const ws = this.ws;
     if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-    const frame: ClientFrame = { type: "message", to, body };
+    const frame: ClientFrame = {
+      type: "message",
+      to,
+      body,
+      ...(opts.msgType ? { msg_type: opts.msgType } : {}),
+      ...(opts.priority ? { priority: opts.priority } : {}),
+      ...(opts.inReplyTo !== undefined ? { in_reply_to: opts.inReplyTo } : {}),
+    };
     ws.send(JSON.stringify(frame));
     return true;
   }

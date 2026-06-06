@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     jwt_expires_days: int = 7
 
     invite_expires_hours: int = 48
+    pending_ttl_days: int = 7  # mensagem não entregue expira (não entra no flush)
 
     # Limites de segurança (ver docs/ARCHITECTURE.md · Ameaças 2 e 3)
     login_max_attempts: int = 5  # por conta, antes do lockout incremental

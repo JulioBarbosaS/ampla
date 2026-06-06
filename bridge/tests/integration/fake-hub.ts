@@ -92,14 +92,26 @@ export class FakeHub {
   }
 }
 
-export function wireMessage(id: number, from: string, to: string, body: string): WireMessage {
+export function wireMessage(
+  id: number,
+  from: string,
+  to: string,
+  body: string,
+  overrides: Partial<WireMessage> = {},
+): WireMessage {
   return {
     id,
     from,
     to,
     body,
+    type: "request",
+    priority: "normal",
+    thread_id: id,
+    in_reply_to: null,
     created_at: new Date().toISOString(),
     delivered_at: null,
+    expires_at: null,
+    ...overrides,
   };
 }
 

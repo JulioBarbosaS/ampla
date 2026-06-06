@@ -7,8 +7,13 @@ const WIRE_MESSAGE = {
   from: "mobile-eduardo",
   to: "backend-julio",
   body: "Existe endpoint de reset?",
+  type: "request" as const,
+  priority: "normal" as const,
+  thread_id: null,
+  in_reply_to: null,
   created_at: "2026-06-06T12:00:00Z",
   delivered_at: null,
+  expires_at: null,
 };
 
 const SETTINGS = {

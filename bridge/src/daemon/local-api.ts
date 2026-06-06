@@ -5,12 +5,16 @@
 
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
+import { messageTypeSchema, prioritySchema } from "../shared/protocol.js";
 import type { MessageStore } from "./message-store.js";
 import type { HubClient } from "./ws-client.js";
 
 const sendBodySchema = z.object({
   to: z.string().min(3).max(50),
   body: z.string().min(1).max(16_384),
+  type: messageTypeSchema.default("request"),
+  priority: prioritySchema.default("normal"),
+  in_reply_to: z.number().int().optional(),
 });
 
 const readBodySchema = z.object({
@@ -41,16 +45,24 @@ export function buildLocalApi({ agentId, hub, store }: LocalApiDeps): FastifyIns
     if (!parsed.success) {
       return reply.code(422).send({ error: parsed.error.issues[0]?.message ?? "inválido" });
     }
-    const { to, body } = parsed.data;
+    const { to, body, type, priority, in_reply_to } = parsed.data;
     if (!hub.connected) {
       return reply.code(503).send({ error: "Daemon desconectado do hub." });
     }
-    hub.send(to, body);
+    hub.send(to, body, {
+      msgType: type,
+      priority,
+      ...(in_reply_to !== undefined ? { inReplyTo: in_reply_to } : {}),
+    });
     store.append({
       id: null,
       from: agentId,
       to,
       body,
+      type,
+      priority,
+      thread_id: null,
+      in_reply_to: in_reply_to ?? null,
       ts: new Date().toISOString(),
       direction: "out",
       read: true,

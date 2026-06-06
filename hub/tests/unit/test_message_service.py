@@ -103,6 +103,54 @@ class TestDelivery:
         await service.mark_delivered([msg.id])
         assert await service.pending_for("backend-julio") == []
 
+    async def test_pendente_expirada_nao_entra_no_flush(self, service):
+        from datetime import timedelta
+
+        from app.models.user import utcnow
+
+        msg = await service.send("mobile-eduardo", "backend-julio", "antiga")
+        msg.expires_at = utcnow() - timedelta(seconds=1)  # simula TTL vencido
+        assert await service.pending_for("backend-julio") == []
+
+
+class TestThreading:
+    async def test_mensagem_raiz_inicia_a_propria_thread(self, service):
+        msg = await service.send("mobile-eduardo", "backend-julio", "pergunta")
+        assert msg.thread_id == msg.id
+        assert msg.in_reply_to is None
+        assert msg.type == "request"
+        assert msg.priority == "normal"
+
+    async def test_resposta_herda_a_thread(self, service):
+        root = await service.send("mobile-eduardo", "backend-julio", "pergunta")
+        reply = await service.send(
+            "backend-julio", "mobile-eduardo", "resposta", type="response", in_reply_to=root.id
+        )
+        followup = await service.send(
+            "mobile-eduardo", "backend-julio", "mais uma", in_reply_to=reply.id
+        )
+        assert reply.thread_id == root.id
+        assert followup.thread_id == root.id
+        assert followup.in_reply_to == reply.id
+
+    async def test_in_reply_to_de_outra_conversa_rejeitado(self, service, agents):
+        from app.models.agent import Agent
+
+        await agents.add(Agent(slug="frontend-joao", user_id=5, display_name="F"))
+        outra = await service.send("frontend-joao", "backend-julio", "conversa paralela")
+        with pytest.raises(InvalidInputError):
+            await service.send(
+                "mobile-eduardo", "backend-julio", "cross-thread", in_reply_to=outra.id
+            )
+
+    async def test_in_reply_to_inexistente_rejeitado(self, service):
+        with pytest.raises(InvalidInputError):
+            await service.send("mobile-eduardo", "backend-julio", "oi", in_reply_to=999)
+
+    async def test_expires_at_definido_pelo_ttl(self, service):
+        msg = await service.send("mobile-eduardo", "backend-julio", "oi")
+        assert msg.expires_at is not None
+
 
 class TestHistory:
     async def test_dono_ve_conversa_do_proprio_agente(self, service):

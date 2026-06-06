@@ -97,6 +97,40 @@ describe("daemon ↔ hub", () => {
     expect(hub.sentMessages()).toHaveLength(0);
   });
 
+  it("não auto-responde type=response (anti-loop semântico)", async () => {
+    const runner = vi.fn();
+    hub.settings = { ...hub.settings, mode: "auto" };
+    const d = await startDaemon(runner);
+
+    hub.pushMessage(
+      AGENT,
+      wireMessage(13, "mobile-eduardo", AGENT, "uma resposta qualquer", { type: "response" }),
+    );
+    await waitFor(() => d.store.inbox(false).length === 1, 5000, "mensagem registrada");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(runner).not.toHaveBeenCalled();
+    expect(hub.sentMessages()).toHaveLength(0);
+  });
+
+  it("auto-resposta sai como response, com in_reply_to e prioridade herdada", async () => {
+    const runner = vi.fn().mockResolvedValue("Sim, existe.");
+    hub.settings = { ...hub.settings, mode: "auto" };
+    await startDaemon(runner);
+
+    hub.pushMessage(
+      AGENT,
+      wireMessage(14, "mobile-eduardo", AGENT, "pergunta urgente?", { priority: "high" }),
+    );
+    await waitFor(() => hub.sentMessages().length === 1, 5000, "auto-resposta");
+
+    const frame = hub.received.find((f) => f.type === "message");
+    expect(frame).toMatchObject({
+      msg_type: "response",
+      priority: "high",
+      in_reply_to: 14,
+    });
+  });
+
   it("resposta com segredo é bloqueada e vira aviso neutro", async () => {
     const runner = vi.fn().mockResolvedValue("claro: postgres://app:senha123@db:5432/prod");
     hub.settings = { ...hub.settings, mode: "auto" };

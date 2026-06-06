@@ -390,6 +390,18 @@
             ],
             "title": "Delivered At"
           },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
           "from": {
             "title": "From",
             "type": "string"
@@ -398,8 +410,38 @@
             "title": "Id",
             "type": "integer"
           },
+          "in_reply_to": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Reply To"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "string"
+          },
+          "thread_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thread Id"
+          },
           "to": {
             "title": "To",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
             "type": "string"
           }
         },
@@ -408,8 +450,13 @@
           "from",
           "to",
           "body",
+          "type",
+          "priority",
+          "thread_id",
+          "in_reply_to",
           "created_at",
-          "delivered_at"
+          "delivered_at",
+          "expires_at"
         ],
         "title": "MessageOut",
         "type": "object"
@@ -462,10 +509,33 @@
             "title": "From",
             "type": "string"
           },
+          "in_reply_to": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Reply To"
+          },
+          "priority": {
+            "default": "normal",
+            "pattern": "^(urgent|high|normal|low)$",
+            "title": "Priority",
+            "type": "string"
+          },
           "to": {
             "maxLength": 50,
             "minLength": 3,
             "title": "To",
+            "type": "string"
+          },
+          "type": {
+            "default": "request",
+            "pattern": "^(request|response|notification|task|alert|status|ack)$",
+            "title": "Type",
             "type": "string"
           }
         },

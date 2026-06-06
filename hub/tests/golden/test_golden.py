@@ -31,6 +31,14 @@ from app.schemas.ws import (
 GOLDEN_DIR = Path(__file__).parent
 
 
+def _accepted_client_frame(raw: dict) -> dict:
+    """Garante que o hub aceita o frame cru antes de congelá-lo no golden."""
+    from app.schemas.ws import client_frame_adapter
+
+    client_frame_adapter.validate_json(json.dumps(raw))
+    return raw
+
+
 def check_golden(name: str, actual: object) -> None:
     path = GOLDEN_DIR / name
     rendered = json.dumps(actual, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
@@ -57,17 +65,34 @@ def test_ws_frames_contract() -> None:
         from_agent="mobile-eduardo",
         to_agent="backend-julio",
         body="Existe endpoint de reset de senha?",
+        type="request",
+        priority="normal",
+        thread_id=1,
+        in_reply_to=None,
         created_at=datetime(2026, 6, 6, 12, 0, 0, tzinfo=UTC),
         delivered_at=None,
+        expires_at=datetime(2026, 6, 13, 12, 0, 0, tzinfo=UTC),
     )
     frames = {
         # exclude_none: o daemon envia hello SEM o campo jwt (e o painel sem key)
         "client.hello": HelloFrame(agent_id="backend-julio", key="amp_" + "ab" * 32).model_dump(
             mode="json", exclude_none=True
         ),
-        "client.message": SendMessageFrame(
-            to="backend-julio", body="Existe endpoint de reset de senha?"
-        ).model_dump(mode="json"),
+        # frame mínimo, como o daemon envia sem opções (defaults aplicados no hub)
+        "client.message": _accepted_client_frame(
+            {"type": "message", "to": "backend-julio", "body": "Existe endpoint de reset de senha?"}
+        ),
+        # frame completo, com threading e prioridade
+        "client.message_full": _accepted_client_frame(
+            {
+                "type": "message",
+                "to": "backend-julio",
+                "body": "Sim: POST /api/v1/auth/password-reset",
+                "msg_type": "response",
+                "priority": "high",
+                "in_reply_to": 1,
+            }
+        ),
         "server.hello_ack": HelloAckFrame(
             agent_id="backend-julio",
             online=["backend-julio", "mobile-eduardo"],

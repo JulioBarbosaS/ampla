@@ -13,9 +13,15 @@ class MessageRepository:
 
     async def add(self, message: Message) -> Message:
         self._session.add(message)
+        await self._session.flush()  # garante o id antes de fechar a thread
+        if message.thread_id is None:
+            message.thread_id = message.id  # mensagem raiz inicia a própria thread
         await self._session.commit()
         await self._session.refresh(message)
         return message
+
+    async def get(self, message_id: int) -> Message | None:
+        return await self._session.get(Message, message_id)
 
     async def conversation(self, agent_a: str, agent_b: str, limit: int = 50) -> list[Message]:
         """Mensagens entre dois agentes, mais recentes primeiro."""
@@ -33,10 +39,14 @@ class MessageRepository:
         return list(result.scalars())
 
     async def pending_for(self, to_agent: str) -> list[Message]:
-        """Não entregues, mais antigas primeiro (ordem de entrega)."""
+        """Não entregues nem expiradas, mais antigas primeiro (ordem de entrega)."""
         result = await self._session.execute(
             select(Message)
-            .where(Message.to_agent == to_agent, Message.delivered_at.is_(None))
+            .where(
+                Message.to_agent == to_agent,
+                Message.delivered_at.is_(None),
+                or_(Message.expires_at.is_(None), Message.expires_at > utcnow()),
+            )
             .order_by(Message.created_at.asc(), Message.id.asc())
         )
         return list(result.scalars())

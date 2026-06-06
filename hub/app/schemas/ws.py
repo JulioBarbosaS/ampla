@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field, TypeAdapter
 
 from app.schemas.agent import AgentSettings
-from app.schemas.message import MessageOut
+from app.schemas.message import PRIORITY_PATTERN, TYPE_PATTERN, MessageOut
 
 # ---------- cliente → hub ----------
 
@@ -27,6 +27,9 @@ class SendMessageFrame(BaseModel):
     type: Literal["message"] = "message"
     to: str
     body: str = Field(min_length=1)
+    msg_type: str = Field(default="request", pattern=TYPE_PATTERN)
+    priority: str = Field(default="normal", pattern=PRIORITY_PATTERN)
+    in_reply_to: int | None = None
 
 
 ClientFrame = Annotated[HelloFrame | SendMessageFrame, Field(discriminator="type")]

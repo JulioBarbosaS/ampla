@@ -44,12 +44,24 @@ describe("espelhamento hub ↔ bridge (golden compartilhado)", () => {
     expect(JSON.parse(JSON.stringify(hello))).toEqual(golden["client.hello"]);
   });
 
-  it("bridge produz client.message byte-idêntico ao contrato", () => {
+  it("bridge produz client.message mínimo byte-idêntico ao contrato", () => {
     const message: ClientFrame = {
       type: "message",
       to: "backend-julio",
       body: "Existe endpoint de reset de senha?",
     };
     expect(JSON.parse(JSON.stringify(message))).toEqual(golden["client.message"]);
+  });
+
+  it("bridge produz client.message completo (threading) byte-idêntico ao contrato", () => {
+    const message: ClientFrame = {
+      type: "message",
+      to: "backend-julio",
+      body: "Sim: POST /api/v1/auth/password-reset",
+      msg_type: "response",
+      priority: "high",
+      in_reply_to: 1,
+    };
+    expect(JSON.parse(JSON.stringify(message))).toEqual(golden["client.message_full"]);
   });
 });

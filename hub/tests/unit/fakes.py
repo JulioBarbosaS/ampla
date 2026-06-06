@@ -138,9 +138,16 @@ class FakeMessageRepository:
     async def add(self, message: Message) -> Message:
         self._seq += 1
         message.id = self._seq
+        if message.thread_id is None:
+            message.thread_id = message.id  # raiz inicia a própria thread
+        _default(message, "type", "request")
+        _default(message, "priority", "normal")
         _default(message, "created_at", utcnow())
         self._messages[message.id] = message
         return message
+
+    async def get(self, message_id: int) -> Message | None:
+        return self._messages.get(message_id)
 
     async def conversation(self, agent_a: str, agent_b: str, limit: int = 50) -> list[Message]:
         pair = {agent_a, agent_b}
@@ -149,8 +156,13 @@ class FakeMessageRepository:
         return found[:limit]
 
     async def pending_for(self, to_agent: str) -> list[Message]:
+        now = utcnow()
         found = [
-            m for m in self._messages.values() if m.to_agent == to_agent and m.delivered_at is None
+            m
+            for m in self._messages.values()
+            if m.to_agent == to_agent
+            and m.delivered_at is None
+            and (m.expires_at is None or m.expires_at > now)
         ]
         found.sort(key=lambda m: (m.created_at, m.id))
         return found

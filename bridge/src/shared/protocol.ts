@@ -18,13 +18,32 @@ export type AgentSettings = z.infer<typeof agentSettingsSchema>;
 
 // ---------- mensagem como trafega (REST e WS) ----------
 
+export const messageTypeSchema = z.enum([
+  "request",
+  "response",
+  "notification",
+  "task",
+  "alert",
+  "status",
+  "ack",
+]);
+export type MessageType = z.infer<typeof messageTypeSchema>;
+
+export const prioritySchema = z.enum(["urgent", "high", "normal", "low"]);
+export type Priority = z.infer<typeof prioritySchema>;
+
 export const wireMessageSchema = z.object({
   id: z.number().int(),
   from: z.string(),
   to: z.string(),
   body: z.string(),
+  type: messageTypeSchema,
+  priority: prioritySchema,
+  thread_id: z.number().int().nullable(),
+  in_reply_to: z.number().int().nullable(),
   created_at: z.string(),
   delivered_at: z.string().nullable(),
+  expires_at: z.string().nullable(),
 });
 export type WireMessage = z.infer<typeof wireMessageSchema>;
 
@@ -40,6 +59,9 @@ export interface SendMessageFrame {
   type: "message";
   to: string;
   body: string;
+  msg_type?: MessageType;
+  priority?: Priority;
+  in_reply_to?: number;
 }
 
 export type ClientFrame = HelloFrame | SendMessageFrame;
