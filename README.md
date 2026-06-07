@@ -107,7 +107,7 @@ Com `mode: auto`, o daemon responde perguntas sozinho rodando `claude -p` **some
 ```bash
 cd hub && .venv/bin/python -m pytest          # 85 testes (unit + integração + WS)
 cd bridge && pnpm test                         # 45 testes (unit + integração + full-stack*)
-cd web && pnpm test && pnpm e2e                # 14 unit/componentes + 4 e2e Playwright
+cd web && pnpm test && pnpm e2e                # 55 unit/componentes + 4 e2e Playwright
 ```
 
 \* o teste full-stack sobe o hub real (requer `hub/.venv`) e dois daemons reais.

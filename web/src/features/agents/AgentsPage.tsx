@@ -1,19 +1,15 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Field, FormError } from "../../components/forms";
 import { agentsApi } from "../../lib/api/agents";
-import { authApi } from "../../lib/api/auth";
 import { groupsApi } from "../../lib/api/groups";
 import type { Agent, Group } from "../../lib/api/types";
-import { useAuthStore } from "../../stores/auth";
 import { AgentCard } from "./AgentCard";
 
 export function AgentsPage() {
-  const user = useAuthStore((s) => s.user);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [online, setOnline] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
-  const [inviteLink, setInviteLink] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     agentsApi
@@ -55,43 +51,8 @@ export function AgentsPage() {
     }
   }
 
-  async function handleInvite() {
-    setError(null);
-    try {
-      const invite = await authApi.createInvite();
-      setInviteLink(`${window.location.origin}/register?code=${invite.code}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao gerar convite.");
-    }
-  }
-
   return (
     <div className="mx-auto h-full max-w-3xl space-y-6 overflow-y-auto px-4 py-6">
-      {user?.role === "admin" && (
-        <section className="rounded-lg border border-zinc-800 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-zinc-200">Convidar membro da equipe</h2>
-              <p className="text-xs text-zinc-500">
-                Gera um link de uso único (expira em 48h). Envie por onde preferir.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleInvite}
-              className="rounded-md bg-zinc-800 px-3 py-1.5 text-sm font-medium text-zinc-200 hover:bg-zinc-700"
-            >
-              Gerar convite
-            </button>
-          </div>
-          {inviteLink && (
-            <p className="mt-3 break-all rounded-md bg-zinc-900 px-3 py-2 font-mono text-xs text-emerald-300">
-              {inviteLink}
-            </p>
-          )}
-        </section>
-      )}
-
       <section className="rounded-lg border border-zinc-800 p-4">
         <h2 className="mb-3 text-sm font-semibold text-zinc-200">Criar agente</h2>
         <form onSubmit={handleCreate} className="flex items-end gap-2">
