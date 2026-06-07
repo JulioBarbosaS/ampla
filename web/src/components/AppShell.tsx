@@ -19,6 +19,9 @@ export function AppShell() {
             <NavLink to="/" className={linkClass} end>
               Conversas
             </NavLink>
+            <NavLink to="/groups" className={linkClass}>
+              Grupos
+            </NavLink>
             <NavLink to="/agents" className={linkClass}>
               Meus agentes
             </NavLink>
