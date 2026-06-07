@@ -64,14 +64,20 @@ test("conversa pelo painel: perspectiva, envio e bolha pendente", async ({ page 
   await composer.fill("Existe endpoint de reset de senha?");
   await page.getByRole("button", { name: "Enviar" }).click();
 
-  // bolha aparece; destinatário offline → pendente
-  await expect(page.getByText("Existe endpoint de reset de senha?")).toBeVisible();
+  // bolha aparece; destinatário offline → pendente. A mensagem também vira
+  // prévia na sidebar (um <span>), então miramos a bolha do chat (um <p>).
+  const bubble = page
+    .getByRole("paragraph")
+    .filter({ hasText: "Existe endpoint de reset de senha?" });
+  await expect(bubble).toBeVisible();
   await expect(page.getByText(/pendente/)).toBeVisible();
 
   // histórico persiste após recarregar
   await page.reload();
   await page.getByRole("button", { name: /mobile-eduardo/ }).click();
-  await expect(page.getByText("Existe endpoint de reset de senha?")).toBeVisible();
+  await expect(
+    page.getByRole("paragraph").filter({ hasText: "Existe endpoint de reset de senha?" }),
+  ).toBeVisible();
 });
 
 test("agente offline aparece com presença offline na sidebar", async ({ page }) => {
