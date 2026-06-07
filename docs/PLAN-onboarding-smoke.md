@@ -41,11 +41,13 @@ Objetivo: o Claude Code "acorda" ciente de que é um agente da rede Ampla.
 Sem mudança no hub/protocolo — é só bridge (hook novo) + docs. Teste: o script, dado um daemon fake/fixture, produz o JSON de contexto esperado (pode ser um teste de shell simples ou um vitest que invoca o script).
 
 ## Ordem e checklist
-- [ ] A1 smoke test manual → lista de ajustes reais no `defaultClaudeRunner`/flags
-- [ ] A2 fixes com teste, commit `fix(bridge): ...`
-- [ ] B1 hook `amp-session-start.sh` + teste
-- [ ] B2 README: instalar os 2 hooks + seção "rodar local de verdade"
-- [ ] commit `feat(bridge): onboarding do agente via SessionStart`
+- [x] **Runner real validado** (`tests/integration/claude-runner.test.ts`): spawn não-mockado, prompt via `-p`, parsing de stdout, timeout, exit code, cwd — com um `claude` falso (sem gastar a conta).
+- [x] B1 hook `amp-session-start.sh` + teste e2e
+- [x] B2 README: instalar os 2 hooks
+- [ ] **A-interativo (com o Julio):** subir hub + 2 daemons (`pnpm daemon`) + `claude` REAL logado, registrar o MCP (`claude mcp add ampla`), mandar um `@backend` de verdade e ver o auto-respond ler o código e responder. Verificar flags do `claude -p` atual (v2.1.168): confirmar `--allowedTools/--disallowedTools` e se precisa `--output-format`/`--print`. Ajustar `defaultClaudeRunner` se a saída não for texto puro.
+- [ ] MCP real no Claude Code + hooks ativos numa sessão real.
+
+**O que sobra é genuinamente interativo** (precisa do `claude` logado, processos vivos, observação ao vivo) — não dá para automatizar em batch. O caminho de processo do runner já está coberto por teste.
 
 ## Por que nesta ordem
 O smoke test revela se o `claude -p` real funciona (fundação). Não adianta onboarding perfeito se o auto-respond quebra na 1ª chamada real. Depois o onboarding fecha a lacuna de "o Claude não sabe que deve usar a rede" — que o próprio smoke test vai escancarar.
