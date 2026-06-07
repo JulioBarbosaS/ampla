@@ -1,22 +1,79 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { messagesApi } from "../../lib/api/messages";
-import type { Message } from "../../lib/api/types";
+import type { Message, MessageType, Priority } from "../../lib/api/types";
 import { conversationKey, useChatStore } from "../../stores/chat";
 import { PresenceDot } from "./Sidebar";
+
+/** Prefixo das respostas automáticas (espelha AUTO_REPLY_PREFIX do daemon). */
+const AUTO_PREFIX = "[auto] ";
 
 const PRIORITY_BADGE: Record<string, string> = {
   urgent: "bg-red-600 text-white",
   high: "bg-amber-600 text-white",
 };
 
-export function MessageBubble({ message, mine }: { message: Message; mine: boolean }) {
+const MESSAGE_TYPES: MessageType[] = [
+  "request",
+  "response",
+  "notification",
+  "task",
+  "alert",
+  "status",
+  "ack",
+];
+const PRIORITIES: Priority[] = ["low", "normal", "high", "urgent"];
+
+function stripAuto(body: string): string {
+  return body.startsWith(AUTO_PREFIX) ? body.slice(AUTO_PREFIX.length) : body;
+}
+
+function preview(text: string, max = 80): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max)}…` : flat;
+}
+
+function ReplyButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="responder"
+      title="responder"
+      className="shrink-0 self-center rounded-full px-1.5 py-1 text-xs text-zinc-500 opacity-0 transition-opacity hover:bg-zinc-800 hover:text-zinc-200 focus:opacity-100 group-hover:opacity-100"
+    >
+      ↩
+    </button>
+  );
+}
+
+export function MessageBubble({
+  message,
+  mine,
+  repliedTo,
+  answeredBy,
+  onReply,
+}: {
+  message: Message;
+  mine: boolean;
+  /** Mensagem-mãe (quando esta é uma resposta) — para a citação compacta. */
+  repliedTo?: Message | null;
+  /** Quem já respondeu esta pergunta (request/task) — indicador "respondida". */
+  answeredBy?: string | null;
+  onReply?: (message: Message) => void;
+}) {
   const time = new Date(message.created_at).toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
   });
   const badge = PRIORITY_BADGE[message.priority];
+  const isAuto = message.body.startsWith(AUTO_PREFIX);
+  const text = stripAuto(message.body);
+  const isQuestion = message.type === "request" || message.type === "task";
+  const replyBtn = onReply ? <ReplyButton onClick={() => onReply(message)} /> : null;
+
   return (
-    <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+    <div className={`group flex items-end gap-1 ${mine ? "justify-end" : "justify-start"}`}>
+      {mine && replyBtn}
       <div
         className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm ${
           mine
@@ -24,21 +81,55 @@ export function MessageBubble({ message, mine }: { message: Message; mine: boole
             : "rounded-bl-sm bg-zinc-800 text-zinc-100"
         }`}
       >
-        {badge && (
-          <span
-            className={`mb-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${badge}`}
-          >
-            {message.priority}
-          </span>
+        {(badge || isAuto || message.group) && (
+          <div className="mb-1 flex flex-wrap items-center gap-1">
+            {badge && (
+              <span
+                className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${badge}`}
+              >
+                {message.priority}
+              </span>
+            )}
+            {isAuto && (
+              <span className="inline-block rounded bg-sky-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-sky-200">
+                🤖 auto
+              </span>
+            )}
+            {message.group && (
+              <span className="inline-block rounded bg-zinc-700/70 px-1.5 py-0.5 text-[10px] font-medium text-zinc-300">
+                via {message.group}
+              </span>
+            )}
+          </div>
         )}
-        <p className="whitespace-pre-wrap break-words">{message.body}</p>
+        {repliedTo && (
+          <div
+            className={`mb-1 truncate border-l-2 pl-2 text-xs ${
+              mine ? "border-emerald-300/60 text-emerald-100/80" : "border-zinc-600 text-zinc-400"
+            }`}
+          >
+            <span className="font-medium">{repliedTo.from}</span>:{" "}
+            {preview(stripAuto(repliedTo.body))}
+          </div>
+        )}
+        <p className="whitespace-pre-wrap break-words">{text}</p>
         <p
-          className={`mt-1 text-right text-[10px] ${mine ? "text-emerald-200/70" : "text-zinc-500"}`}
+          className={`mt-1 flex items-center justify-end gap-1.5 text-[10px] ${
+            mine ? "text-emerald-200/70" : "text-zinc-500"
+          }`}
         >
-          {time}
-          {mine && (message.delivered_at ? " · entregue" : " · pendente")}
+          {isQuestion && answeredBy && (
+            <span className="text-emerald-300" title={`respondida por ${answeredBy}`}>
+              ✓ respondida
+            </span>
+          )}
+          <span>
+            {time}
+            {mine && (message.delivered_at ? " · entregue" : " · pendente")}
+          </span>
         </p>
       </div>
+      {!mine && replyBtn}
     </div>
   );
 }
@@ -48,16 +139,45 @@ export function ChatWindow() {
   const addMessage = useChatStore((s) => s.addMessage);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [msgType, setMsgType] = useState<MessageType>("request");
+  const [priority, setPriority] = useState<Priority>("normal");
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const messages =
-    perspective && partner ? (conversations[conversationKey(perspective, partner)] ?? []) : [];
+  const messages = useMemo(
+    () =>
+      perspective && partner ? (conversations[conversationKey(perspective, partner)] ?? []) : [],
+    [perspective, partner, conversations],
+  );
+
+  // Lookup por id (citação) e quem respondeu cada pergunta (indicador "respondida").
+  const { byId, answeredBy } = useMemo(() => {
+    const byId = new Map<number, Message>();
+    const answeredBy = new Map<number, string>();
+    for (const m of messages) byId.set(m.id, m);
+    for (const m of messages) {
+      if (m.in_reply_to != null && !answeredBy.has(m.in_reply_to)) {
+        answeredBy.set(m.in_reply_to, m.from);
+      }
+    }
+    return { byId, answeredBy };
+  }, [messages]);
 
   useEffect(() => {
-    if (messages.length > 0) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+    if (messages.length > 0) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Trocar de conversa cancela um reply pendente da conversa anterior.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: perspective/partner são gatilhos da troca, não valores lidos
+  useEffect(() => {
+    setReplyTo(null);
+    setMsgType("request");
+  }, [perspective, partner]);
+
+  function startReply(message: Message) {
+    setReplyTo(message);
+    setMsgType("response");
+  }
 
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,9 +188,15 @@ export function ChatWindow() {
     setBusy(true);
     setError(null);
     try {
-      const sent = await messagesApi.send(perspective, partner, body);
+      const sent = await messagesApi.send(perspective, partner, body, {
+        type: msgType,
+        priority,
+        ...(replyTo ? { in_reply_to: replyTo.id } : {}),
+      });
       addMessage(sent);
       form.reset();
+      setReplyTo(null);
+      setMsgType("request");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao enviar.");
     } finally {
@@ -87,6 +213,9 @@ export function ChatWindow() {
       </section>
     );
   }
+
+  const selectClass =
+    "rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-xs text-zinc-300 outline-none focus:border-emerald-500";
 
   return (
     <section className="flex min-w-0 flex-1 flex-col">
@@ -105,7 +234,14 @@ export function ChatWindow() {
           </p>
         )}
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} mine={message.from === perspective} />
+          <MessageBubble
+            key={message.id}
+            message={message}
+            mine={message.from === perspective}
+            repliedTo={message.in_reply_to != null ? (byId.get(message.in_reply_to) ?? null) : null}
+            answeredBy={answeredBy.get(message.id) ?? null}
+            onReply={startReply}
+          />
         ))}
         <div ref={bottomRef} />
       </div>
@@ -116,7 +252,47 @@ export function ChatWindow() {
             {error}
           </p>
         )}
+        {replyTo && (
+          <div className="mb-2 flex items-center gap-2 rounded-md border-l-2 border-emerald-500 bg-zinc-900 px-2.5 py-1.5 text-xs">
+            <span className="min-w-0 flex-1 truncate text-zinc-400">
+              respondendo a <span className="text-zinc-300">{replyTo.from}</span>:{" "}
+              {preview(stripAuto(replyTo.body))}
+            </span>
+            <button
+              type="button"
+              onClick={() => setReplyTo(null)}
+              aria-label="cancelar resposta"
+              className="shrink-0 text-zinc-500 hover:text-zinc-200"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <div className="flex gap-2">
+          <select
+            aria-label="tipo da mensagem"
+            value={msgType}
+            onChange={(e) => setMsgType(e.target.value as MessageType)}
+            className={selectClass}
+          >
+            {MESSAGE_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="prioridade"
+            value={priority}
+            onChange={(e) => setPriority(e.target.value as Priority)}
+            className={selectClass}
+          >
+            {PRIORITIES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
           <input
             name="body"
             placeholder={`Mensagem para ${partner} (enviada como ${perspective})`}
