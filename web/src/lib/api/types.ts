@@ -47,6 +47,14 @@ export interface AgentKeyCreated {
   key: string;
 }
 
+export interface Group {
+  slug: string;
+  display_name: string;
+  created_by: number;
+  created_at: string;
+  members: string[];
+}
+
 export interface Invite {
   id: number;
   code: string;
