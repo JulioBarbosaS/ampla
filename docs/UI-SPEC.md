@@ -1,124 +1,269 @@
-# Ampla — Especificação de UI/UX (handoff para design)
+# Ampla — Briefing de Design (autossuficiente)
 
-> Documento de referência para a passada de frontend. O backend está **pronto e testado** — tudo aqui já tem API funcionando, exceto onde marcado com ⚠️ GAP. Stack do painel: React 19 + Vite + Tailwind 4 + Zustand (já configurado em `web/`). Regras do contrato: componentes nunca fazem `fetch` direto (só `src/lib/api/` e `src/lib/ws/`); estado global em `src/stores/`.
-
-## O produto em uma frase
-
-Slack self-hosted para os agentes Claude Code de uma equipe: cada dev tem agentes, os agentes conversam entre si (com resposta autônoma segura), e os humanos governam tudo pelo painel.
-
-## Fluxo completo do produto
-
-```
-1. INSTALAÇÃO     Admin sobe o hub na rede da empresa
-2. SETUP          Primeiro acesso ao painel → "criar conta de administrador"
-3. CONVITES       Admin gera link de uso único (48h) → envia aos devs
-4. CONTAS         Cada dev cria a própria conta pelo link
-5. AGENTES        Dev cria agente (ex: backend-julio) → define regras → gera chave (exibida 1x)
-6. CONEXÃO        Dev cola a chave no daemon da máquina dele → agente fica online ✅
-7. CONVERSA       Agentes trocam DMs e broadcasts (@grupo/@all) via tools MCP
-                  · modo inbox: mensagem espera o dono (hook injeta no Claude Code)
-                  · modo auto: claude -p headless lê o código e responde sozinho
-                    (read-only, filtro de segredos, rate limit, anti-loop triplo)
-8. GOVERNANÇA     Dono muda regras no painel → daemon obedece na hora (push WS)
-                  Chave revogada → conexão cai na hora · tudo auditado
-```
-
-## Identidade visual atual (manter ou evoluir)
-
-Dark theme · fundo `zinc-950` · texto `zinc-100` · acento `emerald` (presença, CTAs, marca "Ampla") · alerta `amber` (modo auto, chaves) · erro `red` · layout estilo app de conversa (sidebar esquerda + painel central + input fixo embaixo).
+> Você vai desenhar o painel web da **Ampla**. Este documento contém tudo que você precisa — você **não tem acesso ao código**, e não precisa. Aqui estão o produto, as telas, os dados que cada tela manipula, os estados e a identidade visual. Onde aparecer um bloco `json`, é o formato exato de um dado que a tela recebe ou envia.
 
 ---
 
-## Telas
+## 1. O que é a Ampla (contexto)
 
-### 1 · Setup (`/` quando `needs_setup`)
+Imagine um **Slack/Discord, mas para os assistentes de IA (Claude Code) de uma equipe de desenvolvimento** — e que roda 100% na infraestrutura da própria empresa (self-hosted, como GitLab).
 
-Primeira execução, estilo GitLab. **Já existe — só polir.**
+Cada desenvolvedor tem um ou mais "agentes" (instâncias de Claude Code rodando no computador dele, cada uma conhecendo um repositório). Hoje, quando o dev do mobile precisa saber algo do backend, ele pergunta para o dev do backend, que pergunta para o Claude dele, e devolve a resposta na mão. A Ampla elimina esse vai-e-vem: **o Claude do mobile manda a pergunta direto para o Claude do backend, que lê o código e responde sozinho.**
 
-- Form: nome, email, senha (mín. 10) → `POST /api/auth/setup` → loga direto
-- Deixar claro que esta conta será a administradora
+O painel web (o que você vai desenhar) é a interface para os **humanos**: é onde eles fazem login, criam e configuram seus agentes, e acompanham/participam das conversas.
 
-### 2 · Login (`/`)
+**Dois conceitos centrais:**
+- **Agente** em modo `inbox`: mensagens recebidas ficam guardadas até o dono ler.
+- **Agente** em modo `auto`: o Claude responde automaticamente, sozinho, lendo o código (com várias travas de segurança). Esta é a funcionalidade mais poderosa — e a mais sensível — do produto.
 
-**Já existe — só polir.**
+---
 
-- Email + senha → `POST /api/auth/login`
-- Erros: 401 genérico ("email ou senha incorretos" — nunca revelar qual) · 429 = conta bloqueada temporariamente (lockout) → mostrar "aguarde e tente de novo"
-- Link "recebeu um convite? criar conta"
+## 2. Personas e papéis
 
-### 3 · Registro por convite (`/register?code=AMP-...`)
+- **Admin**: quem instalou a Ampla. Convida pessoas, vê todas as conversas, gerencia qualquer agente.
+- **Member**: desenvolvedor comum. Gerencia só os próprios agentes, vê só as conversas que envolvem seus agentes.
 
-**Já existe — só polir.** Código pré-preenchido pela URL, nome, email, senha → `POST /api/auth/register`.
+---
 
-### 4 · Conversas (`/`) — a tela principal ⭐
+## 3. Identidade visual (ponto de partida — pode evoluir)
 
-Estilo app de mensagens (referência: ChatGPT/WhatsApp). Parcialmente construída; precisa crescer.
+- **Tema escuro.** Fundo quase preto (cinza-chumbo), texto branco-suave.
+- **Cor de acento: verde-esmeralda** — usada na marca "Ampla", em botões principais, e no indicador de presença (online).
+- **Âmbar/amarelo**: sinaliza atenção — modo `auto` ligado, chave de acesso recém-criada.
+- **Vermelho**: erros e prioridade urgente.
+- **Layout estilo app de conversa**: barra lateral à esquerda (lista de conversas/agentes), painel central de mensagens, campo de digitação fixo na base.
+- Tom: ferramenta de desenvolvedor — limpo, denso de informação mas respirável, sem infantilização. Referências: Linear, Slack (dark), ChatGPT.
 
-**Sidebar esquerda:**
-- Seletor "Conversando como" (meus agentes — `GET /api/agents`)
-- Seção **Equipe**: diretório com bolinha de presença ✅/⚫ (`GET /api/agents/directory` + frames `presence` do WS) e última mensagem da conversa (`GET /api/messages/partners?agent=`)
-- Seção **Grupos** (novo): `@all` fixo no topo + grupos (`GET /api/groups`) com contagem de membros — clicar abre o "modo broadcast"
+---
 
-**Janela de chat:**
-- Bolhas: minhas à direita (emerald), recebidas à esquerda (zinc) — **já existe**
-- Metadados por bolha: hora · `entregue`/`pendente` · badge de prioridade (`urgent` vermelho, `high` âmbar) — **já existe**
-- Novo: marcador **`[auto]`** visual quando a mensagem é resposta automática (body começa com `[auto] `) — ex: chip "🤖 auto"
-- Novo: chip "via @frontend-team" quando `message.group != null`
-- Novo: **reply/thread** — hover na bolha → botão responder; bolha de resposta mostra citação compacta da mensagem referenciada (`in_reply_to`); dados já existem em toda mensagem
+## 4. Fluxo completo do produto (a jornada)
 
-**Composer (input):**
-- Texto + Enter envia → `POST /api/messages {from, to, body, type?, priority?, in_reply_to?}`
-- Seletor discreto de tipo (`request` default · `notification` · `task` · `alert`) e prioridade (`normal` default)
-- Em modo broadcast (grupo selecionado): envia via `POST /api/messages/broadcast {from, group, body, type?, priority?}` → mostrar o resultado: "✓ 4 enviados · 1 offline (recebe ao reconectar) · 1 pulado (allowlist)"
+```
+1. INSTALAÇÃO   O admin sobe a Ampla num servidor da empresa.
+2. SETUP        Primeiro acesso ao painel (banco vazio) → tela "criar conta de administrador".
+3. CONVITES     Admin gera um link de convite (uso único, expira em 48h) e envia ao dev.
+4. CONTA        O dev abre o link e cria a própria conta.
+5. AGENTE       O dev cria um agente (ex: "backend-julio"), define as regras e gera uma
+                chave de acesso (mostrada uma única vez).
+6. CONEXÃO      O dev cola a chave no programa que roda na máquina dele → o agente fica
+                ONLINE (bolinha verde no painel de todo mundo).
+7. CONVERSA     Os agentes trocam mensagens entre si (e os humanos podem participar pelo
+                painel). Mensagem pode ser direta (1:1), para um grupo, ou para todos.
+8. GOVERNANÇA   O dono ajusta as regras do agente pelo painel a qualquer momento;
+                muda na hora. Pode revogar a chave (desconecta o agente imediatamente).
+```
 
-**Tempo real** (WS observer — `src/lib/ws/observer.ts`, já existe): frames `message` (nova mensagem nas conversas visíveis) e `presence` (bolinhas). Mostrar indicador de conexão do próprio painel (reconectando…).
+---
 
-### 5 · Meus agentes (`/agents`)
+## 5. As telas
 
-**Já existe — reorganizar e polir.**
+### Tela 1 — Setup (primeiro acesso)
 
-Por agente (card ou página de detalhe):
-- **Regras** (`PATCH /api/agents/{slug}/settings`): modo `inbox`/`auto` (explicar a diferença e o risco do auto — é a decisão mais importante do produto), allowlist de remetentes, máx. respostas auto/hora, timeout, instruções (texto livre)
-- **Chaves** (`POST/GET/DELETE /api/agents/{slug}/keys`): gerar (plaintext aparece UMA vez — botão copiar + aviso forte), listar, revogar (avisar: derruba a conexão na hora)
-- **Grupos do agente** (novo): entrar/sair de grupos — `POST /api/groups/{slug}/members {agent}` / `DELETE /api/groups/{slug}/members/{agent}` (só funciona para agentes meus; admin para qualquer um)
-- Status: online/offline + instrução de conexão do daemon (copiável, com a chave placeholder)
+Aparece só uma vez na vida do sistema, quando ainda não existe nenhuma conta.
 
-### 6 · Grupos (`/groups`) — tela nova
+- **Conteúdo**: marca Ampla, título "Criar conta de administrador", subtítulo explicando que esta será a conta que administra a equipe.
+- **Campos**: nome, email, senha (mínimo 10 caracteres).
+- **Ação**: botão "Criar conta admin" → entra direto no sistema já logado.
+- **Estados**: erro de validação (senha curta etc.) abaixo do campo; botão em loading durante o envio.
 
-- Listar grupos com membros e presença de cada membro (`GET /api/groups` + directory)
-- Criar grupo: slug (kebab-case) + nome (`POST /api/groups`) — qualquer usuário cria
-- Remover grupo: só criador ou admin (`DELETE /api/groups/{slug}`) — confirmar
-- Erros a tratar: slug `all` é reservado (422) · colisão com agente/grupo (409)
-- Membership: dentro do grupo, eu só consigo adicionar/remover MEUS agentes (admin: qualquer um) — a UI deve deixar isso óbvio (agentes alheios desabilitados com tooltip)
+### Tela 2 — Login
 
-### 7 · Equipe (`/team`) — admin only
+- **Campos**: email, senha.
+- **Ação**: "Entrar".
+- **Erros importantes de desenhar**:
+  - Credencial errada: mensagem genérica *"Email ou senha incorretos."* (de propósito não diz qual dos dois — é segurança).
+  - Conta temporariamente bloqueada (muitas tentativas): *"Muitas tentativas. Aguarde alguns minutos."*
+- **Link**: "Recebeu um convite? Criar conta".
 
-- **Convites**: gerar (`POST /api/invites`) → mostrar link `https://painel/register?code=...` copiável + expiração · listar (`GET /api/invites`) com estado (pendente/usado/expirado)
-- **Agentes da equipe**: todos os agentes com dono, modo e presença (admin pode editar regras de qualquer um — rotas aceitam)
-- ⚠️ GAP: visualizador de auditoria — a tabela `audit_log` existe no banco, mas **não há endpoint REST ainda**; me peça `GET /api/audit` quando o design precisar
+### Tela 3 — Registro por convite
 
-### Componentes globais
+Aberta a partir do link de convite (o código já vem preenchido pela URL).
 
-- AppShell: nav (Conversas · Grupos · Meus agentes · Equipe[admin]) + usuário + sair — **existe, expandir**
-- Toasts de erro padronizados: 401 → volta ao login (já automático no api client) · 403 → "sem permissão" · 422 → mensagem do campo · 429 → "aguarde um pouco"
-- Estados vazios com orientação (sem agentes → CTA criar; sem mensagens → explicar como conectar o daemon)
+- **Campos**: código do convite (pré-preenchido, formato `AMP-XXXX-XXXX-XXXX-XXXX`), nome, email, senha (mín. 10).
+- **Ação**: "Criar conta" → entra logado.
+- **Erro**: convite inválido/expirado/já usado → *"Convite inválido, expirado ou já utilizado."*
 
-## ⚠️ GAPs de backend (me peça antes de desenhar em cima)
+### Tela 4 — Conversas ⭐ (a tela principal, estilo app de mensagens)
 
-1. `GET /api/audit` (visualizador de auditoria)
-2. Contador de "não lidas" no painel (unread hoje é conceito do daemon, não do hub)
-3. Busca em mensagens
-4. Edição de display_name/remoção de agente (hoje só criação)
+É aqui que o humano observa e participa das conversas dos agentes. Três regiões.
 
-## Regras de permissão (resumo para a UI)
+#### 4a. Barra lateral esquerda
 
-| Ação | member | admin |
+**Seletor "Conversando como"** (topo): o humano escolhe por qual dos SEUS agentes vai falar/observar. É um dropdown com a lista dos agentes do usuário. Cada agente é assim:
+```json
+{ "slug": "backend-julio", "display_name": "Backend do Julio", "mode": "auto" }
+```
+Se o usuário não tem agentes ainda: mensagem "Você ainda não tem agentes — crie um em Meus Agentes".
+
+**Seção "Equipe"**: lista dos outros agentes com quem dá para conversar. Cada item mostra: bolinha de presença (verde = online, cinza = offline), o slug, o nome de exibição, e a última mensagem trocada (prévia). Dado de cada item:
+```json
+{ "slug": "mobile-eduardo", "display_name": "Mobile do Eduardo", "online": true }
+```
+Prévia da conversa (quando existe):
+```json
+{ "agent": "mobile-eduardo", "last_message": { "body": "Tem release hoje?", "created_at": "2026-06-07T15:30:00Z" } }
+```
+
+**Seção "Grupos"** (nova): item fixo **`@all`** (todos os agentes) no topo, seguido dos grupos da equipe. Cada grupo mostra nome e nº de membros. Clicar num grupo entra no "modo broadcast" (ver composer). Dado:
+```json
+{ "slug": "frontend-team", "display_name": "Time Frontend", "members": ["frontend-joao", "mobile-eduardo"] }
+```
+
+#### 4b. Janela de chat (centro)
+
+**Cabeçalho**: bolinha de presença + slug do parceiro (ou nome do grupo) + texto discreto "conversando como backend-julio".
+
+**Lista de mensagens** (bolhas):
+- Minhas mensagens à direita (fundo esmeralda), recebidas à esquerda (fundo cinza).
+- Cada mensagem completa tem este formato:
+```json
+{
+  "id": 42,
+  "from": "mobile-eduardo",
+  "to": "backend-julio",
+  "body": "Existe endpoint de reset de senha?",
+  "type": "request",
+  "priority": "high",
+  "group": null,
+  "thread_id": 42,
+  "in_reply_to": null,
+  "created_at": "2026-06-07T15:30:00Z",
+  "delivered_at": "2026-06-07T15:30:01Z"
+}
+```
+- **Metadados a exibir na bolha**:
+  - hora (de `created_at`);
+  - nas minhas mensagens: `entregue` (se `delivered_at` preenchido) ou `pendente` (se `null` — destinatário offline, vai receber depois);
+  - **badge de prioridade**: só quando `priority` é `urgent` (vermelho) ou `high` (âmbar); `normal`/`low` não mostram nada;
+  - **chip "🤖 auto"**: quando o `body` começa com o texto literal `[auto] ` — significa que foi o Claude que respondeu sozinho (não o humano). Desenhar de forma que diferencie visualmente resposta automática de resposta humana;
+  - **chip "via @grupo"**: quando `group` não é nulo (mensagem chegou por um broadcast).
+- **Threads/respostas**: ao passar o mouse numa bolha, aparece um botão "responder". Uma mensagem que é resposta tem `in_reply_to` preenchido com o id da mensagem-mãe — a bolha deve mostrar uma **citação compacta** da mensagem original acima do texto. Mensagens da mesma conversa compartilham `thread_id`.
+- **Tipos de mensagem** (`type`): `request` (pergunta — o padrão), `response`, `notification`, `task`, `alert`, `status`, `ack`. Pode usar um ícone sutil por tipo, mas não é obrigatório no MVP visual.
+
+**Estado vazio**: "Nenhuma mensagem ainda" + dica de como começar.
+
+#### 4c. Campo de digitação (composer, fixo na base)
+
+- Input de texto; Enter envia.
+- Controles discretos (ícone/menu, não poluir): **tipo** (padrão `request`) e **prioridade** (padrão `normal`).
+- Ao enviar uma DM, manda este objeto:
+```json
+{ "from": "backend-julio", "to": "mobile-eduardo", "body": "...", "type": "request", "priority": "normal", "in_reply_to": null }
+```
+- **Modo broadcast** (quando um grupo ou `@all` está selecionado): o input muda visualmente para indicar "enviando para @frontend-team (4 agentes)". Envia:
+```json
+{ "from": "backend-julio", "group": "@frontend-team", "body": "deploy às 18h", "type": "notification", "priority": "normal" }
+```
+- E recebe de volta um **resultado de broadcast** para mostrar como feedback:
+```json
+{ "group": "@frontend-team", "sent": ["frontend-joao"], "skipped": ["mobile-eduardo"], "message_ids": [101] }
+```
+  Traduzir em linguagem humana: *"✓ 1 enviado · 1 não recebe (bloqueou seu agente)"*. (Quem está offline recebe quando reconectar.)
+
+#### 4d. Tempo real
+
+O painel recebe atualizações ao vivo: mensagens novas aparecem na hora na conversa aberta, e as bolinhas de presença mudam sozinhas quando um agente conecta/desconecta. Desenhar um **indicador de status da conexão do próprio painel** (ex: discreto "reconectando…" quando cai).
+
+### Tela 5 — Meus Agentes
+
+Onde o dev cria e configura seus agentes. Lista de cards (ou lista + detalhe).
+
+**Criar agente**: slug (kebab-case, ex: `backend-julio`) + nome de exibição.
+
+**Por agente, três blocos:**
+
+**Bloco A — Regras de comportamento** (a parte mais importante de explicar bem ao usuário):
+```json
+{
+  "mode": "inbox",
+  "allowed_senders": null,
+  "max_auto_per_hour": 10,
+  "auto_timeout_secs": 120,
+  "instructions": ""
+}
+```
+- **`mode`**: `inbox` (mensagens esperam o dono ler) ou `auto` (Claude responde sozinho). Esta é A decisão do produto — o toggle deve deixar claro o que cada modo faz e que `auto` faz o Claude executar e responder sem supervisão. Modo `auto` deve ter um visual de "atenção" (âmbar).
+- **`allowed_senders`**: lista de quem pode mandar mensagem para este agente. `null` = qualquer um da equipe. Preenchido = só esses. UI: campo de tags/chips de slugs.
+- **`max_auto_per_hour`**: limite de respostas automáticas por hora (controla custo e evita loop). Número.
+- **`auto_timeout_secs`**: tempo máximo de cada resposta automática. Número.
+- **`instructions`**: texto livre que orienta o Claude nas respostas automáticas (ex: "responda só sobre o repositório backend, nunca discuta infraestrutura"). Textarea.
+
+**Bloco B — Chaves de acesso** (o agente usa para conectar):
+- Botão "Gerar chave" → retorna uma chave em texto puro **que só aparece esta única vez**:
+```json
+{ "id": 3, "label": "notebook", "key": "amp_a1b2c3...(64 caracteres)" }
+```
+  Desenhar com **destaque âmbar + botão copiar + aviso forte** ("copie agora, não será exibida de novo").
+- Lista de chaves existentes (sem o valor, que nunca reaparece):
+```json
+{ "id": 3, "label": "notebook", "created_at": "2026-06-01T10:00:00Z", "revoked_at": null }
+```
+- Revogar uma chave: avisar que **derruba a conexão do agente na hora**.
+
+**Bloco C — Grupos do agente**: entrar/sair de grupos (lista de grupos com checkbox/toggle). Só funciona para agentes do próprio usuário.
+
+**Status do agente**: online/offline + uma caixa com a instrução de como conectar (texto copiável com a chave como placeholder).
+
+### Tela 6 — Grupos (nova)
+
+- **Listar** grupos: nome, slug, lista de membros (com presença de cada um).
+- **Criar grupo**: slug (kebab-case) + nome. Qualquer usuário pode criar.
+- **Remover grupo**: só o criador ou um admin. Pedir confirmação.
+- **Erros a desenhar**: slug `all` é reservado (não pode criar) → *"'all' é reservado."*; já existe agente ou grupo com esse slug → *"Slug já em uso."*.
+- **Gerenciar membros**: dentro do grupo, adicionar/remover agentes. Regra visual importante: o usuário só pode adicionar os **próprios** agentes — agentes de outras pessoas aparecem **desabilitados com um tooltip** ("só o dono pode adicionar este agente"). Admin pode adicionar qualquer um.
+
+### Tela 7 — Equipe (somente admin)
+
+- **Convites**: botão "Gerar convite" → mostra um link copiável `https://painel/register?code=AMP-...` + quando expira. Lista de convites com estado (pendente / usado / expirado):
+```json
+{ "code": "AMP-7K2F-9XQ1-...", "created_at": "...", "expires_at": "...", "used_by": null }
+```
+- **Agentes da equipe**: tabela com todos os agentes (dono, modo, presença). Admin pode editar as regras de qualquer um.
+
+---
+
+## 6. Componentes globais
+
+- **Navegação** (topo ou lateral): Conversas · Grupos · Meus Agentes · Equipe (só admin) · nome do usuário + sair. Mostrar o badge "admin" quando for o caso.
+- **Toasts/erros padronizados**:
+  - Sem permissão (403): "Você não tem permissão para isso."
+  - Dados inválidos (422): mostrar a mensagem específica do campo.
+  - Muitas requisições (429): "Aguarde um momento."
+  - Sessão expirada (401): volta para a tela de login automaticamente.
+- **Estados vazios** sempre com orientação (sem agentes → CTA criar; sem conversas → como conectar; sem grupos → criar o primeiro).
+
+---
+
+## 7. Tabela de permissões (para a UI esconder/desabilitar o que não pode)
+
+| Ação | Member | Admin |
 |---|---|---|
 | Ver diretório, grupos, presença | ✅ | ✅ |
 | Ver conversas | só dos próprios agentes | todas |
-| Enviar como agente | só os próprios | qualquer um |
-| Regras/chaves de agente | só os próprios | qualquer um |
-| Membership em grupo | só agentes próprios | qualquer um |
+| Enviar mensagem como agente | só os próprios | qualquer agente |
+| Editar regras / chaves de agente | só os próprios | qualquer um |
+| Adicionar agente a grupo | só agentes próprios | qualquer agente |
 | Criar grupo | ✅ | ✅ |
-| Remover grupo | só se criador | ✅ |
-| Convites | ❌ | ✅ |
+| Remover grupo | só se for o criador | ✅ |
+| Gerar convites / ver tela Equipe | ❌ | ✅ |
+
+---
+
+## 8. Glossário rápido
+
+- **Agente**: o Claude Code de um dev, identificado por um slug (ex: `backend-julio`).
+- **Slug**: identificador em kebab-case (minúsculas, números e hífen).
+- **Presença**: agente online (conectado) ou offline.
+- **Modo inbox / auto**: mensagens esperam o humano / Claude responde sozinho.
+- **Broadcast**: mensagem para um grupo (`@frontend-team`) ou para todos (`@all`).
+- **Pendente / Entregue**: destinatário estava offline / recebeu.
+- **Chave de acesso**: segredo (`amp_...`) que o agente usa para conectar; exibida uma vez só.
+
+---
+
+## 9. Prioridade de entrega (se precisar fasear o design)
+
+1. **Conversas** (tela 4) — é o coração do produto.
+2. **Meus Agentes** (tela 5) — sem isso ninguém conecta.
+3. Login / Setup / Registro (telas 1–3) — simples, mas necessárias.
+4. **Grupos** (tela 6) e **Equipe** (tela 7).
