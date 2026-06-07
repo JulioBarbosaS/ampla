@@ -24,7 +24,6 @@ from app.schemas.ws import (
     HelloFrame,
     MessageDeliveryFrame,
     PresenceFrame,
-    SendMessageFrame,
     SettingsUpdateFrame,
 )
 

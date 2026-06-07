@@ -10,6 +10,7 @@
 
 import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -18,8 +19,23 @@ import { waitFor } from "../integration/fake-hub.js";
 
 const HUB_DIR = resolve(import.meta.dirname, "../../../hub");
 const PYTHON = join(HUB_DIR, ".venv/bin/python");
-const PORT = 8077;
-const BASE = `http://127.0.0.1:${PORT}`;
+
+/** Porta efêmera: evita flakiness por conflito/TIME_WAIT de porta fixa. */
+function getFreePort(): Promise<number> {
+  return new Promise((resolvePort, reject) => {
+    const server = createServer();
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (address === null || typeof address === "string") {
+        reject(new Error("sem porta"));
+        return;
+      }
+      const { port } = address;
+      server.close(() => resolvePort(port));
+    });
+    server.on("error", reject);
+  });
+}
 
 const hasHub = existsSync(PYTHON);
 
@@ -30,6 +46,8 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
   let daemonA: Daemon | null = null;
   let daemonB: Daemon | null = null;
   let healthy = false;
+  let PORT = 0;
+  let BASE = "";
 
   async function api(method: string, path: string, body?: unknown): Promise<any> {
     const response = await fetch(`${BASE}${path}`, {
@@ -47,6 +65,8 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
   }
 
   beforeAll(async () => {
+    PORT = await getFreePort();
+    BASE = `http://127.0.0.1:${PORT}`;
     dir = mkdtempSync(join(tmpdir(), "amp-fullstack-"));
     hubProcess = spawn(PYTHON, ["-m", "uvicorn", "app.main:app", "--port", String(PORT)], {
       cwd: HUB_DIR,

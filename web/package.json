@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:cov": "vitest run --coverage",
     "e2e": "playwright test",
     "lint": "biome check .",
     "lint:fix": "biome check --write ."
@@ -30,6 +31,7 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.5.0",
+    "@vitest/coverage-v8": "^3.2.6",
     "jsdom": "^26.1.0",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.8.0",

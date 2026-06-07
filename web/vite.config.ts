@@ -10,5 +10,17 @@ export default defineConfig({
     globals: true,
     setupFiles: ["src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
+    coverage: {
+      provider: "v8",
+      include: ["src/**"],
+      exclude: ["src/main.tsx", "src/test/**", "src/vite-env.d.ts"],
+      // gate baixo de propósito: fase backend-first; sobe na passada de UI/UX
+      thresholds: {
+        lines: 25,
+        functions: 40,
+        statements: 25,
+        branches: 70,
+      },
+    },
   },
 });
