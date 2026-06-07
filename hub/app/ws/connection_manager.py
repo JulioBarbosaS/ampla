@@ -46,12 +46,17 @@ class ConnectionManager:
                 return True
         return False
 
-    async def kick_agent(self, slug: str, reason: str = "revoked") -> None:
-        """Derruba o daemon imediatamente (revogação de chave — Ameaça 2)."""
+    async def kick_agent(self, slug: str, reason: str = "revoked") -> bool:
+        """Derruba o daemon imediatamente (revogação de chave — Ameaça 2).
+        Retorna True se havia conexão. O broadcast de presença `offline` é
+        responsabilidade do chamador (o loop da conexão derrubada não emite,
+        pois disconnect_agent já não encontra o slug)."""
         async with self._lock:
             ws = self._agents.pop(slug, None)
         if ws is not None:
             await self._close_quietly(ws, code=4001, reason=reason)
+            return True
+        return False
 
     def is_online(self, slug: str) -> bool:
         return slug in self._agents

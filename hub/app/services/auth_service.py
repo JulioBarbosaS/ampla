@@ -103,8 +103,11 @@ class AuthService:
     async def login(self, email: str, password: str) -> tuple[User, str]:
         user = await self._users.get_by_email(email.lower())
         if user is None:
-            # bcrypt dummy para igualar o tempo de resposta (anti user-enumeration)
-            security.verify_password(password, security.hash_password("timing-equalizer"))
+            # Compara contra um hash bcrypt CONSTANTE pré-computado: uma única
+            # verificação, igualando o tempo do caminho real (que também faz
+            # uma verificação). Gerar hash novo aqui custava ~2x e criava um
+            # oráculo de enumeração invertido (Ameaça 2).
+            security.verify_password(password, security.DUMMY_PASSWORD_HASH)
             await self._audit.record("login_fail", actor=email.lower())
             raise AuthError(GENERIC_LOGIN_ERROR)
 

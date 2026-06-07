@@ -31,6 +31,12 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
+# Hash bcrypt constante (custo padrão) para o caminho de login com e-mail
+# inexistente: uma verificação de mesmo custo do caminho real, sem gerar hash
+# a cada chamada. Computado uma vez na importação. Nenhuma senha real bate.
+DUMMY_PASSWORD_HASH = hash_password(secrets.token_urlsafe(32))
+
+
 def generate_agent_key() -> str:
     return AGENT_KEY_PREFIX + secrets.token_hex(32)
 

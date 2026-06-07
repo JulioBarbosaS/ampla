@@ -22,6 +22,7 @@ from app.api.deps import (
     build_message_service,
 )
 from app.core.ratelimit import TokenBucket
+from app.models.user import utcnow
 from app.schemas.agent import AgentSettings
 from app.schemas.message import MessageOut
 from app.schemas.ws import (
@@ -212,8 +213,10 @@ async def _deliver(ws: WebSocket, msg) -> bool:
     manager: ConnectionManager = ws.app.state.manager
     session_factory = ws.app.state.session_factory
 
-    payload = _message_payload(msg)
-    delivered = await manager.send_to_agent(msg.to_agent, payload)
+    # Marca delivered no objeto ANTES de serializar, para que o frame entregue
+    # (e o espelho aos observers) reflita o timestamp — e não delivered_at:null.
+    msg.delivered_at = utcnow()
+    delivered = await manager.send_to_agent(msg.to_agent, _message_payload(msg))
     if delivered:
 
         async def _mark() -> None:
@@ -221,8 +224,10 @@ async def _deliver(ws: WebSocket, msg) -> bool:
                 await _message_service(ws, session).mark_delivered([msg.id])
 
         await asyncio.shield(_mark())
+    else:
+        msg.delivered_at = None  # destinatário offline: fica pendente
 
-    await manager.notify_message(payload, msg.from_agent, msg.to_agent)
+    await manager.notify_message(_message_payload(msg), msg.from_agent, msg.to_agent)
     return delivered
 
 

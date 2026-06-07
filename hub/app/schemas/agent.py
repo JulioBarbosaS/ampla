@@ -5,6 +5,10 @@ from pydantic import BaseModel, ConfigDict, Field
 # Slug público do agente (docs/ARCHITECTURE.md · Segurança · Transversal)
 SLUG_PATTERN = r"^[a-z][a-z0-9-]{1,48}[a-z0-9]$"
 
+# Slugs reservados — não podem ser usados por agente nem por grupo.
+# "all" é o broadcast virtual (@all). Namespace compartilhado agente↔grupo.
+RESERVED_SLUGS = {"all"}
+
 
 class AgentSettings(BaseModel):
     """Settings do agente — espelhadas em bridge/src/shared/protocol.ts."""

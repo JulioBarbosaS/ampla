@@ -117,6 +117,15 @@ class TestLogin:
         with pytest.raises(AuthError, match=GENERIC_LOGIN_ERROR):
             await service.login("naoexiste@amp.local", PASSWORD)
 
+    async def test_caminho_inexistente_usa_hash_constante(self):
+        """Timing anti-enumeration: e-mail inexistente faz UMA verificação
+        contra hash constante (não gera hash novo). Garante que o dummy hash
+        é um bcrypt válido e que verify retorna False sem levantar."""
+        from app.core import security
+
+        assert security.DUMMY_PASSWORD_HASH.startswith("$2")
+        assert security.verify_password("qualquer-senha", security.DUMMY_PASSWORD_HASH) is False
+
     async def test_lockout_incremental(self, service, audit):
         await make_admin(service)
         for _ in range(3):  # login_max_attempts=3

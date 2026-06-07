@@ -70,6 +70,8 @@ class TestRouting:
                 received = recv_until(ws_a, "message")
                 assert received["message"]["from"] == "mobile-eduardo"
                 assert received["message"]["body"] == "Existe endpoint de reset?"
+                # bug: o frame entregue trazia delivered_at:null mesmo entregue
+                assert received["message"]["delivered_at"] is not None
 
                 delivered = recv_until(ws_b, "delivered")
                 assert delivered["to"] == "backend-julio"
@@ -245,6 +247,23 @@ class TestSettingsPush:
 
 
 class TestRevocation:
+    def test_revogar_chave_difunde_offline(self, client):
+        """Bug: agente revogado ficava 'online' para sempre (presença fantasma)."""
+        token, key_a, key_b = setup_two_agents(client)
+        key_id = client.get("/api/agents/mobile-eduardo/keys", headers=auth(token)).json()[0]["id"]
+        with connect_agent_ws(client, "backend-julio", key_a) as ws_a:
+            recv_until(ws_a, "hello_ack")
+            with connect_agent_ws(client, "mobile-eduardo", key_b) as ws_b:
+                recv_until(ws_b, "hello_ack")
+                recv_until(ws_a, "presence")  # mobile online
+                client.delete(f"/api/agents/mobile-eduardo/keys/{key_id}", headers=auth(token))
+                frame = recv_until(ws_a, "presence")
+                assert frame == {
+                    "type": "presence",
+                    "agent_id": "mobile-eduardo",
+                    "status": "offline",
+                }
+
     def test_revogar_chave_derruba_websocket(self, client):
         token, key_a, _ = setup_two_agents(client)
         key_id = client.get("/api/agents/backend-julio/keys", headers=auth(token)).json()[0]["id"]

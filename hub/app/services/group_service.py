@@ -6,6 +6,7 @@ from app.models.user import User
 from app.repositories.agent_repo import AgentRepository
 from app.repositories.audit_repo import AuditRepository
 from app.repositories.group_repo import GroupRepository
+from app.schemas.agent import RESERVED_SLUGS
 from app.schemas.group import GroupCreate
 from app.services.errors import (
     ConflictError,
@@ -13,8 +14,6 @@ from app.services.errors import (
     NotFoundError,
     PermissionDeniedError,
 )
-
-RESERVED_GROUP_SLUGS = {"all"}  # @all é o broadcast virtual embutido
 
 
 class GroupService:
@@ -26,7 +25,7 @@ class GroupService:
         self._audit = audit
 
     async def create(self, actor: User, data: GroupCreate) -> Group:
-        if data.slug in RESERVED_GROUP_SLUGS:
+        if data.slug in RESERVED_SLUGS:
             raise InvalidInputError(f"{data.slug!r} é reservado para o broadcast embutido.")
         if await self._groups.get(data.slug) is not None:
             raise ConflictError("Já existe um grupo com este slug.")

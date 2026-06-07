@@ -8,7 +8,13 @@ from app.models.user import User, utcnow
 from app.repositories.agent_repo import AgentRepository
 from app.repositories.audit_repo import AuditRepository
 from app.repositories.group_repo import GroupRepository
-from app.schemas.agent import SLUG_PATTERN, AgentCreate, AgentSettings, AgentSettingsUpdate
+from app.schemas.agent import (
+    RESERVED_SLUGS,
+    SLUG_PATTERN,
+    AgentCreate,
+    AgentSettings,
+    AgentSettingsUpdate,
+)
 from app.services.errors import (
     ConflictError,
     InvalidInputError,
@@ -33,6 +39,8 @@ class AgentService:
     async def create(self, owner: User, data: AgentCreate) -> Agent:
         if not _SLUG_RE.fullmatch(data.slug):
             raise InvalidInputError("Slug inválido (use kebab-case: backend-julio).")
+        if data.slug in RESERVED_SLUGS:
+            raise InvalidInputError(f"{data.slug!r} é reservado.")
         if await self._agents.get(data.slug) is not None:
             raise ConflictError("Já existe um agente com este slug.")
         if self._groups is not None and await self._groups.get(data.slug) is not None:

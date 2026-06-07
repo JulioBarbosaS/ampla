@@ -24,6 +24,15 @@ class TestAgentCrud:
         )
         assert response.status_code == 409
 
+    def test_slug_all_reservado_422(self, client):
+        token = do_setup(client)
+        response = client.post(
+            "/api/agents",
+            json={"slug": "all", "display_name": "Todos"},
+            headers=auth(token),
+        )
+        assert response.status_code == 422
+
     def test_slug_invalido_422(self, client):
         token = do_setup(client)
         response = client.post(

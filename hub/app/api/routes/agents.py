@@ -102,5 +102,10 @@ async def revoke_key(
     key = await svc.revoke_key(user, slug, key_id)
     # Revogação derruba o WS na hora (Ameaça 2). A conexão pode estar usando
     # outra chave válida — o daemon reconecta sozinho nesse caso.
-    await request.app.state.manager.kick_agent(slug, reason="key_revoked")
+    manager = request.app.state.manager
+    if await manager.kick_agent(slug, reason="key_revoked"):
+        # o loop derrubado não emite offline (slug já removido), então difunde aqui
+        await manager.broadcast_presence(
+            {"type": "presence", "agent_id": slug, "status": "offline"}
+        )
     return AgentKeyOut.model_validate(key)
