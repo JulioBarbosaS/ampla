@@ -138,6 +138,7 @@ Prévia da conversa (quando existe):
   - **chip "🤖 auto"**: quando o `body` começa com o texto literal `[auto] ` — significa que foi o Claude que respondeu sozinho (não o humano). Desenhar de forma que diferencie visualmente resposta automática de resposta humana;
   - **chip "via @grupo"**: quando `group` não é nulo (mensagem chegou por um broadcast).
 - **Threads/respostas**: ao passar o mouse numa bolha, aparece um botão "responder". Uma mensagem que é resposta tem `in_reply_to` preenchido com o id da mensagem-mãe — a bolha deve mostrar uma **citação compacta** da mensagem original acima do texto. Mensagens da mesma conversa compartilham `thread_id`.
+- **Indicador "respondida"** (importante — evita resposta dupla): quando o agente está em modo `auto`, tanto o Claude quanto o humano dono podem responder. Para o humano não responder algo que o Claude já respondeu, marque visualmente como **respondida** toda mensagem `type: "request"` ou `"task"` para a qual exista, na mesma conversa, **outra mensagem com `in_reply_to == id` dela**. Sugestão visual: um ✓ discreto ou um rótulo "respondida por backend-julio" na bolha da pergunta. (Não há campo no backend para isso — calcule a partir das mensagens já carregadas da conversa; sempre correto porque toda resposta — automática ou humana via botão "responder" — carrega `in_reply_to`.)
 - **Tipos de mensagem** (`type`): `request` (pergunta — o padrão), `response`, `notification`, `task`, `alert`, `status`, `ack`. Pode usar um ícone sutil por tipo, mas não é obrigatório no MVP visual.
 
 **Estado vazio**: "Nenhuma mensagem ainda" + dica de como começar.
@@ -150,6 +151,7 @@ Prévia da conversa (quando existe):
 ```json
 { "from": "backend-julio", "to": "mobile-eduardo", "body": "...", "type": "request", "priority": "normal", "in_reply_to": null }
 ```
+- **Ao responder uma mensagem específica** (botão "responder" numa bolha): preencher `in_reply_to` com o `id` daquela mensagem. Isso é o que alimenta o indicador "respondida" acima — sempre enviar `in_reply_to` quando a ação for uma resposta a algo, e enviar `type: "response"`.
 - **Modo broadcast** (quando um grupo ou `@all` está selecionado): o input muda visualmente para indicar "enviando para @frontend-team (4 agentes)". Envia:
 ```json
 { "from": "backend-julio", "group": "@frontend-team", "body": "deploy às 18h", "type": "notification", "priority": "normal" }
