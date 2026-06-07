@@ -171,6 +171,22 @@ Atacante envia mensagem maliciosa para um agente em modo `auto`; o Claude headle
 
 Regra: **toda feature nova chega com teste no mesmo commit.**
 
+### Property-based tests (invariantes adversariais)
+
+`hub/tests/unit/test_properties.py` (hypothesis) e `bridge/tests/unit/properties.test.ts` (fast-check) cobrem os pontos de pressão adversarial: rate limiters (invariantes com clock injetável), validação de slug, round-trip do protocolo e o secret-filter (segredos construídos por geração devem ser detectados em qualquer contexto). Novas contramedidas de segurança devem ganhar propriedade aqui, não só exemplos.
+
+### Coverage gates (CI falha abaixo disso)
+
+| Projeto | Gate | Onde configura |
+|---|---|---|
+| `hub/` | 90% | `pyproject.toml · [tool.coverage.report]` |
+| `bridge/` | 75% lines / 80% branches | `vitest.config.ts` |
+| `web/` | 25% (fase backend-first; sobe na passada de UI/UX) | `vite.config.ts` |
+
+### CI (`.github/workflows/ci.yml`)
+
+Todo push/PR roda: lint + format + testes + goldens + coverage nas três partes, mais dois jobs e2e (full-stack hub↔daemons e Playwright contra hub real). Vermelho no CI bloqueia merge.
+
 ### Golden tests (contratos congelados)
 
 | Golden | Onde | Protege |
