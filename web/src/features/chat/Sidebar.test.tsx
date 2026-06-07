@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { groupsApi } from "../../lib/api/groups";
+import { messagesApi } from "../../lib/api/messages";
 import { useChatStore } from "../../stores/chat";
 import { Sidebar } from "./Sidebar";
 
@@ -25,6 +26,10 @@ vi.mock("../../lib/api/agents", () => ({
 
 vi.mock("../../lib/api/groups", () => ({
   groupsApi: { list: vi.fn().mockResolvedValue([]) },
+}));
+
+vi.mock("../../lib/api/messages", () => ({
+  messagesApi: { partners: vi.fn().mockResolvedValue([]) },
 }));
 
 beforeEach(() => {
@@ -77,5 +82,29 @@ describe("Sidebar", () => {
 
     await userEvent.click(groupItem);
     expect(useChatStore.getState().partner).toBe("@frontend-team");
+  });
+
+  it("mostra a prévia da última mensagem do parceiro (sem o prefixo [auto])", async () => {
+    vi.mocked(messagesApi.partners).mockResolvedValueOnce([
+      {
+        agent: "mobile-eduardo",
+        last_message: {
+          id: 9,
+          from: "mobile-eduardo",
+          to: "backend-julio",
+          body: "[auto] tudo certo com o deploy",
+          created_at: "2026-06-06T10:00:00Z",
+          type: "response",
+          priority: "normal",
+          group: null,
+          thread_id: 9,
+          in_reply_to: null,
+          delivered_at: null,
+          expires_at: null,
+        },
+      },
+    ]);
+    render(<Sidebar />);
+    expect(await screen.findByText("tudo certo com o deploy")).toBeInTheDocument();
   });
 });

@@ -9,9 +9,16 @@ import { Sidebar } from "./Sidebar";
 
 export function ChatPage() {
   const token = useAuthStore((s) => s.token);
-  const { perspective, partner } = useChatStore();
-  const { setDirectory, setOnlineList, setPresence, addMessage, setConversation, setPerspective } =
-    useChatStore();
+  const { perspective, partner, wsConnected } = useChatStore();
+  const {
+    setDirectory,
+    setOnlineList,
+    setPresence,
+    addMessage,
+    setConversation,
+    setPerspective,
+    setWsConnected,
+  } = useChatStore();
 
   // diretório + perspectiva inicial (primeiro agente meu)
   useEffect(() => {
@@ -35,8 +42,9 @@ export function ChatPage() {
       onMessage: addMessage,
       onPresence: setPresence,
       onOnlineList: setOnlineList,
+      onStatus: setWsConnected,
     });
-  }, [token, addMessage, setPresence, setOnlineList]);
+  }, [token, addMessage, setPresence, setOnlineList, setWsConnected]);
 
   // histórico da conversa selecionada
   useEffect(() => {
@@ -48,9 +56,16 @@ export function ChatPage() {
   }, [perspective, partner, setConversation]);
 
   return (
-    <div className="flex h-full">
-      <Sidebar />
-      <ChatWindow />
+    <div className="flex h-full flex-col">
+      {!wsConnected && (
+        <div role="status" className="bg-amber-900/40 px-4 py-1 text-center text-xs text-amber-300">
+          reconectando ao hub…
+        </div>
+      )}
+      <div className="flex min-h-0 flex-1">
+        <Sidebar />
+        <ChatWindow />
+      </div>
     </div>
   );
 }

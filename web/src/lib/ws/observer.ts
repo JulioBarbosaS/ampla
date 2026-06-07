@@ -10,6 +10,8 @@ export interface ObserverHandlers {
   onMessage: (message: Message) => void;
   onPresence: (agentId: string, online: boolean) => void;
   onOnlineList: (slugs: string[]) => void;
+  /** Status da conexão do painel (true após hello_ack, false ao cair). */
+  onStatus?: (connected: boolean) => void;
 }
 
 const RECONNECT_MS = 3000;
@@ -31,6 +33,7 @@ export function connectObserver(token: string, handlers: ObserverHandlers): () =
         return;
       }
       if (frame.type === "hello_ack") {
+        handlers.onStatus?.(true);
         handlers.onOnlineList((frame.online as string[]) ?? []);
       } else if (frame.type === "message") {
         handlers.onMessage(frame.message as Message);
@@ -39,6 +42,7 @@ export function connectObserver(token: string, handlers: ObserverHandlers): () =
       }
     };
     ws.onclose = () => {
+      handlers.onStatus?.(false);
       if (!stopped) {
         timer = setTimeout(open, RECONNECT_MS);
       }

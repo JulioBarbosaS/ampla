@@ -1,8 +1,18 @@
 import { useEffect, useState } from "react";
 import { agentsApi } from "../../lib/api/agents";
 import { groupsApi } from "../../lib/api/groups";
+import { messagesApi } from "../../lib/api/messages";
 import type { Agent } from "../../lib/api/types";
 import { useChatStore } from "../../stores/chat";
+
+const AUTO_PREFIX = "[auto] ";
+
+function previewOf(body: string, max = 38): string {
+  const flat = (body.startsWith(AUTO_PREFIX) ? body.slice(AUTO_PREFIX.length) : body)
+    .replace(/\s+/g, " ")
+    .trim();
+  return flat.length > max ? `${flat.slice(0, max)}…` : flat;
+}
 
 export function PresenceDot({ online }: { online: boolean }) {
   return (
@@ -22,6 +32,7 @@ export function Sidebar() {
   const setPartner = useChatStore((s) => s.setPartner);
   const setGroups = useChatStore((s) => s.setGroups);
   const [mine, setMine] = useState<Agent[]>([]);
+  const [previews, setPreviews] = useState<Record<string, string>>({});
 
   useEffect(() => {
     agentsApi
@@ -33,6 +44,22 @@ export function Sidebar() {
       .then(setGroups)
       .catch(() => {});
   }, [setGroups]);
+
+  // Prévia da última mensagem de cada parceiro (sob a perspectiva atual).
+  useEffect(() => {
+    if (!perspective) {
+      setPreviews({});
+      return;
+    }
+    messagesApi
+      .partners(perspective)
+      .then((partners) =>
+        setPreviews(
+          Object.fromEntries(partners.map((p) => [p.agent, previewOf(p.last_message.body)])),
+        ),
+      )
+      .catch(() => {});
+  }, [perspective]);
 
   const others = directory.filter((entry) => entry.slug !== perspective);
 
@@ -80,7 +107,9 @@ export function Sidebar() {
                 <PresenceDot online={online[entry.slug] ?? false} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-zinc-200">{entry.slug}</span>
-                  <span className="block truncate text-xs text-zinc-500">{entry.display_name}</span>
+                  <span className="block truncate text-xs text-zinc-500">
+                    {previews[entry.slug] ?? entry.display_name}
+                  </span>
                 </span>
               </button>
             </li>

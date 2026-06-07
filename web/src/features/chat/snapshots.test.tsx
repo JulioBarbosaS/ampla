@@ -20,6 +20,10 @@ vi.mock("../../lib/api/groups", () => ({
   groupsApi: { list: vi.fn().mockResolvedValue([]) },
 }));
 
+vi.mock("../../lib/api/messages", () => ({
+  messagesApi: { partners: vi.fn().mockResolvedValue([]) },
+}));
+
 const MESSAGE: Message = {
   id: 1,
   from: "mobile-eduardo",

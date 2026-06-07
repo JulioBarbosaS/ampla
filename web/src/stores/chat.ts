@@ -15,11 +15,14 @@ interface ChatState {
   groups: Group[];
   online: Record<string, boolean>;
   conversations: Record<string, Message[]>;
+  /** Conexão WS do painel (para o indicador "reconectando…"). */
+  wsConnected: boolean;
 
   setPerspective: (slug: string | null) => void;
   setPartner: (slug: string | null) => void;
   setDirectory: (entries: DirectoryEntry[]) => void;
   setGroups: (groups: Group[]) => void;
+  setWsConnected: (connected: boolean) => void;
   setOnlineList: (slugs: string[]) => void;
   setPresence: (slug: string, online: boolean) => void;
   setConversation: (a: string, b: string, messages: Message[]) => void;
@@ -33,10 +36,12 @@ export const useChatStore = create<ChatState>((set) => ({
   groups: [],
   online: {},
   conversations: {},
+  wsConnected: true,
 
   setPerspective: (slug) => set({ perspective: slug, partner: null }),
   setPartner: (slug) => set({ partner: slug }),
   setGroups: (groups) => set({ groups }),
+  setWsConnected: (connected) => set({ wsConnected: connected }),
   setDirectory: (entries) =>
     set((state) => ({
       directory: entries,
