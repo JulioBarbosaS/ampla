@@ -23,6 +23,10 @@ class MessageRepository:
     async def get(self, message_id: int) -> Message | None:
         return await self._session.get(Message, message_id)
 
+    async def save(self, message: Message) -> None:
+        self._session.add(message)
+        await self._session.commit()
+
     async def conversation(self, agent_a: str, agent_b: str, limit: int = 50) -> list[Message]:
         """Mensagens entre dois agentes, mais recentes primeiro."""
         result = await self._session.execute(

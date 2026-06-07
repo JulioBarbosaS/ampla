@@ -18,6 +18,9 @@ class MessageOut(BaseModel):
     body: str
     type: str
     priority: str
+    group: str | None = Field(
+        default=None, serialization_alias="group", validation_alias="group_slug"
+    )
     thread_id: int | None
     in_reply_to: int | None
     created_at: datetime

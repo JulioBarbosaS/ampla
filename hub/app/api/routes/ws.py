@@ -15,13 +15,20 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from app.api.deps import build_agent_service, build_auth_service, build_message_service
+from app.api.deps import (
+    build_agent_service,
+    build_auth_service,
+    build_group_service,
+    build_message_service,
+)
 from app.core.ratelimit import TokenBucket
 from app.schemas.agent import AgentSettings
 from app.schemas.message import MessageOut
 from app.schemas.ws import (
+    BroadcastResultFrame,
     DeliveredFrame,
     ErrorFrame,
+    GroupInfo,
     HelloAckFrame,
     HelloFrame,
     MessageDeliveryFrame,
@@ -106,6 +113,10 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
             return
         pending = await _message_service(ws, session).pending_for(slug)
         agent_settings = AgentSettings.model_validate(agent)
+        groups = [
+            GroupInfo(slug=g.slug, display_name=g.display_name, members=members)
+            for g, members in await build_group_service(session).list_with_members()
+        ]
 
     await manager.connect_agent(slug, ws)
     await manager.broadcast_presence({"type": "presence", "agent_id": slug, "status": "online"})
@@ -115,6 +126,7 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
         online=manager.online_slugs(),
         settings=agent_settings,
         pending=[MessageOut.model_validate(m) for m in pending],
+        groups=groups,
     )
     await ws.send_json(ack.model_dump(mode="json", by_alias=True))
 
@@ -154,7 +166,10 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
                 await _send_error(ws, "rate_limited", "Limite de mensagens excedido.")
                 continue
 
-            await _handle_send(ws, slug, frame)
+            if frame.to.startswith("@"):
+                await _handle_broadcast(ws, slug, frame)
+            else:
+                await _handle_send(ws, slug, frame)
     except WebSocketDisconnect:
         pass
     finally:
@@ -166,7 +181,6 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
 
 
 async def _handle_send(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -> None:
-    manager: ConnectionManager = ws.app.state.manager
     session_factory = ws.app.state.session_factory
 
     # Escritas protegidas por shield: desconexão do remetente no meio da
@@ -188,8 +202,18 @@ async def _handle_send(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -
         await _send_error(ws, exc.code, exc.detail)
         return
 
+    delivered = await _deliver(ws, msg)
+    if delivered:
+        await ws.send_json(DeliveredFrame(message_id=msg.id, to=frame.to).model_dump(mode="json"))
+
+
+async def _deliver(ws: WebSocket, msg) -> bool:
+    """Entrega em tempo real + marca delivered + espelha para observers."""
+    manager: ConnectionManager = ws.app.state.manager
+    session_factory = ws.app.state.session_factory
+
     payload = _message_payload(msg)
-    delivered = await manager.send_to_agent(frame.to, payload)
+    delivered = await manager.send_to_agent(msg.to_agent, payload)
     if delivered:
 
         async def _mark() -> None:
@@ -198,9 +222,52 @@ async def _handle_send(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -
 
         await asyncio.shield(_mark())
 
-    await manager.notify_message(payload, from_slug, frame.to)
-    if delivered:
-        await ws.send_json(DeliveredFrame(message_id=msg.id, to=frame.to).model_dump(mode="json"))
+    await manager.notify_message(payload, msg.from_agent, msg.to_agent)
+    return delivered
+
+
+async def _handle_broadcast(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -> None:
+    """Fan-out @grupo/@all: rate limit próprio + uma DM por membro."""
+    state = ws.app.state
+    session_factory = state.session_factory
+
+    if not state.broadcast_limiter.allow(from_slug):
+        await _send_error(ws, "rate_limited", "Limite de broadcasts por minuto excedido.")
+        return
+    if frame.in_reply_to is not None:
+        await _send_error(ws, "invalid_input", "Broadcast não aceita in_reply_to.")
+        return
+
+    async def _persist():
+        async with session_factory() as session:
+            recipients = await build_group_service(session).resolve_recipients(frame.to, from_slug)
+            return await _message_service(ws, session).send_broadcast(
+                from_slug,
+                frame.to,
+                recipients,
+                frame.body,
+                type=frame.msg_type,
+                priority=frame.priority,
+            )
+
+    try:
+        sent, skipped = await asyncio.shield(_persist())
+    except DomainError as exc:
+        await _send_error(ws, exc.code, exc.detail)
+        return
+
+    offline: list[str] = []
+    for msg in sent:
+        if not await _deliver(ws, msg):
+            offline.append(msg.to_agent)
+
+    result = BroadcastResultFrame(
+        group=frame.to,
+        sent=[m.to_agent for m in sent],
+        skipped=skipped,
+        offline=offline,
+    )
+    await ws.send_json(result.model_dump(mode="json"))
 
 
 # ---------------------------------------------------------------- observers

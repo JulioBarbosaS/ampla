@@ -62,6 +62,7 @@ export function createDaemon(
       body: message.body,
       type: message.type,
       priority: message.priority,
+      group: message.group,
       thread_id: message.thread_id,
       in_reply_to: message.in_reply_to,
       ts: message.created_at,
@@ -118,6 +119,7 @@ export function createDaemon(
             body,
             type: "response",
             priority: message.priority,
+            group: null,
             thread_id: message.thread_id,
             in_reply_to: message.id,
             ts: new Date().toISOString(),
@@ -160,6 +162,13 @@ export function createDaemon(
   });
   hub.on("hubError", ({ code, detail }) => {
     console.error(`[amp] erro do hub: ${code} — ${detail}`);
+  });
+  hub.on("broadcastResult", ({ group, sent, skipped, offline }) => {
+    console.error(
+      `[amp] broadcast ${group}: ${sent.length} enviado(s)` +
+        (offline.length ? `, ${offline.length} offline (pendente)` : "") +
+        (skipped.length ? `, pulados pela allowlist: ${skipped.join(", ")}` : ""),
+    );
   });
 
   return {

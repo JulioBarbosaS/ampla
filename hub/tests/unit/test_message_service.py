@@ -152,6 +152,35 @@ class TestThreading:
         assert msg.expires_at is not None
 
 
+class TestBroadcast:
+    async def test_fan_out_cria_uma_dm_por_destinatario(self, service, agents):
+        await agents.add(Agent(slug="frontend-joao", user_id=5, display_name="F"))
+        sent, skipped = await service.send_broadcast(
+            "backend-julio",
+            "@all",
+            ["mobile-eduardo", "frontend-joao"],
+            "anúncio!",
+            type="notification",
+        )
+        assert [m.to_agent for m in sent] == ["mobile-eduardo", "frontend-joao"]
+        assert skipped == []
+        assert all(m.group_slug == "@all" for m in sent)
+        assert all(m.type == "notification" for m in sent)
+
+    async def test_allowlist_do_destinatario_vence_o_broadcast(self, service, agents):
+        backend = await agents.get("backend-julio")
+        backend.allowed_senders = ["frontend-joao"]  # mobile-eduardo não pode
+        sent, skipped = await service.send_broadcast(
+            "mobile-eduardo", "@all", ["backend-julio"], "oi time"
+        )
+        assert sent == []
+        assert skipped == ["backend-julio"]
+
+    async def test_broadcast_sem_destinatarios_e_erro(self, service):
+        with pytest.raises(InvalidInputError):
+            await service.send_broadcast("backend-julio", "@vazio", [], "eco")
+
+
 class TestHistory:
     async def test_dono_ve_conversa_do_proprio_agente(self, service):
         await service.send("mobile-eduardo", "backend-julio", "pergunta")

@@ -81,6 +81,7 @@ describe("protocolo: round-trip para qualquer mensagem", () => {
     body: fc.string({ minLength: 1, maxLength: 2000 }), // unicode arbitrário
     type: fc.constantFrom("request", "response", "notification", "task", "alert", "status", "ack"),
     priority: fc.constantFrom("urgent", "high", "normal", "low"),
+    group: fc.option(fc.constantFrom("@all", "@frontend-team"), { nil: null }),
     thread_id: fc.option(fc.integer({ min: 1, max: 2 ** 31 }), { nil: null }),
     in_reply_to: fc.option(fc.integer({ min: 1, max: 2 ** 31 }), { nil: null }),
     created_at: fc.constant("2026-06-06T12:00:00Z"),

@@ -15,6 +15,7 @@ export const storedMessageSchema = z.object({
   // defaults preservam compatibilidade com JSONL anterior ao threading
   type: messageTypeSchema.default("request"),
   priority: prioritySchema.default("normal"),
+  group: z.string().nullable().default(null),
   thread_id: z.number().int().nullable().default(null),
   in_reply_to: z.number().int().nullable().default(null),
   ts: z.string(),

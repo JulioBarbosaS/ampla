@@ -106,6 +106,7 @@ export function wireMessage(
     body,
     type: "request",
     priority: "normal",
+    group: null,
     thread_id: id,
     in_reply_to: null,
     created_at: new Date().toISOString(),

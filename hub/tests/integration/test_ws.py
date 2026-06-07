@@ -159,6 +159,60 @@ class TestRouting:
             assert recv_until(ws, "error")["code"] == "not_found"
 
 
+class TestBroadcastWs:
+    def test_fan_out_em_tempo_real_com_offline_e_result(self, client):
+        token, key_a, key_b = setup_two_agents(client)
+        create_agent(client, token, "infra-maria")  # ficará offline
+        client.post(
+            "/api/groups",
+            json={"slug": "equipe", "display_name": "Equipe"},
+            headers=auth(token),
+        )
+        for agent in ("backend-julio", "mobile-eduardo", "infra-maria"):
+            client.post("/api/groups/equipe/members", json={"agent": agent}, headers=auth(token))
+
+        with connect_agent_ws(client, "backend-julio", key_a) as ws_a:
+            ack = recv_until(ws_a, "hello_ack")
+            assert ack["groups"] == [
+                {
+                    "slug": "equipe",
+                    "display_name": "Equipe",
+                    "members": ["backend-julio", "infra-maria", "mobile-eduardo"],
+                }
+            ]
+            with connect_agent_ws(client, "mobile-eduardo", key_b) as ws_b:
+                recv_until(ws_b, "hello_ack")
+
+                ws_a.send_json({"type": "message", "to": "@equipe", "body": "standup agora?"})
+                received = recv_until(ws_b, "message")["message"]
+                assert received["group"] == "@equipe"
+                assert received["from"] == "backend-julio"
+
+                result = recv_until(ws_a, "broadcast_result")
+                assert sorted(result["sent"]) == ["infra-maria", "mobile-eduardo"]
+                assert result["offline"] == ["infra-maria"]
+                assert result["skipped"] == []
+
+    def test_rate_limit_de_broadcast(self):
+        app = create_app(make_settings(broadcast_per_minute=2))
+        with TestClient(app) as client:
+            _, key_a, _ = setup_two_agents(client)
+            with connect_agent_ws(client, "backend-julio", key_a) as ws:
+                recv_until(ws, "hello_ack")
+                for _ in range(2):
+                    ws.send_json({"type": "message", "to": "@all", "body": "spam?"})
+                    recv_until(ws, "broadcast_result")
+                ws.send_json({"type": "message", "to": "@all", "body": "bloqueia"})
+                assert recv_until(ws, "error")["code"] == "rate_limited"
+
+    def test_grupo_inexistente_gera_error(self, client):
+        _, key_a, _ = setup_two_agents(client)
+        with connect_agent_ws(client, "backend-julio", key_a) as ws:
+            recv_until(ws, "hello_ack")
+            ws.send_json({"type": "message", "to": "@fantasmas", "body": "eco"})
+            assert recv_until(ws, "error")["code"] == "not_found"
+
+
 class TestAllowlist:
     def test_hub_bloqueia_remetente_fora_da_allowlist(self, client):
         token, key_a, key_b = setup_two_agents(client)

@@ -39,6 +39,7 @@ export const wireMessageSchema = z.object({
   body: z.string(),
   type: messageTypeSchema,
   priority: prioritySchema,
+  group: z.string().nullable().default(null), // "@frontend-team"/"@all" em fan-out
   thread_id: z.number().int().nullable(),
   in_reply_to: z.number().int().nullable(),
   created_at: z.string(),
@@ -46,6 +47,13 @@ export const wireMessageSchema = z.object({
   expires_at: z.string().nullable(),
 });
 export type WireMessage = z.infer<typeof wireMessageSchema>;
+
+export const groupInfoSchema = z.object({
+  slug: z.string(),
+  display_name: z.string(),
+  members: z.array(z.string()),
+});
+export type GroupInfo = z.infer<typeof groupInfoSchema>;
 
 // ---------- daemon → hub ----------
 
@@ -74,6 +82,7 @@ export const helloAckFrameSchema = z.object({
   online: z.array(z.string()),
   settings: agentSettingsSchema.nullable(),
   pending: z.array(wireMessageSchema),
+  groups: z.array(groupInfoSchema).default([]),
 });
 
 export const messageDeliveryFrameSchema = z.object({
@@ -98,6 +107,14 @@ export const settingsUpdateFrameSchema = z.object({
   settings: agentSettingsSchema,
 });
 
+export const broadcastResultFrameSchema = z.object({
+  type: z.literal("broadcast_result"),
+  group: z.string(),
+  sent: z.array(z.string()),
+  skipped: z.array(z.string()),
+  offline: z.array(z.string()),
+});
+
 export const errorFrameSchema = z.object({
   type: z.literal("error"),
   code: z.string(),
@@ -110,6 +127,7 @@ export const serverFrameSchema = z.discriminatedUnion("type", [
   deliveredFrameSchema,
   presenceFrameSchema,
   settingsUpdateFrameSchema,
+  broadcastResultFrameSchema,
   errorFrameSchema,
 ]);
 export type ServerFrame = z.infer<typeof serverFrameSchema>;

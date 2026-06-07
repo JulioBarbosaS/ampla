@@ -8,6 +8,7 @@ import WebSocket from "ws";
 import {
   type AgentSettings,
   type ClientFrame,
+  type GroupInfo,
   type HelloAckFrame,
   type MessageType,
   type Priority,
@@ -21,6 +22,7 @@ export interface HubClientEvents {
   delivered: [{ message_id: number; to: string }];
   presence: [{ agent_id: string; status: "online" | "offline" }];
   settings: [AgentSettings];
+  broadcastResult: [{ group: string; sent: string[]; skipped: string[]; offline: string[] }];
   hubError: [{ code: string; detail: string }];
   down: [{ willRetry: boolean; delayMs: number }];
 }
@@ -37,6 +39,7 @@ export class HubClient extends EventEmitter<HubClientEvents> {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private readonly online = new Set<string>();
   settings: AgentSettings | null = null;
+  groups: GroupInfo[] = [];
 
   constructor(
     private readonly hubUrl: string,
@@ -108,6 +111,7 @@ export class HubClient extends EventEmitter<HubClientEvents> {
           this.online.clear();
           for (const slug of frame.online) this.online.add(slug);
           if (frame.settings) this.settings = frame.settings;
+          this.groups = frame.groups;
           this.emit("ack", frame);
           for (const pending of frame.pending) this.emit("message", pending);
           break;
@@ -125,6 +129,14 @@ export class HubClient extends EventEmitter<HubClientEvents> {
         case "settings_update":
           this.settings = frame.settings;
           this.emit("settings", frame.settings);
+          break;
+        case "broadcast_result":
+          this.emit("broadcastResult", {
+            group: frame.group,
+            sent: frame.sent,
+            skipped: frame.skipped,
+            offline: frame.offline,
+          });
           break;
         case "error":
           this.emit("hubError", { code: frame.code, detail: frame.detail });

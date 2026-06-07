@@ -18,8 +18,10 @@ from pathlib import Path
 from app.schemas.agent import AgentSettings
 from app.schemas.message import MessageOut
 from app.schemas.ws import (
+    BroadcastResultFrame,
     DeliveredFrame,
     ErrorFrame,
+    GroupInfo,
     HelloAckFrame,
     HelloFrame,
     MessageDeliveryFrame,
@@ -92,12 +94,28 @@ def test_ws_frames_contract() -> None:
                 "in_reply_to": 1,
             }
         ),
+        "client.broadcast": _accepted_client_frame(
+            {"type": "message", "to": "@frontend-team", "body": "deploy às 18h"}
+        ),
         "server.hello_ack": HelloAckFrame(
             agent_id="backend-julio",
             online=["backend-julio", "mobile-eduardo"],
             settings=settings,
             pending=[message],
+            groups=[
+                GroupInfo(
+                    slug="frontend-team",
+                    display_name="Time Frontend",
+                    members=["frontend-joao", "mobile-eduardo"],
+                )
+            ],
         ).model_dump(mode="json", by_alias=True),
+        "server.broadcast_result": BroadcastResultFrame(
+            group="@frontend-team",
+            sent=["frontend-joao", "mobile-eduardo"],
+            skipped=[],
+            offline=["frontend-joao"],
+        ).model_dump(mode="json"),
         "server.message": MessageDeliveryFrame(message=message).model_dump(
             mode="json", by_alias=True
         ),

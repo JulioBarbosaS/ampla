@@ -28,6 +28,8 @@ class Message(Base):
     body: Mapped[str] = mapped_column(Text)
     type: Mapped[str] = mapped_column(String(16), default="request")
     priority: Mapped[str] = mapped_column(String(8), default="normal")
+    # Origem em fan-out de grupo: "@frontend-team" ou "@all" (None = DM direta)
+    group_slug: Mapped[str | None] = mapped_column(String(61), default=None)
     thread_id: Mapped[int | None] = mapped_column(default=None)  # id da raiz da thread
     in_reply_to: Mapped[int | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

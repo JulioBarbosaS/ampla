@@ -9,6 +9,7 @@ const MESSAGE: WireMessage = {
   body: "Existe endpoint de reset de senha?",
   type: "request" as const,
   priority: "normal" as const,
+  group: null,
   thread_id: null,
   in_reply_to: null,
   created_at: "2026-06-06T12:00:00Z",

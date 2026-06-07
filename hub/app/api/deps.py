@@ -12,11 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.repositories.agent_repo import AgentRepository
 from app.repositories.audit_repo import AuditRepository
+from app.repositories.group_repo import GroupRepository
 from app.repositories.invite_repo import InviteRepository
 from app.repositories.message_repo import MessageRepository
 from app.repositories.user_repo import UserRepository
 from app.services.agent_service import AgentService
 from app.services.auth_service import AuthService
+from app.services.group_service import GroupService
 from app.services.message_service import MessageService
 
 _bearer = HTTPBearer(auto_error=False)
@@ -41,7 +43,19 @@ def build_auth_service(session: AsyncSession, settings) -> AuthService:
 
 
 def build_agent_service(session: AsyncSession) -> AgentService:
-    return AgentService(agents=AgentRepository(session), audit=AuditRepository(session))
+    return AgentService(
+        agents=AgentRepository(session),
+        audit=AuditRepository(session),
+        groups=GroupRepository(session),
+    )
+
+
+def build_group_service(session: AsyncSession) -> GroupService:
+    return GroupService(
+        groups=GroupRepository(session),
+        agents=AgentRepository(session),
+        audit=AuditRepository(session),
+    )
 
 
 def build_message_service(session: AsyncSession, settings) -> MessageService:
@@ -59,6 +73,10 @@ def get_auth_service(request: Request, session: AsyncSession = Depends(get_sessi
 
 def get_agent_service(session: AsyncSession = Depends(get_session)) -> AgentService:
     return build_agent_service(session)
+
+
+def get_group_service(session: AsyncSession = Depends(get_session)) -> GroupService:
+    return build_group_service(session)
 
 
 def get_message_service(

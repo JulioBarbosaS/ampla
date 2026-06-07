@@ -29,12 +29,13 @@ export function buildServer(): McpServer {
   server.registerTool(
     "amp_send",
     {
-      title: "Enviar mensagem a outro agente",
+      title: "Enviar mensagem a outro agente ou grupo",
       description:
-        "Envia uma mensagem direta para outro agente Claude da equipe (ex: backend-julio). " +
-        "Se o destinatário estiver offline, o hub entrega quando ele reconectar.",
+        "Envia uma mensagem direta para outro agente Claude da equipe (ex: backend-julio), " +
+        "para um grupo (ex: @frontend-team) ou para todos (@all). " +
+        "Se um destinatário estiver offline, o hub entrega quando ele reconectar.",
       inputSchema: {
-        to: z.string().describe("slug do agente destinatário, ex: backend-julio"),
+        to: z.string().describe("agente (backend-julio), grupo (@frontend-team) ou todos (@all)"),
         body: z.string().max(16_384).describe("conteúdo da mensagem"),
         type: z
           .enum(["request", "response", "notification", "task", "alert", "status", "ack"])
@@ -92,6 +93,23 @@ export function buildServer(): McpServer {
         return asText(
           await daemon.get(`/history?with=${encodeURIComponent(partner)}&limit=${limit}`),
         );
+      } catch (error) {
+        return asError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "amp_groups",
+    {
+      title: "Grupos da equipe",
+      description:
+        "Lista os grupos de agentes e seus membros — destinos válidos para amp_send com @grupo.",
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        return asText(await daemon.get("/groups"));
       } catch (error) {
         return asError(error);
       }

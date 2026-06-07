@@ -236,6 +236,85 @@
         "title": "AgentSettingsUpdate",
         "type": "object"
       },
+      "BroadcastRequest": {
+        "properties": {
+          "body": {
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "from": {
+            "maxLength": 50,
+            "minLength": 3,
+            "title": "From",
+            "type": "string"
+          },
+          "group": {
+            "maxLength": 51,
+            "minLength": 2,
+            "pattern": "^@[a-z][a-z0-9-]*$",
+            "title": "Group",
+            "type": "string"
+          },
+          "priority": {
+            "default": "normal",
+            "pattern": "^(urgent|high|normal|low)$",
+            "title": "Priority",
+            "type": "string"
+          },
+          "type": {
+            "default": "request",
+            "pattern": "^(request|response|notification|task|alert|status|ack)$",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "group",
+          "body"
+        ],
+        "title": "BroadcastRequest",
+        "type": "object"
+      },
+      "BroadcastResult": {
+        "description": "Resultado de um fan-out: quem recebeu, quem foi pulado (allowlist).",
+        "properties": {
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "message_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Message Ids",
+            "type": "array"
+          },
+          "sent": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sent",
+            "type": "array"
+          },
+          "skipped": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "group",
+          "sent",
+          "skipped",
+          "message_ids"
+        ],
+        "title": "BroadcastResult",
+        "type": "object"
+      },
       "ConversationPartner": {
         "description": "Item da lista de conversas (sidebar do painel).",
         "properties": {
@@ -276,6 +355,80 @@
           "online"
         ],
         "title": "DirectoryEntry",
+        "type": "object"
+      },
+      "GroupCreate": {
+        "properties": {
+          "display_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "slug": {
+            "maxLength": 50,
+            "pattern": "^[a-z][a-z0-9-]{1,48}[a-z0-9]$",
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "display_name"
+        ],
+        "title": "GroupCreate",
+        "type": "object"
+      },
+      "GroupMemberAdd": {
+        "properties": {
+          "agent": {
+            "maxLength": 50,
+            "pattern": "^[a-z][a-z0-9-]{1,48}[a-z0-9]$",
+            "title": "Agent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent"
+        ],
+        "title": "GroupMemberAdd",
+        "type": "object"
+      },
+      "GroupOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "title": "Created By",
+            "type": "integer"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "members": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "display_name",
+          "created_by",
+          "created_at"
+        ],
+        "title": "GroupOut",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -405,6 +558,17 @@
           "from": {
             "title": "From",
             "type": "string"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group"
           },
           "id": {
             "title": "Id",
@@ -1234,6 +1398,219 @@
         ]
       }
     },
+    "/api/groups": {
+      "get": {
+        "operationId": "list_groups_api_groups_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GroupOut"
+                  },
+                  "title": "Response List Groups Api Groups Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Groups",
+        "tags": [
+          "groups"
+        ]
+      },
+      "post": {
+        "operationId": "create_group_api_groups_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Group",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/api/groups/{slug}": {
+      "delete": {
+        "operationId": "delete_group_api_groups__slug__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Group",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/api/groups/{slug}/members": {
+      "post": {
+        "operationId": "add_member_api_groups__slug__members_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupMemberAdd"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Member",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/api/groups/{slug}/members/{agent}": {
+      "delete": {
+        "operationId": "remove_member_api_groups__slug__members__agent__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "agent",
+            "required": true,
+            "schema": {
+              "title": "Agent",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove Member",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "health_api_health_get",
@@ -1353,6 +1730,53 @@
           }
         ],
         "summary": "Send Message",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/messages/broadcast": {
+      "post": {
+        "description": "Painel: fan-out para @grupo ou @all em nome do próprio agente.",
+        "operationId": "broadcast_api_messages_broadcast_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BroadcastRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BroadcastResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Broadcast",
         "tags": [
           "messages"
         ]

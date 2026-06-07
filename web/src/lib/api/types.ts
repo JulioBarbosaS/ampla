@@ -74,6 +74,7 @@ export interface Message {
   body: string;
   type: MessageType;
   priority: Priority;
+  group: string | null;
   thread_id: number | null;
   in_reply_to: number | null;
   created_at: string;

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     ws_max_frame_bytes: int = 64 * 1024
     message_max_body_bytes: int = 16 * 1024
     ws_messages_per_minute: int = 60  # token bucket por conexão
+    broadcast_per_minute: int = 5  # fan-outs @grupo/@all por agente (anti-spam)
 
     cors_origins: list[str] = ["http://localhost:5173"]
 

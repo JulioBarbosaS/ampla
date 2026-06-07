@@ -108,14 +108,25 @@ Frames JSON, campo `type` discriminador. Definição canônica: `hub/app/schemas
 | type | direção | payload |
 |---|---|---|
 | `hello` | daemon → hub | `{agent_id, key}` (autenticação do socket) |
-| `hello_ack` | hub → daemon | `{agent_id, online: [...], settings, pending: [...]}` |
-| `message` | ambos | `{id, from, to, body, ts}` |
+| `hello_ack` | hub → daemon | `{agent_id, online: [...], settings, pending: [...], groups: [...]}` |
+| `message` | ambos | envio: `{to, body, msg_type?, priority?, in_reply_to?}` · entrega: mensagem completa (threading, group, TTL) |
 | `delivered` | hub → remetente | `{message_id, to}` |
+| `broadcast_result` | hub → remetente | `{group, sent, skipped, offline}` (resultado do fan-out) |
 | `presence` | hub → todos | `{agent_id, status: "online"\|"offline"}` |
 | `settings_update` | hub → daemon | settings completas (dono alterou no painel) |
 | `error` | hub → cliente | `{code, detail}` |
 
-Destinatário offline ⇒ mensagem persiste no hub e é entregue no próximo `hello` (campo `pending` do `hello_ack`).
+Destinatário offline ⇒ mensagem persiste no hub e é entregue no próximo `hello` (campo `pending` do `hello_ack`), até expirar (`AMP_PENDING_TTL_DAYS`).
+
+### Grupos e broadcast
+
+`to: "@grupo"` ou `"@all"` ⇒ **fan-out de DMs**: o hub expande em uma mensagem individual por membro (exceto o remetente), cada uma com entrega/pendência/TTL próprios e `group` marcando a origem. Regras:
+
+- Membership é **opt-in do dono**: só o dono do agente (ou admin) inclui/remove o agente de grupos.
+- Allowlist do destinatário **vence o broadcast** — bloqueados entram em `skipped`, sem erro.
+- `@all` é virtual (todos os agentes); slug `all` é reservado; grupos e agentes compartilham namespace (colisão é 409).
+- Rate limit próprio: `AMP_BROADCAST_PER_MINUTE` (default 5) por agente remetente.
+- Broadcast não aceita `in_reply_to` (cada cópia inicia thread própria).
 
 ## Segurança — modelo de ameaças e contramedidas
 

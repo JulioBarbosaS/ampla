@@ -64,4 +64,13 @@ describe("espelhamento hub ↔ bridge (golden compartilhado)", () => {
     };
     expect(JSON.parse(JSON.stringify(message))).toEqual(golden["client.message_full"]);
   });
+
+  it("bridge produz client.broadcast (@grupo) byte-idêntico ao contrato", () => {
+    const broadcast: ClientFrame = {
+      type: "message",
+      to: "@frontend-team",
+      body: "deploy às 18h",
+    };
+    expect(JSON.parse(JSON.stringify(broadcast))).toEqual(golden["client.broadcast"]);
+  });
 });

@@ -7,8 +7,43 @@ no `add` para que os models se comportem como persistidos.
 from datetime import datetime
 
 from app.models.agent import Agent, AgentKey
+from app.models.group import Group
 from app.models.message import Message
 from app.models.user import Invite, User, utcnow
+
+
+class FakeGroupRepository:
+    def __init__(self) -> None:
+        self._groups: dict[str, Group] = {}
+        self._members: dict[str, set[str]] = {}
+
+    async def get(self, slug: str) -> Group | None:
+        return self._groups.get(slug)
+
+    async def list_all(self) -> list[Group]:
+        return sorted(self._groups.values(), key=lambda g: g.slug)
+
+    async def add(self, group: Group) -> Group:
+        _default(group, "created_at", utcnow())
+        self._groups[group.slug] = group
+        self._members.setdefault(group.slug, set())
+        return group
+
+    async def remove(self, group: Group) -> None:
+        self._groups.pop(group.slug, None)
+        self._members.pop(group.slug, None)
+
+    async def members_of(self, group_slug: str) -> list[str]:
+        return sorted(self._members.get(group_slug, set()))
+
+    async def is_member(self, group_slug: str, agent_slug: str) -> bool:
+        return agent_slug in self._members.get(group_slug, set())
+
+    async def add_member(self, group_slug: str, agent_slug: str) -> None:
+        self._members.setdefault(group_slug, set()).add(agent_slug)
+
+    async def remove_member(self, group_slug: str, agent_slug: str) -> None:
+        self._members.get(group_slug, set()).discard(agent_slug)
 
 
 def _default(obj, attr: str, value) -> None:
@@ -148,6 +183,9 @@ class FakeMessageRepository:
 
     async def get(self, message_id: int) -> Message | None:
         return self._messages.get(message_id)
+
+    async def save(self, message: Message) -> None:
+        self._messages[message.id] = message
 
     async def conversation(self, agent_a: str, agent_b: str, limit: int = 50) -> list[Message]:
         pair = {agent_a, agent_b}

@@ -38,12 +38,19 @@ client_frame_adapter: TypeAdapter[ClientFrame] = TypeAdapter(ClientFrame)
 # ---------- hub → cliente ----------
 
 
+class GroupInfo(BaseModel):
+    slug: str
+    display_name: str
+    members: list[str]
+
+
 class HelloAckFrame(BaseModel):
     type: Literal["hello_ack"] = "hello_ack"
     agent_id: str | None  # None para conexões de painel (observer)
     online: list[str]
     settings: AgentSettings | None  # None para observers
     pending: list[MessageOut]
+    groups: list[GroupInfo] = []
 
 
 class MessageDeliveryFrame(BaseModel):
@@ -68,6 +75,16 @@ class SettingsUpdateFrame(BaseModel):
     settings: AgentSettings
 
 
+class BroadcastResultFrame(BaseModel):
+    """Devolvido ao remetente após fan-out de @grupo/@all."""
+
+    type: Literal["broadcast_result"] = "broadcast_result"
+    group: str
+    sent: list[str]
+    skipped: list[str]  # bloqueados pela allowlist do destinatário
+    offline: list[str]  # receberão como pendente na reconexão
+
+
 class ErrorFrame(BaseModel):
     type: Literal["error"] = "error"
     code: str
@@ -80,5 +97,6 @@ ServerFrame = (
     | DeliveredFrame
     | PresenceFrame
     | SettingsUpdateFrame
+    | BroadcastResultFrame
     | ErrorFrame
 )

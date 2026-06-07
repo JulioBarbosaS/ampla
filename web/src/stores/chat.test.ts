@@ -10,6 +10,7 @@ function msg(id: number, from: string, to: string, body = `m${id}`): Message {
     body,
     type: "request" as const,
     priority: "normal" as const,
+    group: null,
     thread_id: id,
     in_reply_to: null,
     created_at: "2026-06-06T12:00:00Z",

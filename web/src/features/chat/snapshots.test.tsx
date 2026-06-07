@@ -24,6 +24,7 @@ const MESSAGE: Message = {
   created_at: "2026-06-06T15:30:00Z",
   type: "request",
   priority: "normal",
+  group: null,
   thread_id: 1,
   in_reply_to: null,
   delivered_at: "2026-06-06T15:30:01Z",

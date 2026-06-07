@@ -83,6 +83,39 @@ class MessageService:
             )
         )
 
+    async def send_broadcast(
+        self,
+        from_slug: str,
+        group_ref: str,
+        recipients: list[str],
+        body: str,
+        *,
+        type: str = "request",
+        priority: str = "normal",
+    ) -> tuple[list[Message], list[str]]:
+        """Fan-out: uma DM por destinatário, reusando todo o pipeline de send().
+        Allowlist do destinatário vence o broadcast → vai para `skipped`.
+        Retorna (mensagens criadas, slugs pulados)."""
+        if not recipients:
+            raise InvalidInputError(f"{group_ref!r} não tem outros membros para receber.")
+        sent: list[Message] = []
+        skipped: list[str] = []
+        for recipient in recipients:
+            try:
+                message = await self.send(from_slug, recipient, body, type=type, priority=priority)
+            except PermissionDeniedError:
+                skipped.append(recipient)  # allowlist do destinatário — já auditado em send()
+                continue
+            message.group_slug = group_ref
+            await self._messages.save(message)
+            sent.append(message)
+        await self._audit.record(
+            "broadcast_sent",
+            actor=from_slug,
+            detail={"group": group_ref, "sent": len(sent), "skipped": len(skipped)},
+        )
+        return sent, skipped
+
     async def send_as_user(
         self,
         actor: User,
@@ -95,14 +128,33 @@ class MessageService:
         in_reply_to: int | None = None,
     ) -> Message:
         """Humano envia em nome do próprio agente (painel). Admin pode por qualquer um."""
+        await self._assert_sender_owned(actor, from_slug)
+        return await self.send(
+            from_slug, to_slug, body, type=type, priority=priority, in_reply_to=in_reply_to
+        )
+
+    async def broadcast_as_user(
+        self,
+        actor: User,
+        from_slug: str,
+        group_ref: str,
+        recipients: list[str],
+        body: str,
+        *,
+        type: str = "request",
+        priority: str = "normal",
+    ) -> tuple[list[Message], list[str]]:
+        await self._assert_sender_owned(actor, from_slug)
+        return await self.send_broadcast(
+            from_slug, group_ref, recipients, body, type=type, priority=priority
+        )
+
+    async def _assert_sender_owned(self, actor: User, from_slug: str) -> None:
         sender = await self._agents.get(from_slug)
         if sender is None:
             raise NotFoundError(f"Agente {from_slug!r} não existe.")
         if sender.user_id != actor.id and actor.role != "admin":
             raise PermissionDeniedError("Você não envia mensagens por este agente.")
-        return await self.send(
-            from_slug, to_slug, body, type=type, priority=priority, in_reply_to=in_reply_to
-        )
 
     # ---- entrega ----
 

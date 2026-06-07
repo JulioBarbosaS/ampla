@@ -10,7 +10,12 @@ import type { MessageStore } from "./message-store.js";
 import type { HubClient } from "./ws-client.js";
 
 const sendBodySchema = z.object({
-  to: z.string().min(3).max(50),
+  // agente ("backend-julio") ou grupo ("@frontend-team", "@all")
+  to: z
+    .string()
+    .min(3)
+    .max(51)
+    .regex(/^@?[a-z][a-z0-9-]*$/, "destinatário inválido"),
   body: z.string().min(1).max(16_384),
   type: messageTypeSchema.default("request"),
   priority: prioritySchema.default("normal"),
@@ -40,6 +45,8 @@ export function buildLocalApi({ agentId, hub, store }: LocalApiDeps): FastifyIns
 
   api.get("/presence", async () => ({ online: hub.onlineAgents() }));
 
+  api.get("/groups", async () => ({ groups: hub.groups }));
+
   api.post("/send", async (request, reply) => {
     const parsed = sendBodySchema.safeParse(request.body);
     if (!parsed.success) {
@@ -49,6 +56,7 @@ export function buildLocalApi({ agentId, hub, store }: LocalApiDeps): FastifyIns
     if (!hub.connected) {
       return reply.code(503).send({ error: "Daemon desconectado do hub." });
     }
+    const isBroadcast = to.startsWith("@");
     hub.send(to, body, {
       msgType: type,
       priority,
@@ -61,13 +69,18 @@ export function buildLocalApi({ agentId, hub, store }: LocalApiDeps): FastifyIns
       body,
       type,
       priority,
+      group: isBroadcast ? to : null,
       thread_id: null,
       in_reply_to: in_reply_to ?? null,
       ts: new Date().toISOString(),
       direction: "out",
       read: true,
     });
-    return { sent: true, recipient_online: hub.onlineAgents().includes(to) };
+    return {
+      sent: true,
+      broadcast: isBroadcast,
+      recipient_online: isBroadcast ? null : hub.onlineAgents().includes(to),
+    };
   });
 
   api.get("/inbox", async (request) => {

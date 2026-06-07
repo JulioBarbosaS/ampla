@@ -1,4 +1,9 @@
 {
+  "client.broadcast": {
+    "body": "deploy às 18h",
+    "to": "@frontend-team",
+    "type": "message"
+  },
   "client.hello": {
     "agent_id": "backend-julio",
     "key": "amp_abababababababababababababababababababababababababababababababab",
@@ -17,6 +22,18 @@
     "to": "backend-julio",
     "type": "message"
   },
+  "server.broadcast_result": {
+    "group": "@frontend-team",
+    "offline": [
+      "frontend-joao"
+    ],
+    "sent": [
+      "frontend-joao",
+      "mobile-eduardo"
+    ],
+    "skipped": [],
+    "type": "broadcast_result"
+  },
   "server.delivered": {
     "message_id": 1,
     "to": "backend-julio",
@@ -29,6 +46,16 @@
   },
   "server.hello_ack": {
     "agent_id": "backend-julio",
+    "groups": [
+      {
+        "display_name": "Time Frontend",
+        "members": [
+          "frontend-joao",
+          "mobile-eduardo"
+        ],
+        "slug": "frontend-team"
+      }
+    ],
     "online": [
       "backend-julio",
       "mobile-eduardo"
@@ -40,6 +67,7 @@
         "delivered_at": null,
         "expires_at": "2026-06-13T12:00:00Z",
         "from": "mobile-eduardo",
+        "group": null,
         "id": 1,
         "in_reply_to": null,
         "priority": "normal",
@@ -64,6 +92,7 @@
       "delivered_at": null,
       "expires_at": "2026-06-13T12:00:00Z",
       "from": "mobile-eduardo",
+      "group": null,
       "id": 1,
       "in_reply_to": null,
       "priority": "normal",

@@ -90,6 +90,27 @@ describe("API local do daemon (consumida pelo MCP)", () => {
     expect(second.json().messages).toHaveLength(0); // já lidas
   });
 
+  it("POST /send para @grupo envia o frame de broadcast", async () => {
+    const response = await daemon.api.inject({
+      method: "POST",
+      url: "/send",
+      payload: { to: "@frontend-team", body: "deploy às 18h", type: "notification" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ sent: true, broadcast: true });
+
+    await waitFor(() => hub.sentMessages().length === 1, 5000, "frame no hub");
+    expect(hub.sentMessages()[0]).toEqual({ to: "@frontend-team", body: "deploy às 18h" });
+    // registrado no histórico local com a origem de grupo
+    expect(daemon.store.conversation("@frontend-team")[0]?.group).toBe("@frontend-team");
+  });
+
+  it("GET /groups expõe os grupos recebidos no hello_ack", async () => {
+    const response = await daemon.api.inject({ method: "GET", url: "/groups" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ groups: [] });
+  });
+
   it("GET /presence lista online; GET /partners lista interlocutores", async () => {
     const presence = await daemon.api.inject({ method: "GET", url: "/presence" });
     expect(presence.json().online).toContain(AGENT);
