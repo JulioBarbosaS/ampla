@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { groupsApi } from "../../lib/api/groups";
 import { useChatStore } from "../../stores/chat";
 import { Sidebar } from "./Sidebar";
 
@@ -22,6 +23,10 @@ vi.mock("../../lib/api/agents", () => ({
   },
 }));
 
+vi.mock("../../lib/api/groups", () => ({
+  groupsApi: { list: vi.fn().mockResolvedValue([]) },
+}));
+
 beforeEach(() => {
   useChatStore.setState({
     perspective: "backend-julio",
@@ -31,6 +36,7 @@ beforeEach(() => {
       { slug: "mobile-eduardo", display_name: "Mobile do Eduardo", online: true },
       { slug: "infra-maria", display_name: "Infra da Maria", online: false },
     ],
+    groups: [],
     online: { "backend-julio": true, "mobile-eduardo": true, "infra-maria": false },
     conversations: {},
   });
@@ -51,5 +57,25 @@ describe("Sidebar", () => {
     render(<Sidebar />);
     await userEvent.click(screen.getByText("mobile-eduardo"));
     expect(useChatStore.getState().partner).toBe("mobile-eduardo");
+  });
+
+  it("mostra @all e os grupos; clicar entra no modo transmissão", async () => {
+    // grupos chegam pela API (a Sidebar carrega e popula o store)
+    vi.mocked(groupsApi.list).mockResolvedValueOnce([
+      {
+        slug: "frontend-team",
+        display_name: "Time Frontend",
+        created_by: 1,
+        created_at: "",
+        members: ["mobile-eduardo", "infra-maria"],
+      },
+    ]);
+    render(<Sidebar />);
+    expect(screen.getByText("@all")).toBeInTheDocument();
+    const groupItem = await screen.findByText("@frontend-team");
+    expect(screen.getByText(/2 membro\(s\)/)).toBeInTheDocument();
+
+    await userEvent.click(groupItem);
+    expect(useChatStore.getState().partner).toBe("@frontend-team");
   });
 });

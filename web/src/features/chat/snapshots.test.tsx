@@ -16,6 +16,10 @@ vi.mock("../../lib/api/agents", () => ({
   },
 }));
 
+vi.mock("../../lib/api/groups", () => ({
+  groupsApi: { list: vi.fn().mockResolvedValue([]) },
+}));
+
 const MESSAGE: Message = {
   id: 1,
   from: "mobile-eduardo",

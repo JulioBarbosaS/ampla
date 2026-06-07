@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { messagesApi } from "../../lib/api/messages";
 import type { Message, MessageType, Priority } from "../../lib/api/types";
 import { conversationKey, useChatStore } from "../../stores/chat";
+import { BroadcastPanel } from "./BroadcastPanel";
 import { PresenceDot } from "./Sidebar";
 
 /** Prefixo das respostas automáticas (espelha AUTO_REPLY_PREFIX do daemon). */
@@ -212,6 +213,11 @@ export function ChatWindow() {
         </p>
       </section>
     );
+  }
+
+  // Grupo/@all selecionado → modo transmissão (não há timeline 1:1).
+  if (partner.startsWith("@")) {
+    return <BroadcastPanel perspective={perspective} target={partner} />;
   }
 
   const selectClass =

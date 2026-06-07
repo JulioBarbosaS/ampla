@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { DirectoryEntry, Message } from "../lib/api/types";
+import type { DirectoryEntry, Group, Message } from "../lib/api/types";
 
 /** Chave canônica de uma conversa (independe da direção). */
 export function conversationKey(a: string, b: string): string {
@@ -12,12 +12,14 @@ interface ChatState {
   /** Parceiro selecionado na sidebar. */
   partner: string | null;
   directory: DirectoryEntry[];
+  groups: Group[];
   online: Record<string, boolean>;
   conversations: Record<string, Message[]>;
 
   setPerspective: (slug: string | null) => void;
   setPartner: (slug: string | null) => void;
   setDirectory: (entries: DirectoryEntry[]) => void;
+  setGroups: (groups: Group[]) => void;
   setOnlineList: (slugs: string[]) => void;
   setPresence: (slug: string, online: boolean) => void;
   setConversation: (a: string, b: string, messages: Message[]) => void;
@@ -28,11 +30,13 @@ export const useChatStore = create<ChatState>((set) => ({
   perspective: null,
   partner: null,
   directory: [],
+  groups: [],
   online: {},
   conversations: {},
 
   setPerspective: (slug) => set({ perspective: slug, partner: null }),
   setPartner: (slug) => set({ partner: slug }),
+  setGroups: (groups) => set({ groups }),
   setDirectory: (entries) =>
     set((state) => ({
       directory: entries,

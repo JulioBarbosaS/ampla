@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { agentsApi } from "../../lib/api/agents";
+import { groupsApi } from "../../lib/api/groups";
 import type { Agent } from "../../lib/api/types";
 import { useChatStore } from "../../stores/chat";
 
@@ -16,9 +17,10 @@ export function PresenceDot({ online }: { online: boolean }) {
 }
 
 export function Sidebar() {
-  const { perspective, partner, directory, online } = useChatStore();
+  const { perspective, partner, directory, groups, online } = useChatStore();
   const setPerspective = useChatStore((s) => s.setPerspective);
   const setPartner = useChatStore((s) => s.setPartner);
+  const setGroups = useChatStore((s) => s.setGroups);
   const [mine, setMine] = useState<Agent[]>([]);
 
   useEffect(() => {
@@ -26,7 +28,11 @@ export function Sidebar() {
       .mine()
       .then(setMine)
       .catch(() => {});
-  }, []);
+    groupsApi
+      .list()
+      .then(setGroups)
+      .catch(() => {});
+  }, [setGroups]);
 
   const others = directory.filter((entry) => entry.slug !== perspective);
 
@@ -83,7 +89,60 @@ export function Sidebar() {
             <li className="px-3 py-2 text-sm text-zinc-500">Nenhum outro agente na equipe.</li>
           )}
         </ul>
+
+        <p className="px-3 pb-1 pt-4 text-xs uppercase tracking-wide text-zinc-500">Grupos</p>
+        <ul>
+          <li>
+            <GroupItem
+              target="@all"
+              label="@all"
+              sub={`todos os agentes (${directory.length})`}
+              active={partner === "@all"}
+              onClick={() => setPartner("@all")}
+            />
+          </li>
+          {groups.map((group) => (
+            <li key={group.slug}>
+              <GroupItem
+                target={`@${group.slug}`}
+                label={`@${group.slug}`}
+                sub={`${group.display_name} · ${group.members.length} membro(s)`}
+                active={partner === `@${group.slug}`}
+                onClick={() => setPartner(`@${group.slug}`)}
+              />
+            </li>
+          ))}
+        </ul>
       </div>
     </aside>
+  );
+}
+
+function GroupItem({
+  label,
+  sub,
+  active,
+  onClick,
+}: {
+  target: string;
+  label: string;
+  sub: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-zinc-900 ${
+        active ? "bg-zinc-900" : ""
+      }`}
+    >
+      <span className="text-zinc-500">#</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-mono text-sm text-zinc-200">{label}</span>
+        <span className="block truncate text-xs text-zinc-500">{sub}</span>
+      </span>
+    </button>
   );
 }

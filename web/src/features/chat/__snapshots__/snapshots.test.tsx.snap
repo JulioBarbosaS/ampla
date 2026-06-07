@@ -112,6 +112,39 @@ exports[`snapshots > Sidebar com equipe e presença 1`] = `
         </button>
       </li>
     </ul>
+    <p
+      class="px-3 pb-1 pt-4 text-xs uppercase tracking-wide text-zinc-500"
+    >
+      Grupos
+    </p>
+    <ul>
+      <li>
+        <button
+          class="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-zinc-900 "
+          type="button"
+        >
+          <span
+            class="text-zinc-500"
+          >
+            #
+          </span>
+          <span
+            class="min-w-0 flex-1"
+          >
+            <span
+              class="block truncate font-mono text-sm text-zinc-200"
+            >
+              @all
+            </span>
+            <span
+              class="block truncate text-xs text-zinc-500"
+            >
+              todos os agentes (2)
+            </span>
+          </span>
+        </button>
+      </li>
+    </ul>
   </div>
 </aside>
 `;
