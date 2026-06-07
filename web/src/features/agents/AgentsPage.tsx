@@ -2,13 +2,16 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Field, FormError } from "../../components/forms";
 import { agentsApi } from "../../lib/api/agents";
 import { authApi } from "../../lib/api/auth";
-import type { Agent } from "../../lib/api/types";
+import { groupsApi } from "../../lib/api/groups";
+import type { Agent, Group } from "../../lib/api/types";
 import { useAuthStore } from "../../stores/auth";
 import { AgentCard } from "./AgentCard";
 
 export function AgentsPage() {
   const user = useAuthStore((s) => s.user);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [online, setOnline] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
 
@@ -19,7 +22,21 @@ export function AgentsPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(reload, [reload]);
+  const reloadGroups = useCallback(() => {
+    groupsApi
+      .list()
+      .then(setGroups)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    reload();
+    reloadGroups();
+    agentsApi
+      .directory()
+      .then((dir) => setOnline(Object.fromEntries(dir.map((d) => [d.slug, d.online]))))
+      .catch(() => {});
+  }, [reload, reloadGroups]);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,7 +120,14 @@ export function AgentsPage() {
       </section>
 
       {agents.map((agent) => (
-        <AgentCard key={agent.slug} agent={agent} onChanged={reload} />
+        <AgentCard
+          key={agent.slug}
+          agent={agent}
+          online={online[agent.slug] ?? false}
+          groups={groups}
+          onChanged={reload}
+          onGroupsChanged={reloadGroups}
+        />
       ))}
       {agents.length === 0 && (
         <p className="text-center text-sm text-zinc-500">

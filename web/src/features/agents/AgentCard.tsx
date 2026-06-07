@@ -1,9 +1,24 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { FormError } from "../../components/forms";
 import { agentsApi } from "../../lib/api/agents";
-import type { Agent, AgentKey } from "../../lib/api/types";
+import { wsUrl } from "../../lib/api/client";
+import { groupsApi } from "../../lib/api/groups";
+import type { Agent, AgentKey, Group } from "../../lib/api/types";
+import { PresenceDot } from "../chat/Sidebar";
 
-export function AgentCard({ agent, onChanged }: { agent: Agent; onChanged: () => void }) {
+export function AgentCard({
+  agent,
+  online,
+  groups = [],
+  onChanged,
+  onGroupsChanged,
+}: {
+  agent: Agent;
+  online?: boolean;
+  groups?: Group[];
+  onChanged: () => void;
+  onGroupsChanged?: () => void;
+}) {
   const [keys, setKeys] = useState<AgentKey[]>([]);
   const [newKey, setNewKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +81,26 @@ export function AgentCard({ agent, onChanged }: { agent: Agent; onChanged: () =>
     }
   }
 
+  async function toggleGroup(group: Group, isMember: boolean) {
+    setError(null);
+    try {
+      if (isMember) await groupsApi.removeMember(group.slug, agent.slug);
+      else await groupsApi.addMember(group.slug, agent.slug);
+      onGroupsChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao atualizar grupos.");
+    }
+  }
+
+  const connectSnippet = `# ~/.amp/config.json
+{
+  "hub_url": "${wsUrl()}",
+  "agent_id": "${agent.slug}",
+  "agent_key": "amp_COLE_SUA_CHAVE_AQUI"
+}
+
+pnpm daemon   # deixe rodando`;
+
   const inputClass =
     "w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-sm outline-none focus:border-emerald-500";
 
@@ -76,13 +111,19 @@ export function AgentCard({ agent, onChanged }: { agent: Agent; onChanged: () =>
           <h3 className="font-mono text-sm font-semibold text-emerald-300">{agent.slug}</h3>
           <p className="text-xs text-zinc-500">{agent.display_name}</p>
         </div>
-        <span
-          className={`rounded px-2 py-0.5 text-xs font-medium ${
-            agent.mode === "auto" ? "bg-amber-900/50 text-amber-300" : "bg-zinc-800 text-zinc-400"
-          }`}
-        >
-          {agent.mode === "auto" ? "auto-respond" : "inbox"}
-        </span>
+        <div className="flex items-center gap-2.5">
+          <span className="flex items-center gap-1.5 text-xs text-zinc-400" title="presença">
+            <PresenceDot online={!!online} />
+            {online ? "online" : "offline"}
+          </span>
+          <span
+            className={`rounded px-2 py-0.5 text-xs font-medium ${
+              agent.mode === "auto" ? "bg-amber-900/50 text-amber-300" : "bg-zinc-800 text-zinc-400"
+            }`}
+          >
+            {agent.mode === "auto" ? "auto-respond" : "inbox"}
+          </span>
+        </div>
       </header>
 
       <form onSubmit={handleSettings} className="space-y-3">
@@ -196,6 +237,43 @@ export function AgentCard({ agent, onChanged }: { agent: Agent; onChanged: () =>
             </li>
           )}
         </ul>
+      </div>
+
+      <div className="mt-4 border-t border-zinc-800 pt-3">
+        <h4 className="mb-2 text-sm font-medium text-zinc-300">Grupos</h4>
+        {groups.length === 0 ? (
+          <p className="text-xs text-zinc-500">
+            Nenhum grupo na equipe ainda — crie um em “Grupos”.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {groups.map((group) => {
+              const isMember = group.members.includes(agent.slug);
+              return (
+                <button
+                  key={group.slug}
+                  type="button"
+                  onClick={() => toggleGroup(group, isMember)}
+                  title={isMember ? "sair do grupo" : "entrar no grupo"}
+                  className={`rounded-full border px-2.5 py-1 font-mono text-xs transition-colors ${
+                    isMember
+                      ? "border-emerald-600 bg-emerald-900/40 text-emerald-300 hover:bg-emerald-900/20"
+                      : "border-zinc-700 text-zinc-400 hover:border-emerald-500 hover:text-emerald-300"
+                  }`}
+                >
+                  {isMember ? "✓ " : "+ "}@{group.slug}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 border-t border-zinc-800 pt-3">
+        <h4 className="mb-2 text-sm font-medium text-zinc-300">Como conectar este agente</h4>
+        <pre className="overflow-x-auto whitespace-pre rounded-md bg-zinc-900 px-3 py-2 font-mono text-[11px] leading-relaxed text-zinc-400">
+          {connectSnippet}
+        </pre>
       </div>
     </section>
   );
