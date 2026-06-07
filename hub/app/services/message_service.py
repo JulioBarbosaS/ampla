@@ -38,6 +38,7 @@ class MessageService:
         type: str = "request",
         priority: str = "normal",
         in_reply_to: int | None = None,
+        group: str | None = None,
     ) -> Message:
         if not body.strip():
             raise InvalidInputError("Mensagem vazia.")
@@ -77,6 +78,7 @@ class MessageService:
                 body=body,
                 type=type,
                 priority=priority,
+                group_slug=group,
                 thread_id=thread_id,
                 in_reply_to=in_reply_to,
                 expires_at=utcnow() + timedelta(days=self._settings.pending_ttl_days),
@@ -102,12 +104,12 @@ class MessageService:
         skipped: list[str] = []
         for recipient in recipients:
             try:
-                message = await self.send(from_slug, recipient, body, type=type, priority=priority)
+                message = await self.send(
+                    from_slug, recipient, body, type=type, priority=priority, group=group_ref
+                )
             except PermissionDeniedError:
                 skipped.append(recipient)  # allowlist do destinatário — já auditado em send()
                 continue
-            message.group_slug = group_ref
-            await self._messages.save(message)
             sent.append(message)
         await self._audit.record(
             "broadcast_sent",

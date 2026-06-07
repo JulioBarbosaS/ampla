@@ -22,10 +22,6 @@ const sendBodySchema = z.object({
   in_reply_to: z.number().int().optional(),
 });
 
-const readBodySchema = z.object({
-  ids: z.array(z.number().int()),
-});
-
 export interface LocalApiDeps {
   agentId: string;
   hub: HubClient;
@@ -91,15 +87,6 @@ export function buildLocalApi({ agentId, hub, store }: LocalApiDeps): FastifyIns
       store.markRead(messages.map((m) => m.id));
     }
     return { messages };
-  });
-
-  api.post("/read", async (request, reply) => {
-    const parsed = readBodySchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.code(422).send({ error: "ids inválidos" });
-    }
-    store.markRead(parsed.data.ids);
-    return { ok: true };
   });
 
   api.get("/history", async (request, reply) => {

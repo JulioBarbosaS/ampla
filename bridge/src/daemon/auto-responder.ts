@@ -136,9 +136,7 @@ export const defaultClaudeRunner: ClaudeRunner = (prompt, { bin, cwd, timeoutMs 
     child.on("error", (err) => finish(() => reject(err)));
     child.on("close", (code) =>
       finish(() =>
-        code === 0
-          ? resolve(stdout.trim())
-          : reject(new Error(`claude saiu com código ${code}`)),
+        code === 0 ? resolve(stdout.trim()) : reject(new Error(`claude saiu com código ${code}`)),
       ),
     );
   });

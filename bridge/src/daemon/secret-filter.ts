@@ -15,7 +15,10 @@ const PATTERNS: SecretPattern[] = [
   { name: "AWS access key", regex: /\bAKIA[0-9A-Z]{16}/ },
   { name: "chave de agente AMP", regex: /\bamp_[0-9a-f]{64}\b/ },
   // gh{p,o,u,s,r}_ (clássico) e github_pat_ (fine-grained)
-  { name: "GitHub token", regex: /\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,})\b/ },
+  {
+    name: "GitHub token",
+    regex: /\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,})\b/,
+  },
   { name: "Anthropic API key", regex: /\bsk-ant-[A-Za-z0-9-_]{20,}\b/ },
   { name: "OpenAI API key", regex: /\bsk-[A-Za-z0-9]{40,}\b/ },
   { name: "Slack token", regex: /\bxox[abposr]-[A-Za-z0-9-]{10,}\b/ },

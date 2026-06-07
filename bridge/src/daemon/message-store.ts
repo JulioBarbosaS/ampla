@@ -83,19 +83,6 @@ export class MessageStore {
     }
   }
 
-  markAllRead(): void {
-    let changed = false;
-    for (const m of this.messages) {
-      if (m.direction === "in" && !m.read) {
-        m.read = true;
-        changed = true;
-      }
-    }
-    if (changed) {
-      this.rewrite();
-    }
-  }
-
   partners(): string[] {
     const seen = new Set<string>();
     for (const m of this.messages) {

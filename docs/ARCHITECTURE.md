@@ -145,7 +145,7 @@ Atacante envia mensagem maliciosa para um agente em modo `auto`; o Claude headle
 ### Ameaça 2 — Acesso não autorizado ao hub
 
 - Senhas: bcrypt (custo 12). Login com mensagem de erro genérica (não revela se o email existe) e **rate limit por IP + lockout incremental por conta**.
-- Chaves de agente: 256 bits de entropia (`amp_` + 64 hex), armazenadas como sha256, comparação constant-time, exibidas uma única vez.
+- Chaves de agente: 256 bits de entropia (`amp_` + 64 hex), armazenadas como sha256; autenticação por **lookup do hash** (determinístico — não vaza timing sobre o segredo, pois compara o digest, não o plaintext); exibidas uma única vez.
 - JWT HS256 com expiração; em produção o hub **recusa subir** com `jwt_secret` default.
 - Convites: uso único, expiração, código com entropia alta (`secrets`).
 - Revogação de chave **derruba o WebSocket do agente imediatamente**.
