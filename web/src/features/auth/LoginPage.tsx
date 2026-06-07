@@ -2,6 +2,7 @@ import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 import { AuthCard, Field, FormError, PrimaryButton } from "../../components/forms";
 import { authApi } from "../../lib/api/auth";
+import { authErrorMessage } from "../../lib/api/errors";
 import { useAuthStore } from "../../stores/auth";
 
 export function LoginPage() {
@@ -21,7 +22,7 @@ export function LoginPage() {
       });
       setAuth(result.token, result.user);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha no login.");
+      setError(authErrorMessage(err, { unauthorized: "E-mail ou senha incorretos." }));
     } finally {
       setBusy(false);
     }
