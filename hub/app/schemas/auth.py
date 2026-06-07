@@ -35,3 +35,7 @@ class TokenResponse(BaseModel):
 
 class SetupStatus(BaseModel):
     needs_setup: bool
+
+
+class RoleUpdate(BaseModel):
+    role: str = Field(pattern=r"^(admin|member)$")

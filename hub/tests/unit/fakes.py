@@ -70,6 +70,12 @@ class FakeUserRepository:
     async def count(self) -> int:
         return len(self._users)
 
+    async def count_admins(self) -> int:
+        return sum(1 for u in self._users.values() if u.role == "admin")
+
+    async def list_all(self) -> list[User]:
+        return sorted(self._users.values(), key=lambda u: u.id)
+
     async def get_by_id(self, user_id: int) -> User | None:
         return self._users.get(user_id)
 

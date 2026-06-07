@@ -12,6 +12,7 @@ from app.services.errors import (
     AccountLockedError,
     AuthError,
     ConflictError,
+    NotFoundError,
     PermissionDeniedError,
 )
 
@@ -97,6 +98,32 @@ class AuthService:
         if actor.role != "admin":
             raise PermissionDeniedError("Apenas administradores listam convites.")
         return await self._invites.list_all()
+
+    # ---- gestão de usuários (admin) ----
+
+    async def list_users(self, actor: User) -> list[User]:
+        if actor.role != "admin":
+            raise PermissionDeniedError("Apenas administradores listam usuários.")
+        return await self._users.list_all()
+
+    async def set_role(self, actor: User, target_id: int, role: str) -> User:
+        """Promove/rebaixa um usuário. Admin-only. Trava: nunca rebaixar o
+        último admin (senão a instância fica órfã, sem ninguém para administrar)."""
+        if actor.role != "admin":
+            raise PermissionDeniedError("Apenas administradores alteram papéis.")
+        target = await self._users.get_by_id(target_id)
+        if target is None:
+            raise NotFoundError("Usuário não encontrado.")
+        if target.role == role:
+            return target  # idempotente
+        if role == "member" and target.role == "admin" and await self._users.count_admins() <= 1:
+            raise ConflictError("Não é possível rebaixar o último administrador.")
+        target.role = role
+        await self._users.save(target)
+        await self._audit.record(
+            "role_changed", actor=actor.email, detail={"target": target.email, "role": role}
+        )
+        return target
 
     # ---- login com lockout incremental (Ameaça 2) ----
 

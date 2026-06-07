@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.errors import register_error_handlers
-from app.api.routes import agents, auth, groups, invites, messages, ws
+from app.api.routes import agents, auth, groups, invites, messages, users, ws
 from app.core.config import Settings, get_settings
 from app.core.db import build_engine, build_session_factory, create_tables
 from app.core.ratelimit import SlidingWindowLimiter
@@ -56,6 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_error_handlers(app)
     app.include_router(auth.router)
     app.include_router(invites.router)
+    app.include_router(users.router)
     app.include_router(agents.router)
     app.include_router(groups.router)
     app.include_router(messages.router)

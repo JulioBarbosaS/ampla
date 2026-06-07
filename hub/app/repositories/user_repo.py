@@ -12,6 +12,16 @@ class UserRepository:
         result = await self._session.execute(select(func.count(User.id)))
         return result.scalar_one()
 
+    async def count_admins(self) -> int:
+        result = await self._session.execute(
+            select(func.count(User.id)).where(User.role == "admin")
+        )
+        return result.scalar_one()
+
+    async def list_all(self) -> list[User]:
+        result = await self._session.execute(select(User).order_by(User.id))
+        return list(result.scalars())
+
     async def get_by_id(self, user_id: int) -> User | None:
         return await self._session.get(User, user_id)
 

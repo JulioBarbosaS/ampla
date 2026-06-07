@@ -146,6 +146,42 @@ class TestLogin:
         assert user.locked_until is None
 
 
+class TestRole:
+    async def test_admin_promove_member(self, service):
+        admin, _ = await make_admin(service)
+        invite = await service.create_invite(admin)
+        member, _ = await service.register(invite.code, "dev@amp.local", "Dev", PASSWORD)
+        updated = await service.set_role(admin, member.id, "admin")
+        assert updated.role == "admin"
+
+    async def test_member_nao_altera_papel(self, service):
+        admin, _ = await make_admin(service)
+        invite = await service.create_invite(admin)
+        member, _ = await service.register(invite.code, "dev@amp.local", "Dev", PASSWORD)
+        with pytest.raises(PermissionDeniedError):
+            await service.set_role(member, admin.id, "member")
+
+    async def test_nao_rebaixa_o_ultimo_admin(self, service):
+        admin, _ = await make_admin(service)
+        with pytest.raises(ConflictError):
+            await service.set_role(admin, admin.id, "member")
+
+    async def test_rebaixa_admin_quando_ha_outro(self, service):
+        admin, _ = await make_admin(service)
+        invite = await service.create_invite(admin)
+        member, _ = await service.register(invite.code, "dev@amp.local", "Dev", PASSWORD)
+        await service.set_role(admin, member.id, "admin")  # agora há 2 admins
+        demoted = await service.set_role(admin, admin.id, "member")  # rebaixa a si
+        assert demoted.role == "member"
+
+    async def test_usuario_inexistente(self, service):
+        from app.services.errors import NotFoundError
+
+        admin, _ = await make_admin(service)
+        with pytest.raises(NotFoundError):
+            await service.set_role(admin, 999, "admin")
+
+
 class TestToken:
     async def test_token_invalido_retorna_none(self, service):
         await make_admin(service)
