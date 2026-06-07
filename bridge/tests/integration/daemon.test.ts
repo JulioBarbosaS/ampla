@@ -226,6 +226,12 @@ describe("daemon ↔ hub", () => {
     await waitFor(() => hub.sentMessages().length === 1, 5000, "auto-respond pós-update");
   });
 
+  it("responde pong ao ping do hub (heartbeat)", async () => {
+    await startDaemon();
+    hub.pushPing(AGENT);
+    await waitFor(() => hub.pongs() >= 1, 5000, "pong do daemon");
+  });
+
   it("reconecta sozinho depois de queda do hub", async () => {
     const d = await startDaemon();
     // derruba a conexão pelo lado do servidor

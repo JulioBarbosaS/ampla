@@ -26,6 +26,9 @@
     "to": "backend-julio",
     "type": "message"
   },
+  "client.pong": {
+    "type": "pong"
+  },
   "server.broadcast_result": {
     "group": "@frontend-team",
     "offline": [
@@ -105,6 +108,9 @@
       "type": "request"
     },
     "type": "message"
+  },
+  "server.ping": {
+    "type": "ping"
   },
   "server.presence": {
     "agent_id": "infra-maria",

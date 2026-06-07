@@ -149,6 +149,10 @@ export class HubClient extends EventEmitter<HubClientEvents> {
             offline: frame.offline,
           });
           break;
+        case "ping":
+          // heartbeat: responde imediatamente para não ser considerado zumbi
+          ws.send(JSON.stringify({ type: "pong" } satisfies ClientFrame));
+          break;
         case "error":
           this.emit("hubError", { code: frame.code, detail: frame.detail });
           break;

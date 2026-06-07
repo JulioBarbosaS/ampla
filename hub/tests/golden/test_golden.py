@@ -25,6 +25,7 @@ from app.schemas.ws import (
     HelloAckFrame,
     HelloFrame,
     MessageDeliveryFrame,
+    PingFrame,
     PresenceFrame,
     SettingsUpdateFrame,
 )
@@ -99,6 +100,8 @@ def test_ws_frames_contract() -> None:
         ),
         # ack de entrega (at-least-once) — daemon confirma recebimento
         "client.ack": _accepted_client_frame({"type": "ack", "message_id": 1}),
+        # heartbeat: hub pinga, daemon responde pong
+        "client.pong": _accepted_client_frame({"type": "pong"}),
         "server.hello_ack": HelloAckFrame(
             agent_id="backend-julio",
             online=["backend-julio", "mobile-eduardo"],
@@ -131,5 +134,6 @@ def test_ws_frames_contract() -> None:
         "server.error": ErrorFrame(
             code="rate_limited", detail="Limite de mensagens excedido."
         ).model_dump(mode="json"),
+        "server.ping": PingFrame().model_dump(mode="json"),
     }
     check_golden("ws_frames.json", frames)

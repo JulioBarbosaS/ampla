@@ -79,6 +79,16 @@ export class FakeHub {
     this.sockets.get(to)?.send(JSON.stringify({ type: "settings_update", settings }));
   }
 
+  /** Heartbeat: o hub pinga o daemon (que deve responder pong). */
+  pushPing(to: string): void {
+    this.sockets.get(to)?.send(JSON.stringify({ type: "ping" }));
+  }
+
+  /** Quantos frames `pong` o daemon enviou ao hub. */
+  pongs(): number {
+    return this.received.filter((f) => f.type === "pong").length;
+  }
+
   /** Frames `message` enviados pelo daemon ao hub. */
   sentMessages(): Array<{ to: string; body: string }> {
     return this.received

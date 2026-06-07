@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     login_lockout_base_secs: int = 30  # dobra a cada lockout consecutivo
     login_rate_per_minute: int = 20  # por IP, em rotas de auth
     ws_hello_timeout_secs: int = 10
+    ws_heartbeat_secs: float = 30.0  # ping a cada N s; 2 ciclos sem resposta ⇒ derruba
     ws_max_frame_bytes: int = 64 * 1024
     message_max_body_bytes: int = 16 * 1024
     ws_messages_per_minute: int = 60  # token bucket por conexão

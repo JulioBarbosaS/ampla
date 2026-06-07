@@ -41,7 +41,16 @@ class AckFrame(BaseModel):
     message_id: int
 
 
-ClientFrame = Annotated[HelloFrame | SendMessageFrame | AckFrame, Field(discriminator="type")]
+class PongFrame(BaseModel):
+    """Resposta do daemon ao ping do hub (heartbeat). Prova que a conexão está
+    viva; 2 ciclos sem qualquer frame ⇒ o hub derruba a conexão zumbi."""
+
+    type: Literal["pong"] = "pong"
+
+
+ClientFrame = Annotated[
+    HelloFrame | SendMessageFrame | AckFrame | PongFrame, Field(discriminator="type")
+]
 client_frame_adapter: TypeAdapter[ClientFrame] = TypeAdapter(ClientFrame)
 
 # ---------- hub → cliente ----------
@@ -100,6 +109,12 @@ class ErrorFrame(BaseModel):
     detail: str
 
 
+class PingFrame(BaseModel):
+    """Heartbeat do hub. O daemon responde `pong` imediatamente."""
+
+    type: Literal["ping"] = "ping"
+
+
 ServerFrame = (
     HelloAckFrame
     | MessageDeliveryFrame
@@ -108,4 +123,5 @@ ServerFrame = (
     | SettingsUpdateFrame
     | BroadcastResultFrame
     | ErrorFrame
+    | PingFrame
 )

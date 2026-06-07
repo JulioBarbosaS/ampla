@@ -33,6 +33,8 @@ from app.schemas.ws import (
     HelloAckFrame,
     HelloFrame,
     MessageDeliveryFrame,
+    PingFrame,
+    PongFrame,
     SendMessageFrame,
     client_frame_adapter,
 )
@@ -49,6 +51,7 @@ MAX_MALFORMED_FRAMES = 5
 CLOSE_BAD_HELLO = 4400
 CLOSE_AUTH_FAIL = 4401
 CLOSE_PROTOCOL_ABUSE = 4429
+CLOSE_HEARTBEAT_TIMEOUT = 4408  # zumbi: 2 ciclos sem frame — daemon reconecta
 
 
 def _message_payload(msg) -> dict:
@@ -137,9 +140,34 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
 
     bucket = TokenBucket(settings.ws_messages_per_minute)
     malformed = 0
+
+    # Heartbeat (Ameaça 3 · conexão zumbi): pinga a cada intervalo; se passar 2
+    # ciclos sem QUALQUER frame (pong inclusive), a conexão está morta — fecha,
+    # e o finally difunde offline. asyncio é monothread, então last_seen é lido
+    # pela task e escrito pelo loop sem corrida.
+    loop = asyncio.get_running_loop()
+    interval = settings.ws_heartbeat_secs
+    last_seen = loop.time()
+
+    async def _heartbeat() -> None:
+        while True:
+            await asyncio.sleep(interval)
+            if loop.time() - last_seen > 2 * interval:
+                try:
+                    await ws.close(code=CLOSE_HEARTBEAT_TIMEOUT, reason="heartbeat timeout")
+                except Exception:  # noqa: S110 — socket já morto; loop principal trata
+                    pass
+                return
+            try:
+                await ws.send_json(PingFrame().model_dump(mode="json"))
+            except Exception:
+                return  # socket morto; a desconexão cai no loop principal
+
+    hb_task = asyncio.create_task(_heartbeat()) if interval > 0 else None
     try:
         while True:
             raw = await ws.receive_text()
+            last_seen = loop.time()  # qualquer frame recebido prova liveness
             if len(raw.encode()) > settings.ws_max_frame_bytes:
                 await ws.close(code=CLOSE_PROTOCOL_ABUSE, reason="frame too large")
                 break
@@ -152,6 +180,10 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
                     await ws.close(code=CLOSE_PROTOCOL_ABUSE, reason="malformed frames")
                     break
                 await _send_error(ws, "bad_frame", "Frame inválido.")
+                continue
+
+            # pong: só serve para provar liveness (já registrada acima).
+            if isinstance(frame, PongFrame):
                 continue
 
             # ack de entrega: confirma recebimento e libera o `delivered` ao
@@ -176,6 +208,8 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
     except WebSocketDisconnect:
         pass
     finally:
+        if hb_task is not None:
+            hb_task.cancel()
         removed = await manager.disconnect_agent(slug, ws)
         if removed:
             await manager.broadcast_presence(

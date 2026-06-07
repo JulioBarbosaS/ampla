@@ -79,7 +79,12 @@ export interface AckFrame {
   message_id: number;
 }
 
-export type ClientFrame = HelloFrame | SendMessageFrame | AckFrame;
+/** Resposta ao ping do hub (heartbeat). Espelha PongFrame. */
+export interface PongFrame {
+  type: "pong";
+}
+
+export type ClientFrame = HelloFrame | SendMessageFrame | AckFrame | PongFrame;
 
 // ---------- hub → daemon ----------
 
@@ -128,6 +133,10 @@ export const errorFrameSchema = z.object({
   detail: z.string(),
 });
 
+export const pingFrameSchema = z.object({
+  type: z.literal("ping"),
+});
+
 export const serverFrameSchema = z.discriminatedUnion("type", [
   helloAckFrameSchema,
   messageDeliveryFrameSchema,
@@ -136,6 +145,7 @@ export const serverFrameSchema = z.discriminatedUnion("type", [
   settingsUpdateFrameSchema,
   broadcastResultFrameSchema,
   errorFrameSchema,
+  pingFrameSchema,
 ]);
 export type ServerFrame = z.infer<typeof serverFrameSchema>;
 export type HelloAckFrame = z.infer<typeof helloAckFrameSchema>;

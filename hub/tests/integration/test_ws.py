@@ -379,3 +379,41 @@ class TestAbuse:
                 for _ in range(10):
                     ws.send_text("não é json")
                     ws.receive_json()  # consome os error frames até cair
+
+
+class TestHeartbeat:
+    def test_hub_envia_ping(self):
+        app = create_app(make_settings(ws_heartbeat_secs=0.2))
+        with TestClient(app) as client:
+            _, key_a, _ = setup_two_agents(client)
+            with connect_agent_ws(client, "backend-julio", key_a) as ws:
+                recv_until(ws, "hello_ack")
+                assert recv_until(ws, "ping")["type"] == "ping"
+
+    def test_sem_pong_a_conexao_e_derrubada(self):
+        import pytest
+        from starlette.websockets import WebSocketDisconnect
+
+        app = create_app(make_settings(ws_heartbeat_secs=0.1))
+        with TestClient(app) as client:
+            _, key_a, _ = setup_two_agents(client)
+            with connect_agent_ws(client, "backend-julio", key_a) as ws:
+                recv_until(ws, "hello_ack")
+                # nunca responde pong → 2 ciclos sem frame ⇒ o hub fecha
+                with pytest.raises(WebSocketDisconnect):
+                    for _ in range(50):
+                        ws.receive_json()
+
+    def test_pong_mantem_a_conexao_viva(self):
+        app = create_app(make_settings(ws_heartbeat_secs=0.1))
+        with TestClient(app) as client:
+            _, key_a, _ = setup_two_agents(client)
+            with connect_agent_ws(client, "backend-julio", key_a) as ws:
+                recv_until(ws, "hello_ack")
+                # responde os pings: a conexão sobrevive além de 2 ciclos
+                for _ in range(3):
+                    recv_until(ws, "ping")
+                    ws.send_json({"type": "pong"})
+                # ainda viva: um envio normal é roteado (destino inexistente)
+                ws.send_json({"type": "message", "to": "fantasma-x", "body": "vivo?"})
+                assert recv_until(ws, "error")["code"] == "not_found"

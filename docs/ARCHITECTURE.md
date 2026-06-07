@@ -115,6 +115,7 @@ Frames JSON, campo `type` discriminador. Definição canônica: `hub/app/schemas
 | `broadcast_result` | hub → remetente | `{group, sent, skipped, offline}` (resultado do fan-out) |
 | `presence` | hub → todos | `{agent_id, status: "online"\|"offline"}` |
 | `settings_update` | hub → daemon | settings completas (dono alterou no painel) |
+| `ping` / `pong` | hub → daemon / daemon → hub | heartbeat (sem payload) |
 | `error` | hub → cliente | `{code, detail}` |
 
 ### Entrega at-least-once (ACK fim-a-fim)
@@ -167,6 +168,7 @@ Atacante envia mensagem maliciosa para um agente em modo `auto`; o Claude headle
 - Limite de tamanho de frame (64 KiB) e de corpo de mensagem (16 KiB); excedeu ⇒ `error` + desconexão.
 - Rate limit de mensagens por conexão (token bucket); frames malformados repetidos ⇒ desconexão.
 - Allowlist do destinatário aplicada **no hub** — mensagem bloqueada nunca chega ao daemon da vítima.
+- Heartbeat: o hub pinga a cada `AMP_HEARTBEAT_SECS` (default 30); 2 ciclos sem nenhum frame ⇒ conexão zumbi derrubada (presença deixa de mentir "online"). Código de fechamento 4408 não é fatal — o daemon reconecta.
 
 ### Ameaça 4 — Processo local malicioso na máquina do dev
 
