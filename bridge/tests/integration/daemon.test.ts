@@ -166,6 +166,33 @@ describe("daemon ↔ hub", () => {
     expect(hub.sentMessages().length).toBe(5); // guard segurou as demais
   });
 
+  it("loop guard segura mesmo com disparos CONCORRENTES na mesma thread", async () => {
+    // runner lento: todas as 10 mensagens entram em voo antes de qualquer
+    // resposta ser persistida — sem reserva síncrona, todas escapariam o guard.
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const runner = vi.fn().mockImplementation(async () => {
+      await gate;
+      return "vai";
+    });
+    hub.settings = { ...hub.settings, mode: "auto", max_auto_per_hour: 120 };
+    const d = await startDaemon(runner);
+
+    for (let i = 0; i < 10; i++) {
+      hub.pushMessage(
+        AGENT,
+        wireMessage(700 + i, "mobile-eduardo", AGENT, `c ${i}`, { thread_id: 700 }),
+      );
+    }
+    await waitFor(() => d.store.inbox(false).length === 10, 5000, "10 mensagens no store");
+    release(); // libera todas de uma vez
+    await waitFor(() => hub.sentMessages().length >= 5, 5000, "respostas");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(hub.sentMessages().length).toBe(5); // reserva síncrona segurou o teto
+  });
+
   it("resposta com segredo é bloqueada e vira aviso neutro", async () => {
     const runner = vi.fn().mockResolvedValue("claro: postgres://app:senha123@db:5432/prod");
     hub.settings = { ...hub.settings, mode: "auto" };

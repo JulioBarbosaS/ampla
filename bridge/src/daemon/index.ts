@@ -54,6 +54,11 @@ export function createDaemon(
   );
   const api = buildLocalApi({ agentId: config.agent_id, hub, store });
 
+  // Reserva síncrona de auto-respostas em voo por thread. Sem isso, disparos
+  // concorrentes leem a contagem do store ANTES de qualquer um persistir a
+  // resposta e todos passam pelo hop guard (read-then-await-then-write).
+  const inFlightByThread = new Map<number, number>();
+
   hub.on("message", (message: WireMessage) => {
     store.append({
       id: message.id,
@@ -75,27 +80,49 @@ export function createDaemon(
   async function maybeAutoRespond(message: WireMessage): Promise<void> {
     const settings = hub.settings;
     if (!settings) return;
-    if (message.body.startsWith(AUTO_REPLY_PREFIX)) return; // anti-loop (legado)
-    // Semântica de tipos: só perguntas/tarefas disparam auto-respond.
-    // response/notification/status/ack/alert nunca disparam — anti-loop por design.
+    // Camada anti-loop 1/3: resposta automática não dispara outra resposta.
+    if (message.body.startsWith(AUTO_REPLY_PREFIX)) return;
+    // Camada 2/3 (semântica): só request/task disparam — response/notification/
+    // status/ack/alert nunca disparam.
     if (message.type !== "request" && message.type !== "task") return;
 
-    // Loop guard por hops: thread com auto-respostas demais para de responder
     const conversation = store.conversation(message.from, 50);
     const threadId = message.thread_id;
+
+    // Camada 3/3 (hop guard): teto de auto-respostas por thread. A reserva
+    // (inFlightByThread) é incrementada AQUI, sincronamente, então disparos
+    // concorrentes na mesma thread enxergam as reservas uns dos outros.
     if (threadId !== null) {
-      const autoRepliesInThread = conversation.filter(
+      const persisted = conversation.filter(
         (m) =>
           m.direction === "out" && m.thread_id === threadId && m.body.startsWith(AUTO_REPLY_PREFIX),
       ).length;
-      if (autoRepliesInThread >= MAX_AUTO_REPLIES_PER_THREAD) {
+      const reserved = inFlightByThread.get(threadId) ?? 0;
+      if (persisted + reserved >= MAX_AUTO_REPLIES_PER_THREAD) {
         console.error(
           `[amp] loop guard: thread ${threadId} atingiu ${MAX_AUTO_REPLIES_PER_THREAD} auto-respostas — mensagem fica na inbox`,
         );
         return;
       }
+      inFlightByThread.set(threadId, reserved + 1);
     }
 
+    try {
+      await runAutoRespond(message, settings, conversation);
+    } finally {
+      if (threadId !== null) {
+        const left = (inFlightByThread.get(threadId) ?? 1) - 1;
+        if (left <= 0) inFlightByThread.delete(threadId);
+        else inFlightByThread.set(threadId, left);
+      }
+    }
+  }
+
+  async function runAutoRespond(
+    message: WireMessage,
+    settings: NonNullable<typeof hub.settings>,
+    conversation: ReturnType<typeof store.conversation>,
+  ): Promise<void> {
     // Memória de conversa: últimas mensagens entram no prompt como contexto
     const history = conversation
       .filter((m) => m.id !== message.id)

@@ -14,6 +14,11 @@ describe("scanForSecrets", () => {
     ],
     ["connection string com senha", "postgres://app:supersenha@db.local:5432/prod"],
     ["atribuição de segredo (.env)", "DATABASE_PASSWORD=hunter2segura"],
+    // bypasses corrigidos
+    ["GitHub token", "github_pat_11ABCDEFG0aBcDeFgHiJkLmNoPqRsTuVwXyZ123456"],
+    ["atribuição de segredo (.env)", "database_password=hunter2"],
+    ["connection string com senha", "redis://:supersenha@cache:6379"],
+    ["AWS access key", "AKIAIOSFODNN7EXAMPLEX e mais texto colado"],
   ];
 
   it.each(leaks)("detecta %s", (name, text) => {
