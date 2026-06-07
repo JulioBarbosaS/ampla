@@ -73,4 +73,9 @@ describe("espelhamento hub ↔ bridge (golden compartilhado)", () => {
     };
     expect(JSON.parse(JSON.stringify(broadcast))).toEqual(golden["client.broadcast"]);
   });
+
+  it("bridge produz client.ack byte-idêntico ao contrato", () => {
+    const ackFrame: ClientFrame = { type: "ack", message_id: 1 };
+    expect(JSON.parse(JSON.stringify(ackFrame))).toEqual(golden["client.ack"]);
+  });
 });

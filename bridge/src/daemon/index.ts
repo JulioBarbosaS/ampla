@@ -74,6 +74,10 @@ export function createDaemon(
       direction: "in",
       read: false,
     });
+    // at-least-once: confirma o recebimento DEPOIS de persistir. Sempre ackar,
+    // mesmo se o store deduplicou (id repetido de um reenvio) — senão o hub a
+    // reenviaria para sempre. A dedup por id no store fecha o ciclo.
+    if (message.id !== null) hub.ackMessage(message.id);
     void maybeAutoRespond(message);
   });
 

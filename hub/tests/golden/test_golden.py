@@ -97,6 +97,8 @@ def test_ws_frames_contract() -> None:
         "client.broadcast": _accepted_client_frame(
             {"type": "message", "to": "@frontend-team", "body": "deploy às 18h"}
         ),
+        # ack de entrega (at-least-once) — daemon confirma recebimento
+        "client.ack": _accepted_client_frame({"type": "ack", "message_id": 1}),
         "server.hello_ack": HelloAckFrame(
             agent_id="backend-julio",
             online=["backend-julio", "mobile-eduardo"],

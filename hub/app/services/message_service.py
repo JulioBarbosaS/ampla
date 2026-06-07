@@ -166,6 +166,20 @@ class MessageService:
     async def mark_delivered(self, message_ids: list[int]) -> None:
         await self._messages.mark_delivered(message_ids)
 
+    async def ack_delivery(self, recipient_slug: str, message_id: int) -> Message | None:
+        """Confirma a entrega (at-least-once). Só o próprio destinatário pode
+        ackar a sua mensagem (Ameaça 3: um daemon não marca a mensagem de
+        outro como entregue). Marca `delivered_at` na primeira vez e devolve a
+        mensagem para o hub avisar o remetente; ack alheio/inexistente → None.
+        Idempotente: re-ack apenas devolve a mensagem já entregue."""
+        msg = await self._messages.get(message_id)
+        if msg is None or msg.to_agent != recipient_slug:
+            return None
+        if msg.delivered_at is None:
+            msg.delivered_at = utcnow()
+            await self._messages.save(msg)
+        return msg
+
     # ---- histórico (dono vê conversas dos próprios agentes; admin vê tudo) ----
 
     async def conversation(

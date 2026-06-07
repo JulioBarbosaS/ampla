@@ -57,6 +57,12 @@ def connect_agent_ws(client, slug: str, key: str) -> Iterator[WebSocketTestSessi
         yield ws
 
 
+def ack(ws: WebSocketTestSession, message_id: int) -> None:
+    """Confirma o recebimento (at-least-once) — sem isto o hub não marca
+    delivered nem avisa o remetente, e a mensagem volta no próximo hello."""
+    ws.send_json({"type": "ack", "message_id": message_id})
+
+
 def recv_until(ws: WebSocketTestSession, frame_type: str, max_frames: int = 20) -> dict[str, Any]:
     """Lê frames descartando os de outros tipos (ex: presence intercalada)."""
     for _ in range(max_frames):

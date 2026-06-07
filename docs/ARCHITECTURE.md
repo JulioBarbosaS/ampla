@@ -110,11 +110,22 @@ Frames JSON, campo `type` discriminador. Definição canônica: `hub/app/schemas
 | `hello` | daemon → hub | `{agent_id, key}` (autenticação do socket) |
 | `hello_ack` | hub → daemon | `{agent_id, online: [...], settings, pending: [...], groups: [...]}` |
 | `message` | ambos | envio: `{to, body, msg_type?, priority?, in_reply_to?}` · entrega: mensagem completa (threading, group, TTL) |
+| `ack` | daemon → hub | `{message_id}` — confirma recebimento (at-least-once) |
 | `delivered` | hub → remetente | `{message_id, to}` |
 | `broadcast_result` | hub → remetente | `{group, sent, skipped, offline}` (resultado do fan-out) |
 | `presence` | hub → todos | `{agent_id, status: "online"\|"offline"}` |
 | `settings_update` | hub → daemon | settings completas (dono alterou no painel) |
 | `error` | hub → cliente | `{code, detail}` |
+
+### Entrega at-least-once (ACK fim-a-fim)
+
+`delivered_at` significa **"o destinatário confirmou o recebimento"**, não "o hub empurrou pro socket". Fluxo:
+
+1. Hub faz **dispatch** ao socket do destinatário e espelha aos observers — `delivered_at` ainda nulo.
+2. O daemon grava a mensagem localmente e responde `ack{message_id}`.
+3. Só então o hub marca `delivered_at`, manda `delivered` ao remetente e re-espelha aos observers (painel atualiza o "entregue").
+
+Se o daemon cai entre o passo 1 e o 2 (não ackou), a mensagem **continua pendente** e volta no `pending` da próxima reconexão — sem perda silenciosa. O daemon **sempre acka** (mesmo mensagem deduplicada por id no store local), senão o hub a reenviaria para sempre; a dedup por id garante o at-least-once. Só o próprio destinatário pode ackar a sua mensagem (Ameaça 3).
 
 Destinatário offline ⇒ mensagem persiste no hub e é entregue no próximo `hello` (campo `pending` do `hello_ack`), até expirar (`AMP_PENDING_TTL_DAYS`).
 

@@ -32,7 +32,16 @@ class SendMessageFrame(BaseModel):
     in_reply_to: int | None = None
 
 
-ClientFrame = Annotated[HelloFrame | SendMessageFrame, Field(discriminator="type")]
+class AckFrame(BaseModel):
+    """Confirmação de recebimento (at-least-once). O daemon envia ao gravar a
+    mensagem localmente; só então o hub marca `delivered_at` e avisa o
+    remetente. Sem ack, a mensagem volta no `pending` da reconexão."""
+
+    type: Literal["ack"] = "ack"
+    message_id: int
+
+
+ClientFrame = Annotated[HelloFrame | SendMessageFrame | AckFrame, Field(discriminator="type")]
 client_frame_adapter: TypeAdapter[ClientFrame] = TypeAdapter(ClientFrame)
 
 # ---------- hub → cliente ----------

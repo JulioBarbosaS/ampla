@@ -18,6 +18,7 @@ export function ChatPage() {
     setConversation,
     setPerspective,
     setWsConnected,
+    markDelivered,
   } = useChatStore();
 
   // diretório + perspectiva inicial (primeiro agente meu)
@@ -43,8 +44,9 @@ export function ChatPage() {
       onPresence: setPresence,
       onOnlineList: setOnlineList,
       onStatus: setWsConnected,
+      onDelivered: markDelivered,
     });
-  }, [token, addMessage, setPresence, setOnlineList, setWsConnected]);
+  }, [token, addMessage, setPresence, setOnlineList, setWsConnected, markDelivered]);
 
   // histórico da conversa selecionada
   useEffect(() => {

@@ -1,4 +1,8 @@
 {
+  "client.ack": {
+    "message_id": 1,
+    "type": "ack"
+  },
   "client.broadcast": {
     "body": "deploy às 18h",
     "to": "@frontend-team",

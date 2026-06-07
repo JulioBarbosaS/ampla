@@ -72,7 +72,14 @@ export interface SendMessageFrame {
   in_reply_to?: number;
 }
 
-export type ClientFrame = HelloFrame | SendMessageFrame;
+/** Confirmação de recebimento (at-least-once): enviada pelo daemon ao gravar
+ * a mensagem; sem ela o hub reenvia no próximo hello. Espelha AckFrame. */
+export interface AckFrame {
+  type: "ack";
+  message_id: number;
+}
+
+export type ClientFrame = HelloFrame | SendMessageFrame | AckFrame;
 
 // ---------- hub → daemon ----------
 

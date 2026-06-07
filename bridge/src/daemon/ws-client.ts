@@ -88,6 +88,17 @@ export class HubClient extends EventEmitter<HubClientEvents> {
     return true;
   }
 
+  /** Confirma o recebimento de uma mensagem (at-least-once): o hub só marca
+   * `delivered` e avisa o remetente após este ack. Sempre ackar — mesmo
+   * mensagem deduplicada — senão o hub a reenvia em toda reconexão. */
+  ackMessage(messageId: number): boolean {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const frame: ClientFrame = { type: "ack", message_id: messageId };
+    ws.send(JSON.stringify(frame));
+    return true;
+  }
+
   private connect(): void {
     const ws = new WebSocket(this.hubUrl);
     this.ws = ws;

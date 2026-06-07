@@ -58,6 +58,15 @@ describe("daemon ↔ hub", () => {
     expect(d.store.inbox(true)[0]?.body).toBe("está aí?");
   });
 
+  it("acka toda mensagem recebida — pendente do hello e tempo real (at-least-once)", async () => {
+    hub.pending = [wireMessage(7, "mobile-eduardo", AGENT, "pendente")];
+    const d = await startDaemon();
+    await waitFor(() => hub.acks().includes(7), 5000, "ack da pendente");
+    hub.pushMessage(AGENT, wireMessage(8, "mobile-eduardo", AGENT, "tempo real"));
+    await waitFor(() => hub.acks().includes(8), 5000, "ack da tempo real");
+    expect(d.store.inbox(false).length).toBe(2);
+  });
+
   it("mensagem em tempo real entra na inbox (modo inbox: sem auto-respond)", async () => {
     const runner = vi.fn();
     const d = await startDaemon(runner);

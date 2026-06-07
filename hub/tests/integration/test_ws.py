@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 from tests.conftest import make_settings
 from tests.helpers import (
+    ack,
     auth,
     connect_agent_ws,
     create_agent,
@@ -70,11 +71,14 @@ class TestRouting:
                 received = recv_until(ws_a, "message")
                 assert received["message"]["from"] == "mobile-eduardo"
                 assert received["message"]["body"] == "Existe endpoint de reset?"
-                # bug: o frame entregue trazia delivered_at:null mesmo entregue
-                assert received["message"]["delivered_at"] is not None
+                # at-least-once: no dispatch a mensagem ainda NÃO está confirmada
+                assert received["message"]["delivered_at"] is None
 
+                # o remetente só recebe `delivered` após o destinatário ackar
+                ack(ws_a, received["message"]["id"])
                 delivered = recv_until(ws_b, "delivered")
                 assert delivered["to"] == "backend-julio"
+                assert delivered["message_id"] == received["message"]["id"]
 
     def test_historico_via_rest_apos_ws(self, client):
         token, key_a, key_b = setup_two_agents(client)
@@ -83,6 +87,8 @@ class TestRouting:
             with connect_agent_ws(client, "mobile-eduardo", key_b) as ws_b:
                 recv_until(ws_b, "hello_ack")
                 ws_b.send_json({"type": "message", "to": "backend-julio", "body": "oi"})
+                # destinatário confirma → delivered_at é gravado no banco
+                ack(ws_a, recv_until(ws_a, "message")["message"]["id"])
                 recv_until(ws_b, "delivered")
 
         history = client.get(
@@ -113,17 +119,38 @@ class TestRouting:
             assert recv_until(ws_b, "error")["code"] == "not_found"
 
         with connect_agent_ws(client, "backend-julio", key_a) as ws_a:
-            ack = recv_until(ws_a, "hello_ack")
-            bodies = [m["body"] for m in ack["pending"]]
-            assert bodies == ["está aí?", "segunda"]  # ordem de chegada
-            # barreira: garante que o flush de delivered completou antes
-            # de fechar (handler processa frames em ordem)
+            hello = recv_until(ws_a, "hello_ack")
+            pending = hello["pending"]
+            assert [m["body"] for m in pending] == ["está aí?", "segunda"]  # ordem de chegada
+            # confirma cada pendente (at-least-once) — sem ack, voltariam
+            for m in pending:
+                ack(ws_a, m["id"])
+            # barreira: handler processa frames em ordem, então o error garante
+            # que os acks anteriores já foram processados antes de fechar
             ws_a.send_json({"type": "message", "to": "fantasma-x", "body": "sync"})
             recv_until(ws_a, "error")
 
-        # flush marca como entregue: reconectar não repete
+        # acks marcaram como entregue: reconectar não repete
         with connect_agent_ws(client, "backend-julio", key_a) as ws_a:
             assert recv_until(ws_a, "hello_ack")["pending"] == []
+
+    def test_sem_ack_a_mensagem_volta_no_pending(self, client):
+        """A correção em si: mensagem empurrada ao socket mas NÃO ackada (daemon
+        caiu antes de gravar) volta no pending da reconexão — sem perda silenciosa.
+        Antes, o hub marcava delivered no dispatch e ela sumia."""
+        _, key_a, key_b = setup_two_agents(client)
+        with connect_agent_ws(client, "mobile-eduardo", key_b) as ws_b:
+            recv_until(ws_b, "hello_ack")
+            with connect_agent_ws(client, "backend-julio", key_a) as ws_a:
+                recv_until(ws_a, "hello_ack")
+                ws_b.send_json({"type": "message", "to": "backend-julio", "body": "não ackada"})
+                received = recv_until(ws_a, "message")["message"]
+                assert received["delivered_at"] is None  # ainda não confirmada
+                # backend cai SEM ackar (sai do with)
+
+        with connect_agent_ws(client, "backend-julio", key_a) as ws_a:
+            pending = recv_until(ws_a, "hello_ack")["pending"]
+            assert [m["body"] for m in pending] == ["não ackada"]
 
     def test_threading_e_type_via_ws(self, client):
         _, key_a, key_b = setup_two_agents(client)

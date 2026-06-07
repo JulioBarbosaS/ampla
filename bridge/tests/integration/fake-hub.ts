@@ -86,6 +86,11 @@ export class FakeHub {
       .map((f) => ({ to: String(f.to), body: String(f.body) }));
   }
 
+  /** message_ids confirmados pelo daemon via frame `ack` (at-least-once). */
+  acks(): number[] {
+    return this.received.filter((f) => f.type === "ack").map((f) => Number(f.message_id));
+  }
+
   async stop(): Promise<void> {
     for (const ws of this.sockets.values()) ws.terminate();
     await new Promise<void>((resolve) => this.wss?.close(() => resolve()));

@@ -81,4 +81,18 @@ describe("chat store", () => {
     store.setPerspective("infra-julio");
     expect(useChatStore.getState().partner).toBeNull();
   });
+
+  it("markDelivered carimba a entrega da bolha quando chega o ack (delivered)", () => {
+    const store = useChatStore.getState();
+    store.addMessage(msg(1, "backend-julio", "mobile-eduardo")); // delivered_at: null
+    store.markDelivered(1);
+    const key = conversationKey("backend-julio", "mobile-eduardo");
+    expect(useChatStore.getState().conversations[key]![0].delivered_at).not.toBeNull();
+  });
+
+  it("markDelivered ignora id inexistente sem quebrar", () => {
+    const store = useChatStore.getState();
+    store.addMessage(msg(1, "backend-julio", "mobile-eduardo"));
+    expect(() => store.markDelivered(999)).not.toThrow();
+  });
 });

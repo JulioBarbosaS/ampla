@@ -27,6 +27,7 @@ interface ChatState {
   setPresence: (slug: string, online: boolean) => void;
   setConversation: (a: string, b: string, messages: Message[]) => void;
   addMessage: (message: Message) => void;
+  markDelivered: (messageId: number) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -76,5 +77,19 @@ export const useChatStore = create<ChatState>((set) => ({
       return {
         conversations: { ...state.conversations, [key]: [...existing, message] },
       };
+    }),
+  markDelivered: (messageId) =>
+    set((state) => {
+      // O frame `delivered` chega depois da bolha (que entrou com delivered_at
+      // nulo no dispatch). Acha a mensagem na conversa e carimba a entrega.
+      for (const [key, messages] of Object.entries(state.conversations)) {
+        const idx = messages.findIndex((m) => m.id === messageId);
+        if (idx === -1) continue;
+        if (messages[idx].delivered_at) return state; // já carimbada
+        const updated = [...messages];
+        updated[idx] = { ...updated[idx], delivered_at: new Date().toISOString() };
+        return { conversations: { ...state.conversations, [key]: updated } };
+      }
+      return state;
     }),
 }));

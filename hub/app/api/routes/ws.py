@@ -22,10 +22,10 @@ from app.api.deps import (
     build_message_service,
 )
 from app.core.ratelimit import TokenBucket
-from app.models.user import utcnow
 from app.schemas.agent import AgentSettings
 from app.schemas.message import MessageOut
 from app.schemas.ws import (
+    AckFrame,
     BroadcastResultFrame,
     DeliveredFrame,
     ErrorFrame,
@@ -131,14 +131,9 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
     )
     await ws.send_json(ack.model_dump(mode="json", by_alias=True))
 
-    if pending:
-
-        async def _flush() -> None:
-            async with session_factory() as session:
-                await _message_service(ws, session).mark_delivered([m.id for m in pending])
-
-        # shield: desconexão no meio do flush não pode interromper a escrita
-        await asyncio.shield(_flush())
+    # As pendentes seguem no hello_ack; o daemon ackará cada uma (at-least-once).
+    # Sem o ack, continuam pendentes e voltam na próxima reconexão — nada de
+    # marcar entregue otimisticamente aqui (docs/ARCHITECTURE.md · Protocolo WS).
 
     bucket = TokenBucket(settings.ws_messages_per_minute)
     malformed = 0
@@ -157,6 +152,13 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
                     await ws.close(code=CLOSE_PROTOCOL_ABUSE, reason="malformed frames")
                     break
                 await _send_error(ws, "bad_frame", "Frame inválido.")
+                continue
+
+            # ack de entrega: confirma recebimento e libera o `delivered` ao
+            # remetente. Não conta no token bucket (é resposta, não envio) e é
+            # naturalmente limitado pelas mensagens que chegaram a este agente.
+            if isinstance(frame, AckFrame):
+                await _handle_ack(ws, slug, frame.message_id)
                 continue
 
             if not isinstance(frame, SendMessageFrame):
@@ -203,32 +205,41 @@ async def _handle_send(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -
         await _send_error(ws, exc.code, exc.detail)
         return
 
-    delivered = await _deliver(ws, msg)
-    if delivered:
-        await ws.send_json(DeliveredFrame(message_id=msg.id, to=frame.to).model_dump(mode="json"))
+    # Empurra ao destinatário; o `delivered` ao remetente só sai quando o
+    # destinatário ackar (at-least-once — ver _handle_ack).
+    await _dispatch(ws, msg)
 
 
-async def _deliver(ws: WebSocket, msg) -> bool:
-    """Entrega em tempo real + marca delivered + espelha para observers."""
+async def _dispatch(ws: WebSocket, msg) -> bool:
+    """Entrega em tempo real + espelha para observers, SEM marcar delivered.
+    'Entregue' passa a significar 'o destinatário confirmou', não 'empurrei
+    pro cano' — então delivered_at fica nulo até o ack. Retorna se o socket do
+    destinatário aceitou (usado pelo broadcast para listar quem está offline)."""
+    manager: ConnectionManager = ws.app.state.manager
+    accepted = await manager.send_to_agent(msg.to_agent, _message_payload(msg))
+    await manager.notify_message(_message_payload(msg), msg.from_agent, msg.to_agent)
+    return accepted
+
+
+async def _handle_ack(ws: WebSocket, recipient_slug: str, message_id: int) -> None:
+    """Destinatário confirmou recebimento: marca delivered, avisa o remetente
+    (`delivered`) e re-espelha aos observers com delivered_at preenchido."""
     manager: ConnectionManager = ws.app.state.manager
     session_factory = ws.app.state.session_factory
 
-    # Marca delivered no objeto ANTES de serializar, para que o frame entregue
-    # (e o espelho aos observers) reflita o timestamp — e não delivered_at:null.
-    msg.delivered_at = utcnow()
-    delivered = await manager.send_to_agent(msg.to_agent, _message_payload(msg))
-    if delivered:
+    async def _ack():
+        async with session_factory() as session:
+            return await _message_service(ws, session).ack_delivery(recipient_slug, message_id)
 
-        async def _mark() -> None:
-            async with session_factory() as session:
-                await _message_service(ws, session).mark_delivered([msg.id])
+    msg = await asyncio.shield(_ack())
+    if msg is None:
+        return  # ack alheio, repetido sem efeito ou de mensagem inexistente
 
-        await asyncio.shield(_mark())
-    else:
-        msg.delivered_at = None  # destinatário offline: fica pendente
-
+    await manager.send_to_agent(
+        msg.from_agent,
+        DeliveredFrame(message_id=msg.id, to=msg.to_agent).model_dump(mode="json"),
+    )
     await manager.notify_message(_message_payload(msg), msg.from_agent, msg.to_agent)
-    return delivered
 
 
 async def _handle_broadcast(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -> None:
@@ -263,7 +274,7 @@ async def _handle_broadcast(ws: WebSocket, from_slug: str, frame: SendMessageFra
 
     offline: list[str] = []
     for msg in sent:
-        if not await _deliver(ws, msg):
+        if not await _dispatch(ws, msg):
             offline.append(msg.to_agent)
 
     result = BroadcastResultFrame(

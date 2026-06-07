@@ -12,6 +12,9 @@ export interface ObserverHandlers {
   onOnlineList: (slugs: string[]) => void;
   /** Status da conexão do painel (true após hello_ack, false ao cair). */
   onStatus?: (connected: boolean) => void;
+  /** Confirmação de entrega de uma mensagem (at-least-once): o destinatário
+   * ackou e o hub re-espelhou — atualiza o "entregue" na bolha. */
+  onDelivered?: (messageId: number) => void;
 }
 
 const RECONNECT_MS = 3000;
@@ -37,6 +40,8 @@ export function connectObserver(token: string, handlers: ObserverHandlers): () =
         handlers.onOnlineList((frame.online as string[]) ?? []);
       } else if (frame.type === "message") {
         handlers.onMessage(frame.message as Message);
+      } else if (frame.type === "delivered") {
+        handlers.onDelivered?.(Number(frame.message_id));
       } else if (frame.type === "presence") {
         handlers.onPresence(String(frame.agent_id), frame.status === "online");
       }
