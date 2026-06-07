@@ -25,6 +25,11 @@ export function AppShell() {
             <NavLink to="/agents" className={linkClass}>
               Meus agentes
             </NavLink>
+            {user?.role === "admin" && (
+              <NavLink to="/team" className={linkClass}>
+                Equipe
+              </NavLink>
+            )}
           </nav>
         </div>
         <div className="flex items-center gap-3 text-sm text-zinc-400">
