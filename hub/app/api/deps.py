@@ -27,28 +27,44 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
-def get_auth_service(request: Request, session: AsyncSession = Depends(get_session)) -> AuthService:
+# ---- fábricas puras (únicas que montam service+repositories) ----
+# Usadas pelas dependencies REST abaixo E pela rota WS (sessão por operação).
+
+
+def build_auth_service(session: AsyncSession, settings) -> AuthService:
     return AuthService(
         users=UserRepository(session),
         invites=InviteRepository(session),
         audit=AuditRepository(session),
-        settings=request.app.state.settings,
+        settings=settings,
     )
 
 
-def get_agent_service(session: AsyncSession = Depends(get_session)) -> AgentService:
+def build_agent_service(session: AsyncSession) -> AgentService:
     return AgentService(agents=AgentRepository(session), audit=AuditRepository(session))
+
+
+def build_message_service(session: AsyncSession, settings) -> MessageService:
+    return MessageService(
+        messages=MessageRepository(session),
+        agents=AgentRepository(session),
+        audit=AuditRepository(session),
+        settings=settings,
+    )
+
+
+def get_auth_service(request: Request, session: AsyncSession = Depends(get_session)) -> AuthService:
+    return build_auth_service(session, request.app.state.settings)
+
+
+def get_agent_service(session: AsyncSession = Depends(get_session)) -> AgentService:
+    return build_agent_service(session)
 
 
 def get_message_service(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> MessageService:
-    return MessageService(
-        messages=MessageRepository(session),
-        agents=AgentRepository(session),
-        audit=AuditRepository(session),
-        settings=request.app.state.settings,
-    )
+    return build_message_service(session, request.app.state.settings)
 
 
 async def get_current_user(

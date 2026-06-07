@@ -47,13 +47,14 @@ api/routes  →  services  →  repositories  →  models
   schemas       schemas        models
 ```
 
-1. **Rotas (`app/api/routes/`)** apenas: validam entrada (schemas Pydantic), chamam **um** service, devolvem schema de saída. **Proibido**: acessar repositories, models ou sessão de banco diretamente.
+1. **Rotas (`app/api/routes/`)** apenas: validam entrada (schemas Pydantic), chamam services, devolvem schema de saída. **Proibido**: acessar repositories, models ou sessão de banco diretamente.
 2. **Services (`app/services/`)** contêm toda a lógica de negócio. Recebem repositories por injeção (construtor). **Proibido**: importar FastAPI/Request/WebSocket — services não conhecem HTTP.
-   - Exceção única: `PresenceService` conhece a abstração `ConnectionManager` (interface definida em `app/ws/`), nunca o WebSocket cru.
 3. **Repositories (`app/repositories/`)** são a única camada que toca SQLAlchemy/sessão. Um repository por agregado (`AgentRepository`, `MessageRepository`).
 4. **Models (`app/models/`)** = tabelas SQLAlchemy. **Schemas (`app/schemas/`)** = contratos Pydantic de entrada/saída e do protocolo WS. Nunca expor model em rota.
 5. **Dependências apontam só para dentro**: `routes → services → repositories → models`. Importar no sentido contrário é violação.
 6. **`app/core/`**: configuração (env) e fábrica de sessão do banco. Nenhuma lógica de negócio.
+7. **Montagem de services acontece SOMENTE nas fábricas `build_*` de `app/api/deps.py`** — rotas REST (via `Depends`) e a rota WS usam as mesmas fábricas; nenhum outro lugar instancia service/repository.
+8. **Presença e entrega em tempo real** são responsabilidade do `ConnectionManager` (`app/ws/`) — a camada de transporte (rotas REST/WS) orquestra `service + manager`; services nunca conhecem o manager.
 
 ## Regras de camadas — `bridge/`
 

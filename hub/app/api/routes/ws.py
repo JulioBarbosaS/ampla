@@ -15,12 +15,8 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
+from app.api.deps import build_agent_service, build_auth_service, build_message_service
 from app.core.ratelimit import TokenBucket
-from app.repositories.agent_repo import AgentRepository
-from app.repositories.audit_repo import AuditRepository
-from app.repositories.invite_repo import InviteRepository
-from app.repositories.message_repo import MessageRepository
-from app.repositories.user_repo import UserRepository
 from app.schemas.agent import AgentSettings
 from app.schemas.message import MessageOut
 from app.schemas.ws import (
@@ -32,8 +28,6 @@ from app.schemas.ws import (
     SendMessageFrame,
     client_frame_adapter,
 )
-from app.services.agent_service import AgentService
-from app.services.auth_service import AuthService
 from app.services.errors import DomainError
 from app.services.message_service import MessageService
 from app.ws.connection_manager import ConnectionManager, ObserverConn
@@ -105,15 +99,12 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
 
     # autenticação + snapshot inicial (sessão curta)
     async with session_factory() as session:
-        agent_svc = AgentService(AgentRepository(session), AuditRepository(session))
-        agent = await agent_svc.authenticate_key(slug, hello.key or "")
+        agent = await build_agent_service(session).authenticate_key(slug, hello.key or "")
         if agent is None:
-            await AuditRepository(session).record("ws_auth_fail", actor=slug or "?")
             await _send_error(ws, "auth_failed", "Chave inválida ou revogada.")
             await ws.close(code=CLOSE_AUTH_FAIL, reason="auth failed")
             return
-        msg_svc = _build_message_service(ws, session)
-        pending = await msg_svc.pending_for(slug)
+        pending = await _message_service(ws, session).pending_for(slug)
         agent_settings = AgentSettings.model_validate(agent)
 
     await manager.connect_agent(slug, ws)
@@ -131,7 +122,7 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
 
         async def _flush() -> None:
             async with session_factory() as session:
-                await _build_message_service(ws, session).mark_delivered([m.id for m in pending])
+                await _message_service(ws, session).mark_delivered([m.id for m in pending])
 
         # shield: desconexão no meio do flush não pode interromper a escrita
         await asyncio.shield(_flush())
@@ -182,7 +173,7 @@ async def _handle_send(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -
     # operação não pode deixar o banco/conexão em estado inconsistente.
     async def _persist():
         async with session_factory() as session:
-            return await _build_message_service(ws, session).send(
+            return await _message_service(ws, session).send(
                 from_slug,
                 frame.to,
                 frame.body,
@@ -203,7 +194,7 @@ async def _handle_send(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -
 
         async def _mark() -> None:
             async with session_factory() as session:
-                await _build_message_service(ws, session).mark_delivered([msg.id])
+                await _message_service(ws, session).mark_delivered([msg.id])
 
         await asyncio.shield(_mark())
 
@@ -221,18 +212,13 @@ async def _run_observer_connection(ws: WebSocket, hello: HelloFrame) -> None:
     session_factory = state.session_factory
 
     async with session_factory() as session:
-        auth = AuthService(
-            UserRepository(session),
-            InviteRepository(session),
-            AuditRepository(session),
-            state.settings,
-        )
+        auth = build_auth_service(session, state.settings)
         user = await auth.get_user_by_token(hello.jwt or "")
         if user is None:
             await _send_error(ws, "auth_failed", "Sessão inválida ou expirada.")
             await ws.close(code=CLOSE_AUTH_FAIL, reason="auth failed")
             return
-        owned = {a.slug for a in await AgentRepository(session).list_by_user(user.id)}
+        owned = {a.slug for a in await build_agent_service(session).list_for_user(user)}
 
     conn = ObserverConn(ws=ws, user_id=user.id, role=user.role, owned_slugs=owned)
     await manager.add_observer(conn)
@@ -249,10 +235,5 @@ async def _run_observer_connection(ws: WebSocket, hello: HelloFrame) -> None:
         await manager.remove_observer(ws)
 
 
-def _build_message_service(ws: WebSocket, session) -> MessageService:
-    return MessageService(
-        messages=MessageRepository(session),
-        agents=AgentRepository(session),
-        audit=AuditRepository(session),
-        settings=ws.app.state.settings,
-    )
+def _message_service(ws: WebSocket, session) -> MessageService:
+    return build_message_service(session, ws.app.state.settings)

@@ -121,8 +121,9 @@ class AgentService:
     # ---- autenticação do daemon (frame hello) ----
 
     async def authenticate_key(self, agent_id: str, key: str) -> Agent | None:
-        """Resolve a chave para o agente. None ⇒ falha (auditada pelo chamador)."""
+        """Resolve a chave para o agente. None ⇒ falha (auditada aqui)."""
         found = await self._agents.get_key_by_hash(security.hash_agent_key(key))
         if found is None or found.revoked_at is not None or found.agent_slug != agent_id:
+            await self._audit.record("ws_auth_fail", actor=agent_id or "?")
             return None
         return await self._agents.get(found.agent_slug)
