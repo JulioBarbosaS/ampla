@@ -47,7 +47,15 @@ Starlette não expõe ping/pong nativo no loop `receive_text()` facilmente → u
 - Convergência de design: "Agent Message Bus" (dev.to/linou518) tem `/ack` e heartbeat — mesma direção.
 
 ## Checklist de saída
-- [ ] hub + bridge no mesmo commit (protocolo espelhado)
-- [ ] goldens regenerados e diff revisado
-- [ ] testes verdes nas 3 partes; coverage gates intactos
-- [ ] ARCHITECTURE.md · Protocolo WS atualizado (frames ack/ping/pong; semântica nova de delivered_at)
+- [x] hub + bridge no mesmo commit (protocolo espelhado) — ACK em `820c64f`, heartbeat em `219d3da`
+- [x] goldens regenerados e diff revisado — `client.ack`, `client.pong`, `server.ping`
+- [x] testes verdes nas 3 partes; coverage gates intactos — hub 95.8% (≥90), bridge 84.9% (≥75), web 64% (≥25)
+- [x] ARCHITECTURE.md · Protocolo WS atualizado (frames ack/ping/pong; semântica nova de delivered_at)
+
+## Concluído em 2026-06-07
+
+Parte 1 (ACK) e Parte 2 (heartbeat) implementadas e verdes. Decisões além do plano:
+- **Web também atualizado** (commit do ACK): o observer trata `delivered` e o store carimba a bolha — sem isso o painel ficaria preso em "pendente" (o dispatch espelha com delivered_at nulo, e a dedup por id ignoraria um re-espelho).
+- **Heartbeat só em conexões de agente** (não observers): o objetivo é a correção de presença, e observers não aparecem em presença. `AMP_HEARTBEAT_SECS` é `float` para permitir intervalo curto nos testes.
+- **Posse no ack**: só o próprio destinatário marca a entrega da sua mensagem (Ameaça 3).
+- Daemon detectar hub morto por ping-timeout (item "opcional" da Parte 2): **não feito** — o `close` do TCP já dispara o reconnect; meia-abertura no lado do daemon fica para depois se necessário.
