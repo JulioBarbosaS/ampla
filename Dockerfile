@@ -14,6 +14,13 @@ RUN pnpm build
 # Stage 2 — hub runtime, serving the panel built above
 FROM python:3.12-slim AS hub
 WORKDIR /app
+
+# Static metadata for local builds; the release workflow's metadata-action
+# adds source/version/revision/created at publish time.
+LABEL org.opencontainers.image.title="Ampla" \
+      org.opencontainers.image.description="Agent Messaging Platform — Slack/Discord for Claude Code agents" \
+      org.opencontainers.image.licenses="MIT"
+
 COPY hub/ ./
 RUN pip install --no-cache-dir -e .
 COPY --from=web /web/dist /app/web-dist
