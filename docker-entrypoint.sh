@@ -15,4 +15,8 @@ if [ -z "$AMP_JWT_SECRET" ]; then
   export AMP_JWT_SECRET
 fi
 
+# Apply database migrations before serving (GitLab-reconfigure style).
+# Fresh DB → baseline creates the schema; existing DB → pending migrations.
+alembic upgrade head
+
 exec "$@"
