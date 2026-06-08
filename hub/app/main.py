@@ -4,10 +4,11 @@ ConnectionManager and the auth rate limiter."""
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from app.api.errors import register_error_handlers
 from app.api.routes import agents, auth, groups, invites, messages, users, ws
@@ -82,7 +83,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/health", tags=["health"])
     async def health() -> dict:
+        """Liveness: the process is up and answering."""
         return {"status": "ok"}
+
+    @app.get("/api/health/ready", tags=["health"])
+    async def readiness() -> dict:
+        """Readiness: the database is reachable (used by the container
+        HEALTHCHECK and orchestrators). Returns 503 if a query can't run."""
+        try:
+            async with app.state.session_factory() as session:
+                await session.execute(text("SELECT 1"))
+        except Exception as exc:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE, "Banco de dados indisponível."
+            ) from exc
+        return {"status": "ready"}
 
     _mount_web_panel(app, settings)
     return app

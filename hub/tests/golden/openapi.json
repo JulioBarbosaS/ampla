@@ -1683,6 +1683,7 @@
     },
     "/api/health": {
       "get": {
+        "description": "Liveness: the process is up and answering.",
         "operationId": "health_api_health_get",
         "responses": {
           "200": {
@@ -1699,6 +1700,30 @@
           }
         },
         "summary": "Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/health/ready": {
+      "get": {
+        "description": "Readiness: the database is reachable (used by the container\nHEALTHCHECK and orchestrators). Returns 503 if a query can't run.",
+        "operationId": "readiness_api_health_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Readiness Api Health Ready Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Readiness",
         "tags": [
           "health"
         ]
