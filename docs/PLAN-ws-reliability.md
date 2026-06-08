@@ -1,61 +1,61 @@
-# Plano — Fase 9: Confiabilidade do WS (ACK fim-a-fim + heartbeat)
+# Plan — Phase 9: WS reliability (end-to-end ACK + heartbeat)
 
-> Não iniciado em código (revertido por limite de contexto). Este plano é o ponto de partida para retomar. Ordem: **ACK primeiro** (resolve perda de dados real), heartbeat depois. Lembrar: protocolo espelhado hub↔bridge **no mesmo commit**, goldens regenerados.
+> Not started in code (reverted due to a context limit). This plan is the starting point for resuming. Order: **ACK first** (it solves the real data loss), heartbeat after. Remember: the protocol is mirrored hub↔bridge **in the same commit**, goldens regenerated.
 
-## Problema que resolve
+## Problem it solves
 
-Hoje o hub marca `delivered_at` quando o `send_json` ao socket retorna (`hub/app/api/routes/ws.py` · `_deliver`) — "empurrei pro cano", não "o destinatário gravou". Se o daemon cai antes de persistir, a mensagem fica marcada como entregue e **não volta no `pending`** → perda silenciosa. Falta também heartbeat → conexões zumbis ficam "online".
+Today the hub sets `delivered_at` when the `send_json` to the socket returns (`hub/app/api/routes/ws.py` · `_deliver`) — "I pushed it down the pipe", not "the recipient stored it". If the daemon goes down before persisting, the message stays marked as delivered and **doesn't come back in `pending`** → silent loss. A heartbeat is also missing → zombie connections stay "online".
 
-## Parte 1 — ACK fim-a-fim (at-least-once)
+## Part 1 — End-to-end ACK (at-least-once)
 
-**Protocolo** (`hub/app/schemas/ws.py` + `bridge/src/shared/protocol.ts`, mesmo commit):
-- Novo frame cliente→hub: `AckFrame { type:"ack", message_id:int }`. Adicionar ao `ClientFrame` union e ao `client_frame_adapter`.
-- Espelhar em `protocol.ts` (não precisa entrar no `serverFrameSchema`, é client→hub).
+**Protocol** (`hub/app/schemas/ws.py` + `bridge/src/shared/protocol.ts`, same commit):
+- A new client→hub frame: `AckFrame { type:"ack", message_id:int }`. Add it to the `ClientFrame` union and to `client_frame_adapter`.
+- Mirror it in `protocol.ts` (it doesn't need to go into `serverFrameSchema`, since it's client→hub).
 
 **Hub** (`ws.py`):
-- Renomear `_deliver` → `_dispatch(msg)`: envia ao socket do destinatário + espelha aos observers, **mas NÃO marca `delivered_at`** e **NÃO manda `delivered` ao remetente**. Retorna se o socket aceitou (para o broadcast_result.offline).
-- No loop do agente (`_run_agent_connection`), tratar `AckFrame`: `mark_delivered([id])` → carregar msg → mandar `delivered{message_id,to}` ao `from_agent` se online → (opcional) re-espelhar aos observers com `delivered_at` preenchido.
-- Flush de pending no hello: **remover** o `mark_delivered` automático (linhas ~133-140). As pending são enviadas; o daemon ackará cada uma.
-- `_handle_send` e `_handle_broadcast`: usam `_dispatch`; o `delivered` ao remetente sai só no ack.
+- Rename `_deliver` → `_dispatch(msg)`: sends to the recipient's socket + mirrors to observers, **but does NOT set `delivered_at`** and **does NOT send `delivered` to the sender**. Returns whether the socket accepted it (for `broadcast_result.offline`).
+- In the agent loop (`_run_agent_connection`), handle the `AckFrame`: `mark_delivered([id])` → load the msg → send `delivered{message_id,to}` to the `from_agent` if online → (optional) re-mirror to observers with `delivered_at` set.
+- Pending flush on hello: **remove** the automatic `mark_delivered` (lines ~133-140). The pending messages are sent; the daemon will ack each one.
+- `_handle_send` and `_handle_broadcast`: use `_dispatch`; the `delivered` to the sender only goes out on the ack.
 
 **Daemon** (`bridge/src/daemon/`):
-- `ws-client.ts`: método `ackMessage(id: number)` que manda `{type:"ack", message_id:id}`.
-- `index.ts` `hub.on("message")`: após `store.append(...)`, se `message.id != null` → `hub.ackMessage(message.id)`. **Sempre ackar** (mesmo se o append deduplicou), senão o hub reenvia para sempre. Dedup por id já existe no store → at-least-once correto.
+- `ws-client.ts`: an `ackMessage(id: number)` method that sends `{type:"ack", message_id:id}`.
+- `index.ts` `hub.on("message")`: after `store.append(...)`, if `message.id != null` → `hub.ackMessage(message.id)`. **Always ack** (even if the append deduplicated it), otherwise the hub resends forever. Dedup by id already exists in the store → correct at-least-once.
 
-**Testes a ATUALIZAR** (codificam o comportamento otimista atual — vão precisar ackar):
-- `hub/tests/integration/test_ws.py`: `test_mensagem_roteada_em_tempo_real`, `test_historico_via_rest_apos_ws`, `test_threading_e_type_via_ws` → o destinatário (cliente de teste) deve mandar `ack` para o `delivered` chegar e o `delivered_at` ficar preenchido. Criar helper `ack(ws, message_id)` em `tests/helpers.py`.
-- `test_destinatario_offline_recebe_no_proximo_hello` → na reconexão, ackar os pending antes de checar que a 2ª conexão vem vazia.
-- Broadcast (`TestBroadcastWs`): `broadcast_result.offline` continua baseado em "socket não aceitou" (ack é assíncrono).
-- Golden `hub/tests/golden/ws_frames.json`: adicionar `client.ack` (regenerar com `AMP_UPDATE_GOLDEN=1`).
-- Bridge `protocol-mirror.test.ts`: cobrir `client.ack`.
+**Tests to UPDATE** (they encode the current optimistic behavior — they'll need to ack):
+- `hub/tests/integration/test_ws.py`: `test_mensagem_roteada_em_tempo_real`, `test_historico_via_rest_apos_ws`, `test_threading_e_type_via_ws` → the recipient (the test client) must send an `ack` for `delivered` to arrive and `delivered_at` to be set. Create an `ack(ws, message_id)` helper in `tests/helpers.py`.
+- `test_destinatario_offline_recebe_no_proximo_hello` → on reconnection, ack the pending messages before checking that the 2nd connection comes back empty.
+- Broadcast (`TestBroadcastWs`): `broadcast_result.offline` is still based on "the socket didn't accept" (the ack is asynchronous).
+- Golden `hub/tests/golden/ws_frames.json`: add `client.ack` (regenerate with `AMP_UPDATE_GOLDEN=1`).
+- Bridge `protocol-mirror.test.ts`: cover `client.ack`.
 
-**Teste novo (o que prova a correção):** mensagem entregue ao socket mas **sem ack** → reconectar → ela **volta no pending** (não foi perdida). Hoje isso falharia (marcada como entregue cedo).
+**New test (the one that proves the fix):** a message delivered to the socket but **without an ack** → reconnect → it **comes back in pending** (it wasn't lost). Today this would fail (marked as delivered too early).
 
-## Parte 2 — Heartbeat (~30s)
+## Part 2 — Heartbeat (~30s)
 
-Starlette não expõe ping/pong nativo no loop `receive_text()` facilmente → usar **heartbeat de aplicação** (frames JSON):
-- Frames: hub→cliente `{type:"ping"}` (novo `PingFrame` server) e cliente→hub `{type:"pong"}` (`PongFrame` client).
-- Hub: task asyncio concorrente ao loop de recepção que manda `ping` a cada `AMP_HEARTBEAT_SECS` (default 30); se passar 2 intervalos sem `pong`, fecha o ws (e o `finally` já difunde offline). Cuidado com a concorrência: o loop principal lê e atualiza `last_pong`; a task de ping verifica.
-- Daemon (`ws-client.ts`): ao receber `ping`, responde `pong` imediatamente. Opcional: o daemon também detecta hub morto se não receber ping em 2 intervalos.
-- Config: `AMP_HEARTBEAT_SECS` em `hub/app/core/config.py`.
-- Testes: ping é enviado; sem pong → conexão cai. Pode usar intervalo curto no `make_settings`.
+Starlette doesn't expose native ping/pong easily in the `receive_text()` loop → use an **application-level heartbeat** (JSON frames):
+- Frames: hub→client `{type:"ping"}` (a new server `PingFrame`) and client→hub `{type:"pong"}` (`PongFrame` client).
+- Hub: an asyncio task concurrent with the receive loop that sends `ping` every `AMP_HEARTBEAT_SECS` (default 30); if 2 intervals pass with no `pong`, it closes the ws (and the `finally` already broadcasts offline). Watch out for concurrency: the main loop reads and updates `last_pong`; the ping task checks it.
+- Daemon (`ws-client.ts`): when it receives a `ping`, it replies `pong` immediately. Optional: the daemon also detects a dead hub if it doesn't receive a ping within 2 intervals.
+- Config: `AMP_HEARTBEAT_SECS` in `hub/app/core/config.py`.
+- Tests: a ping is sent; with no pong → the connection drops. You can use a short interval in `make_settings`.
 
-## Inspiração (pesquisa)
+## Inspiration (research)
 
-- ACK + dedup por id = **at-least-once** (Socket.IO, Microsoft Azure Web PubSub, WebSocket.org reconnection).
+- ACK + dedup by id = **at-least-once** (Socket.IO, Microsoft Azure Web PubSub, WebSocket.org reconnection).
 - Heartbeat 20–45s (WebSocket.org Heartbeat, Ably).
-- Convergência de design: "Agent Message Bus" (dev.to/linou518) tem `/ack` e heartbeat — mesma direção.
+- Design convergence: "Agent Message Bus" (dev.to/linou518) has `/ack` and a heartbeat — same direction.
 
-## Checklist de saída
-- [x] hub + bridge no mesmo commit (protocolo espelhado) — ACK em `820c64f`, heartbeat em `219d3da`
-- [x] goldens regenerados e diff revisado — `client.ack`, `client.pong`, `server.ping`
-- [x] testes verdes nas 3 partes; coverage gates intactos — hub 95.8% (≥90), bridge 84.9% (≥75), web 64% (≥25)
-- [x] ARCHITECTURE.md · Protocolo WS atualizado (frames ack/ping/pong; semântica nova de delivered_at)
+## Exit checklist
+- [x] hub + bridge in the same commit (protocol mirrored) — ACK in `820c64f`, heartbeat in `219d3da`
+- [x] goldens regenerated and diff reviewed — `client.ack`, `client.pong`, `server.ping`
+- [x] tests green in all 3 parts; coverage gates intact — hub 95.8% (≥90), bridge 84.9% (≥75), web 64% (≥25)
+- [x] ARCHITECTURE.md · WS protocol updated (ack/ping/pong frames; new `delivered_at` semantics)
 
-## Concluído em 2026-06-07
+## Completed on 2026-06-07
 
-Parte 1 (ACK) e Parte 2 (heartbeat) implementadas e verdes. Decisões além do plano:
-- **Web também atualizado** (commit do ACK): o observer trata `delivered` e o store carimba a bolha — sem isso o painel ficaria preso em "pendente" (o dispatch espelha com delivered_at nulo, e a dedup por id ignoraria um re-espelho).
-- **Heartbeat só em conexões de agente** (não observers): o objetivo é a correção de presença, e observers não aparecem em presença. `AMP_HEARTBEAT_SECS` é `float` para permitir intervalo curto nos testes.
-- **Posse no ack**: só o próprio destinatário marca a entrega da sua mensagem (Ameaça 3).
-- Daemon detectar hub morto por ping-timeout (item "opcional" da Parte 2): **não feito** — o `close` do TCP já dispara o reconnect; meia-abertura no lado do daemon fica para depois se necessário.
+Part 1 (ACK) and Part 2 (heartbeat) implemented and green. Decisions beyond the plan:
+- **Web also updated** (in the ACK commit): the observer handles `delivered` and the store stamps the bubble — without this the dashboard would stay stuck on "pending" (the dispatch mirrors with `delivered_at` null, and dedup by id would ignore a re-mirror).
+- **Heartbeat on agent connections only** (not observers): the goal is correcting presence, and observers don't appear in presence. `AMP_HEARTBEAT_SECS` is a `float` to allow a short interval in tests.
+- **Ownership on the ack**: only the recipient itself marks its own message as delivered (Threat 3).
+- The daemon detecting a dead hub via ping-timeout (the "optional" item in Part 2): **not done** — the TCP `close` already triggers the reconnect; half-open detection on the daemon side is left for later if needed.

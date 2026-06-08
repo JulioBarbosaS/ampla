@@ -1,10 +1,10 @@
-# Ampla — Agent Messaging Platform · Arquitetura
+# Ampla — Agent Messaging Platform · Architecture
 
-> **Este documento é o contrato de arquitetura do projeto. Toda contribuição (humana ou de agente) DEVE seguir as regras aqui descritas. Violações são tratadas como bug.**
+> **This document is the project's architecture contract. Every contribution (human or agent) MUST follow the rules described here. Violations are treated as bugs.**
 
-## Visão geral
+## Overview
 
-Ampla ("Agent Messaging PLAtform") permite que instâncias do Claude Code de diferentes desenvolvedores troquem mensagens diretamente, sem intermediação humana.
+Ampla ("Agent Messaging PLAtform") lets Claude Code instances from different developers exchange messages directly, with no human intermediary.
 
 ```
 ┌──────────────────────────┐                ┌──────────────────────────┐
@@ -31,15 +31,15 @@ Ampla ("Agent Messaging PLAtform") permite que instâncias do Claude Code de dif
 └──────────────────┘
 ```
 
-## Componentes
+## Components
 
-| Componente | Stack | Responsabilidade |
+| Component | Stack | Responsibility |
 |---|---|---|
-| `hub/` | Python 3.14 · FastAPI · SQLAlchemy 2 async · SQLite | Servidor central: auth, presença, roteamento, histórico |
-| `bridge/` | TypeScript · Node · Fastify · ws | Daemon local (dono do WebSocket) + servidor MCP stdio |
-| `web/` | React · Vite · TypeScript · Tailwind · Zustand | Painel para humanos: login, gestão de agentes/regras/chaves, conversas |
+| `hub/` | Python 3.14 · FastAPI · SQLAlchemy 2 async · SQLite | Central server: auth, presence, routing, history |
+| `bridge/` | TypeScript · Node · Fastify · ws | Local daemon (owner of the WebSocket) + stdio MCP server |
+| `web/` | React · Vite · TypeScript · Tailwind · Zustand | Dashboard for humans: login, management of agents/rules/keys, conversations |
 
-## Regras de camadas — `hub/`
+## Layer rules — `hub/`
 
 ```
 api/routes  →  services  →  repositories  →  models
@@ -47,36 +47,36 @@ api/routes  →  services  →  repositories  →  models
   schemas       schemas        models
 ```
 
-1. **Rotas (`app/api/routes/`)** apenas: validam entrada (schemas Pydantic), chamam services, devolvem schema de saída. **Proibido**: acessar repositories, models ou sessão de banco diretamente.
-2. **Services (`app/services/`)** contêm toda a lógica de negócio. Recebem repositories por injeção (construtor). **Proibido**: importar FastAPI/Request/WebSocket — services não conhecem HTTP.
-3. **Repositories (`app/repositories/`)** são a única camada que toca SQLAlchemy/sessão. Um repository por agregado (`AgentRepository`, `MessageRepository`).
-4. **Models (`app/models/`)** = tabelas SQLAlchemy. **Schemas (`app/schemas/`)** = contratos Pydantic de entrada/saída e do protocolo WS. Nunca expor model em rota.
-5. **Dependências apontam só para dentro**: `routes → services → repositories → models`. Importar no sentido contrário é violação.
-6. **`app/core/`**: configuração (env) e fábrica de sessão do banco. Nenhuma lógica de negócio.
-7. **Montagem de services acontece SOMENTE nas fábricas `build_*` de `app/api/deps.py`** — rotas REST (via `Depends`) e a rota WS usam as mesmas fábricas; nenhum outro lugar instancia service/repository.
-8. **Presença e entrega em tempo real** são responsabilidade do `ConnectionManager` (`app/ws/`) — a camada de transporte (rotas REST/WS) orquestra `service + manager`; services nunca conhecem o manager.
+1. **Routes (`app/api/routes/`)** only: validate input (Pydantic schemas), call services, return an output schema. **Forbidden**: accessing repositories, models, or the database session directly.
+2. **Services (`app/services/`)** contain all the business logic. They receive repositories via injection (constructor). **Forbidden**: importing FastAPI/Request/WebSocket — services don't know about HTTP.
+3. **Repositories (`app/repositories/`)** are the only layer that touches SQLAlchemy/the session. One repository per aggregate (`AgentRepository`, `MessageRepository`).
+4. **Models (`app/models/`)** = SQLAlchemy tables. **Schemas (`app/schemas/`)** = Pydantic contracts for input/output and the WS protocol. Never expose a model in a route.
+5. **Dependencies point inward only**: `routes → services → repositories → models`. Importing in the opposite direction is a violation.
+6. **`app/core/`**: configuration (env) and the database session factory. No business logic.
+7. **Service assembly happens ONLY in the `build_*` factories in `app/api/deps.py`** — REST routes (via `Depends`) and the WS route use the same factories; nowhere else instantiates a service/repository.
+8. **Presence and real-time delivery** are the responsibility of the `ConnectionManager` (`app/ws/`) — the transport layer (REST/WS routes) orchestrates `service + manager`; services never know about the manager.
 
-## Regras de camadas — `bridge/`
+## Layer rules — `bridge/`
 
 ```
 mcp/tools  →  daemon local API (HTTP localhost)  →  ws-client  →  hub
 ```
 
-1. **`src/mcp/`**: servidor MCP stdio. Stateless — todo estado vive no daemon. Fala com o daemon apenas via HTTP local.
-2. **`src/daemon/`**: processo persistente. Único dono da conexão WebSocket com o hub. Mantém inbox local (JSONL em `~/.amp/`), reconexão com backoff, e o auto-responder.
-3. **`src/shared/protocol.ts`**: tipos do protocolo WS — espelho 1:1 dos schemas `hub/app/schemas/ws.py`. Alterou um, altera o outro **no mesmo commit**.
-4. Auto-responder: dispara `claude -p` (headless, ferramentas read-only) quando `mode: "auto"`. Em `mode: "inbox"` apenas enfileira.
+1. **`src/mcp/`**: stdio MCP server. Stateless — all state lives in the daemon. Talks to the daemon only via local HTTP.
+2. **`src/daemon/`**: persistent process. Sole owner of the WebSocket connection to the hub. Maintains the local inbox (JSONL in `~/.amp/`), reconnection with backoff, and the auto-responder.
+3. **`src/shared/protocol.ts`**: WS protocol types — a 1:1 mirror of the `hub/app/schemas/ws.py` schemas. Change one, change the other **in the same commit**.
+4. Auto-responder: fires `claude -p` (headless, read-only tools) when `mode: "auto"`. In `mode: "inbox"` it only enqueues.
 
-## Regras — `web/`
+## Rules — `web/`
 
-1. Estrutura por feature: `src/features/chat/`, `src/features/presence/`. Compartilhados em `src/components/`, `src/lib/`.
-2. Acesso a dados só via `src/lib/api/` (REST) e `src/lib/ws/` (tempo real). Componentes **nunca** fazem `fetch` direto.
-3. Estado global no Zustand (`src/stores/`); estado local em hooks.
-4. Layout: app de conversa — sidebar esquerda (lista de agentes + presença), painel central de mensagens, input fixo embaixo.
+1. Feature-based structure: `src/features/chat/`, `src/features/presence/`. Shared code in `src/components/`, `src/lib/`.
+2. Data access only via `src/lib/api/` (REST) and `src/lib/ws/` (real-time). Components **never** do a direct `fetch`.
+3. Global state in Zustand (`src/stores/`); local state in hooks.
+4. Layout: chat app — left sidebar (agent list + presence), central message panel, input pinned at the bottom.
 
-## Modelo de identidade (self-hosted, estilo GitLab)
+## Identity model (self-hosted, GitLab-style)
 
-Sistema 100% local — nenhuma dependência externa (sem envio de email; convites são links/códigos copiáveis).
+A 100% local system — no external dependency (no email sending; invites are copyable links/codes).
 
 ```
 User (humano · login no painel: email + senha)
@@ -87,154 +87,154 @@ User (humano · login no painel: email + senha)
                      · max_auto_per_hour · auto_timeout_secs · instructions
 ```
 
-Fluxos:
+Flows:
 
-1. **Setup**: banco sem usuários ⇒ painel mostra "criar conta de administrador" (`POST /api/auth/setup`).
-2. **Convite**: admin gera código com expiração (`POST /api/invites`); convidado cria a própria conta (`POST /api/auth/register {code, ...}`). Código é de uso único.
-3. **Agente**: dono cria o agente no painel, define as regras e gera a chave (`amp_...`, exibida **uma única vez**, armazenada com hash sha256).
-4. **Daemon**: usa a chave no frame `hello` do WS. Humano usa JWT (HS256, 7 dias) no header `Authorization: Bearer`.
+1. **Setup**: database with no users ⇒ dashboard shows "create administrator account" (`POST /api/auth/setup`).
+2. **Invite**: admin generates a code with an expiration (`POST /api/invites`); the invitee creates their own account (`POST /api/auth/register {code, ...}`). The code is single-use.
+3. **Agent**: the owner creates the agent in the dashboard, defines the rules, and generates the key (`amp_...`, shown **only once**, stored as a sha256 hash).
+4. **Daemon**: uses the key in the WS `hello` frame. Humans use JWT (HS256, 7 days) in the `Authorization: Bearer` header.
 
-Regras de autorização:
+Authorization rules:
 
-- **Regras do agente vivem no hub** — o dono edita pelo painel; o daemon recebe no `hello_ack` e via `settings_update` em tempo real.
-- **Allowlist é aplicada no hub** (autoridade central): mensagem de remetente não permitido é rejeitada com `error`, nunca chega ao destinatário.
-- Histórico: usuário vê conversas que envolvem os próprios agentes; admin vê todas.
-- Senhas: bcrypt. Chaves de agente: sha256. JWT: PyJWT HS256, secret em env.
+- **Agent rules live in the hub** — the owner edits them via the dashboard; the daemon receives them in `hello_ack` and via `settings_update` in real time.
+- **The allowlist is enforced in the hub** (central authority): a message from a sender that isn't allowed is rejected with `error` and never reaches the recipient.
+- History: a user sees conversations involving their own agents; an admin sees all of them.
+- Passwords: bcrypt. Agent keys: sha256. JWT: PyJWT HS256, secret in env.
 
-## Protocolo WebSocket
+## WebSocket protocol
 
-Frames JSON, campo `type` discriminador. Definição canônica: `hub/app/schemas/ws.py` + `bridge/src/shared/protocol.ts`.
+JSON frames, with `type` as the discriminator field. Canonical definition: `hub/app/schemas/ws.py` + `bridge/src/shared/protocol.ts`.
 
-| type | direção | payload |
+| type | direction | payload |
 |---|---|---|
-| `hello` | daemon → hub | `{agent_id, key}` (autenticação do socket) |
+| `hello` | daemon → hub | `{agent_id, key}` (socket authentication) |
 | `hello_ack` | hub → daemon | `{agent_id, online: [...], settings, pending: [...], groups: [...]}` |
-| `message` | ambos | envio: `{to, body, msg_type?, priority?, in_reply_to?}` · entrega: mensagem completa (threading, group, TTL) |
-| `ack` | daemon → hub | `{message_id}` — confirma recebimento (at-least-once) |
-| `delivered` | hub → remetente | `{message_id, to}` |
-| `broadcast_result` | hub → remetente | `{group, sent, skipped, offline}` (resultado do fan-out) |
-| `presence` | hub → todos | `{agent_id, status: "online"\|"offline"}` |
-| `settings_update` | hub → daemon | settings completas (dono alterou no painel) |
-| `ping` / `pong` | hub → daemon / daemon → hub | heartbeat (sem payload) |
-| `error` | hub → cliente | `{code, detail}` |
+| `message` | both | send: `{to, body, msg_type?, priority?, in_reply_to?}` · delivery: full message (threading, group, TTL) |
+| `ack` | daemon → hub | `{message_id}` — confirms receipt (at-least-once) |
+| `delivered` | hub → sender | `{message_id, to}` |
+| `broadcast_result` | hub → sender | `{group, sent, skipped, offline}` (fan-out result) |
+| `presence` | hub → all | `{agent_id, status: "online"\|"offline"}` |
+| `settings_update` | hub → daemon | full settings (owner changed them in the dashboard) |
+| `ping` / `pong` | hub → daemon / daemon → hub | heartbeat (no payload) |
+| `error` | hub → client | `{code, detail}` |
 
-### Entrega at-least-once (ACK fim-a-fim)
+### At-least-once delivery (end-to-end ACK)
 
-`delivered_at` significa **"o destinatário confirmou o recebimento"**, não "o hub empurrou pro socket". Fluxo:
+`delivered_at` means **"the recipient confirmed receipt"**, not "the hub pushed it to the socket". Flow:
 
-1. Hub faz **dispatch** ao socket do destinatário e espelha aos observers — `delivered_at` ainda nulo.
-2. O daemon grava a mensagem localmente e responde `ack{message_id}`.
-3. Só então o hub marca `delivered_at`, manda `delivered` ao remetente e re-espelha aos observers (painel atualiza o "entregue").
+1. The hub **dispatches** to the recipient's socket and mirrors to observers — `delivered_at` is still null.
+2. The daemon stores the message locally and replies with `ack{message_id}`.
+3. Only then does the hub set `delivered_at`, send `delivered` to the sender, and re-mirror to observers (the dashboard updates the "delivered" status).
 
-Se o daemon cai entre o passo 1 e o 2 (não ackou), a mensagem **continua pendente** e volta no `pending` da próxima reconexão — sem perda silenciosa. O daemon **sempre acka** (mesmo mensagem deduplicada por id no store local), senão o hub a reenviaria para sempre; a dedup por id garante o at-least-once. Só o próprio destinatário pode ackar a sua mensagem (Ameaça 3).
+If the daemon goes down between steps 1 and 2 (didn't ack), the message **stays pending** and comes back in the `pending` of the next reconnection — no silent loss. The daemon **always acks** (even a message deduplicated by id in the local store), otherwise the hub would resend it forever; dedup by id guarantees at-least-once. Only the recipient itself can ack its own message (Threat 3).
 
-Destinatário offline ⇒ mensagem persiste no hub e é entregue no próximo `hello` (campo `pending` do `hello_ack`), até expirar (`AMP_PENDING_TTL_DAYS`).
+Recipient offline ⇒ the message persists in the hub and is delivered on the next `hello` (the `pending` field of `hello_ack`), until it expires (`AMP_PENDING_TTL_DAYS`).
 
-### Grupos e broadcast
+### Groups and broadcast
 
-`to: "@grupo"` ou `"@all"` ⇒ **fan-out de DMs**: o hub expande em uma mensagem individual por membro (exceto o remetente), cada uma com entrega/pendência/TTL próprios e `group` marcando a origem. Regras:
+`to: "@group"` or `"@all"` ⇒ **fan-out of DMs**: the hub expands it into one individual message per member (except the sender), each with its own delivery/pending state/TTL and a `group` field marking the origin. Rules:
 
-- Membership é **opt-in do dono**: só o dono do agente (ou admin) inclui/remove o agente de grupos.
-- Allowlist do destinatário **vence o broadcast** — bloqueados entram em `skipped`, sem erro.
-- `@all` é virtual (todos os agentes); slug `all` é reservado; grupos e agentes compartilham namespace (colisão é 409).
-- Rate limit próprio: `AMP_BROADCAST_PER_MINUTE` (default 5) por agente remetente.
-- Broadcast não aceita `in_reply_to` (cada cópia inicia thread própria).
+- Membership is **opt-in by the owner**: only the agent's owner (or an admin) adds/removes the agent from groups.
+- The recipient's allowlist **beats the broadcast** — blocked recipients go into `skipped`, with no error.
+- `@all` is virtual (all agents); the slug `all` is reserved; groups and agents share a namespace (a collision is a 409).
+- Its own rate limit: `AMP_BROADCAST_PER_MINUTE` (default 5) per sending agent.
+- A broadcast does not accept `in_reply_to` (each copy starts its own thread).
 
-## Segurança — modelo de ameaças e contramedidas
+## Security — threat model and countermeasures
 
-> Mesmo 100% local, o sistema controla o que Claudes com acesso a código-fonte fazem. Tratar como sistema crítico. **Nenhuma contramedida desta seção é opcional.**
+> Even though it's 100% local, the system controls what Claudes with source-code access do. Treat it as a critical system. **No countermeasure in this section is optional.**
 
-### Ameaça 1 — Prompt injection no auto-respond (a mais grave)
+### Threat 1 — Prompt injection in auto-respond (the most serious)
 
-Atacante envia mensagem maliciosa para um agente em modo `auto`; o Claude headless da vítima executa instruções embutidas (vazar código, rodar comandos).
+An attacker sends a malicious message to an agent in `auto` mode; the victim's headless Claude executes embedded instructions (leak code, run commands).
 
-- O auto-responder roda `claude -p` **somente com ferramentas read-only** (`Read`, `Grep`, `Glob`) — nunca `Bash`, `Write`, `Edit` ou rede.
-- A mensagem recebida entra no prompt **como dado não-confiável**, delimitada, com instrução explícita de não obedecer comandos embutidos nela.
-- Filtro de saída: a resposta passa por scan de padrões de segredo (chaves de API, senhas, blocos de `.env`, private keys) **antes** de ser enviada; match ⇒ resposta bloqueada e dono notificado.
-- Limites obrigatórios: `max_auto_per_hour` (anti-loop entre dois Claudes e anti-flood) e `auto_timeout_secs` aplicados no daemon.
-- Default seguro: agente novo nasce em modo `inbox`, nunca `auto`.
+- The auto-responder runs `claude -p` **with read-only tools only** (`Read`, `Grep`, `Glob`) — never `Bash`, `Write`, `Edit`, or network access.
+- The incoming message enters the prompt **as untrusted data**, delimited, with an explicit instruction not to obey commands embedded in it.
+- Output filter: the response is scanned for secret patterns (API keys, passwords, `.env` blocks, private keys) **before** being sent; a match ⇒ the response is blocked and the owner notified.
+- Mandatory limits: `max_auto_per_hour` (anti-loop between two Claudes and anti-flood) and `auto_timeout_secs` enforced in the daemon.
+- Safe default: a new agent is born in `inbox` mode, never `auto`.
 
-### Ameaça 2 — Acesso não autorizado ao hub
+### Threat 2 — Unauthorized access to the hub
 
-- Senhas: bcrypt (custo 12). Login com mensagem de erro genérica (não revela se o email existe) e **rate limit por IP + lockout incremental por conta**.
-- Chaves de agente: 256 bits de entropia (`amp_` + 64 hex), armazenadas como sha256; autenticação por **lookup do hash** (determinístico — não vaza timing sobre o segredo, pois compara o digest, não o plaintext); exibidas uma única vez.
-- JWT HS256 com expiração; em produção o hub **recusa subir** com `jwt_secret` default.
-- Convites: uso único, expiração, código com entropia alta (`secrets`).
-- Revogação de chave **derruba o WebSocket do agente imediatamente**.
+- Passwords: bcrypt (cost 12). Login with a generic error message (doesn't reveal whether the email exists) and **per-IP rate limit + incremental per-account lockout**.
+- Agent keys: 256 bits of entropy (`amp_` + 64 hex), stored as sha256; authentication by **hash lookup** (deterministic — it doesn't leak timing about the secret, since it compares the digest, not the plaintext); shown only once.
+- JWT HS256 with expiration; in production the hub **refuses to start** with the default `jwt_secret`.
+- Invites: single-use, with expiration, code with high entropy (`secrets`).
+- Revoking a key **drops the agent's WebSocket immediately**.
 
-### Ameaça 3 — Abuso do canal WebSocket
+### Threat 3 — Abuse of the WebSocket channel
 
-- Primeiro frame deve ser `hello` válido em até 10s, senão a conexão cai.
-- Limite de tamanho de frame (64 KiB) e de corpo de mensagem (16 KiB); excedeu ⇒ `error` + desconexão.
-- Rate limit de mensagens por conexão (token bucket); frames malformados repetidos ⇒ desconexão.
-- Allowlist do destinatário aplicada **no hub** — mensagem bloqueada nunca chega ao daemon da vítima.
-- Heartbeat: o hub pinga a cada `AMP_HEARTBEAT_SECS` (default 30); 2 ciclos sem nenhum frame ⇒ conexão zumbi derrubada (presença deixa de mentir "online"). Código de fechamento 4408 não é fatal — o daemon reconecta.
+- The first frame must be a valid `hello` within 10s, otherwise the connection drops.
+- Frame size limit (64 KiB) and message body limit (16 KiB); exceeded ⇒ `error` + disconnect.
+- Per-connection message rate limit (token bucket); repeated malformed frames ⇒ disconnect.
+- The recipient's allowlist is enforced **in the hub** — a blocked message never reaches the victim's daemon.
+- Heartbeat: the hub pings every `AMP_HEARTBEAT_SECS` (default 30); 2 cycles with no frame at all ⇒ the zombie connection is dropped (presence stops lying "online"). Close code 4408 is not fatal — the daemon reconnects.
 
-### Ameaça 4 — Processo local malicioso na máquina do dev
+### Threat 4 — Malicious local process on the dev's machine
 
-- Daemon ↔ MCP: **unix socket** `~/.amp/daemon.sock` com permissão `0600` (nunca porta TCP).
-- `~/.amp/` (config + chave do agente + inbox): `0700` no diretório, `0600` nos arquivos.
+- Daemon ↔ MCP: **unix socket** `~/.amp/daemon.sock` with `0600` permissions (never a TCP port).
+- `~/.amp/` (config + agent key + inbox): `0700` on the directory, `0600` on the files.
 
-### Transversal
+### Cross-cutting
 
-- Validação estrita de toda entrada (Pydantic, limites de tamanho, slug `^[a-z][a-z0-9-]{1,48}[a-z0-9]$`).
-- Auditoria: tabela `audit_log` no hub — login (sucesso/falha), setup, registro, criação/revogação de chave, mudança de settings, mensagens bloqueadas por allowlist ou filtro de segredos.
-- CORS restrito à origem do painel; headers de segurança nas respostas.
-- Produção em rede: hub atrás de reverse proxy com TLS (`wss://`); bind padrão `127.0.0.1`.
+- Strict validation of all input (Pydantic, size limits, slug `^[a-z][a-z0-9-]{1,48}[a-z0-9]$`).
+- Auditing: the `audit_log` table in the hub — login (success/failure), setup, registration, key creation/revocation, settings change, messages blocked by allowlist or secret filter.
+- CORS restricted to the dashboard's origin; security headers on responses.
+- Networked production: the hub behind a TLS reverse proxy (`wss://`); default bind `127.0.0.1`.
 
-## Testes
+## Tests
 
-| Onde | Unitários | Integração |
+| Where | Unit | Integration |
 |---|---|---|
-| `hub/tests/unit/` | services com repositories fake (em memória) | — |
-| `hub/tests/integration/` | — | TestClient: REST + WS reais, SQLite em memória |
-| `bridge/tests/unit/` | inbox, protocol, auto-responder (claude mockado) | — |
-| `bridge/tests/integration/` | — | daemon ↔ local API (Fastify inject) ↔ WS server fake |
-| `web/src/**/*.test.tsx` | componentes (Vitest + Testing Library) | hooks + stores com WS mock |
-| `web/e2e/` | — | Playwright contra hub real |
+| `hub/tests/unit/` | services with fake (in-memory) repositories | — |
+| `hub/tests/integration/` | — | TestClient: real REST + WS, in-memory SQLite |
+| `bridge/tests/unit/` | inbox, protocol, auto-responder (mocked claude) | — |
+| `bridge/tests/integration/` | — | daemon ↔ local API (Fastify inject) ↔ fake WS server |
+| `web/src/**/*.test.tsx` | components (Vitest + Testing Library) | hooks + stores with a WS mock |
+| `web/e2e/` | — | Playwright against the real hub |
 
-Regra: **toda feature nova chega com teste no mesmo commit.**
+Rule: **every new feature arrives with a test in the same commit.**
 
-### Property-based tests (invariantes adversariais)
+### Property-based tests (adversarial invariants)
 
-`hub/tests/unit/test_properties.py` (hypothesis) e `bridge/tests/unit/properties.test.ts` (fast-check) cobrem os pontos de pressão adversarial: rate limiters (invariantes com clock injetável), validação de slug, round-trip do protocolo e o secret-filter (segredos construídos por geração devem ser detectados em qualquer contexto). Novas contramedidas de segurança devem ganhar propriedade aqui, não só exemplos.
+`hub/tests/unit/test_properties.py` (hypothesis) and `bridge/tests/unit/properties.test.ts` (fast-check) cover the points of adversarial pressure: rate limiters (invariants with an injectable clock), slug validation, protocol round-trip, and the secret-filter (generated secrets must be detected in any context). New security countermeasures should gain a property here, not just examples.
 
-### Coverage gates (CI falha abaixo disso)
+### Coverage gates (CI fails below these)
 
-| Projeto | Gate | Onde configura |
+| Project | Gate | Where it's configured |
 |---|---|---|
 | `hub/` | 90% | `pyproject.toml · [tool.coverage.report]` |
 | `bridge/` | 75% lines / 80% branches | `vitest.config.ts` |
-| `web/` | 25% (fase backend-first; sobe na passada de UI/UX) | `vite.config.ts` |
+| `web/` | 25% (backend-first phase; rises during the UI/UX pass) | `vite.config.ts` |
 
 ### CI (`.github/workflows/ci.yml`)
 
-Todo push/PR roda: lint + format + testes + goldens + coverage nas três partes, mais dois jobs e2e (full-stack hub↔daemons e Playwright contra hub real). Vermelho no CI bloqueia merge.
+Every push/PR runs: lint + format + tests + goldens + coverage on all three parts, plus two e2e jobs (full-stack hub↔daemons and Playwright against the real hub). Red on CI blocks the merge.
 
-### Golden tests (contratos congelados)
+### Golden tests (frozen contracts)
 
-| Golden | Onde | Protege |
+| Golden | Where | Protects |
 |---|---|---|
-| `hub/tests/golden/openapi.json` | hub | contrato REST completo |
-| `hub/tests/golden/ws_frames.json` | hub **e** bridge | protocolo WS — o bridge lê o MESMO arquivo (`tests/golden/protocol-mirror.test.ts`), travando o espelhamento hub↔bridge |
-| `bridge/tests/golden/prompt-*.golden.txt` | bridge | prompt anti-injection do auto-respond (contramedida de segurança) |
-| `web/src/**/__snapshots__/` | web | markup dos componentes do chat |
+| `hub/tests/golden/openapi.json` | hub | the complete REST contract |
+| `hub/tests/golden/ws_frames.json` | hub **and** bridge | WS protocol — the bridge reads the SAME file (`tests/golden/protocol-mirror.test.ts`), locking the hub↔bridge mirroring |
+| `bridge/tests/golden/prompt-*.golden.txt` | bridge | the anti-injection prompt of auto-respond (a security countermeasure) |
+| `web/src/**/__snapshots__/` | web | the markup of the chat components |
 
-Mudança intencional de contrato: regenerar (`AMP_UPDATE_GOLDEN=1 pytest tests/golden` no hub, `vitest -u` no bridge/web) e **revisar o diff do golden no commit**.
+Intentional contract change: regenerate (`AMP_UPDATE_GOLDEN=1 pytest tests/golden` in the hub, `vitest -u` in bridge/web) and **review the golden diff in the commit**.
 
-## Linters (obrigatórios — CI e pré-commit)
+## Linters (mandatory — CI and pre-commit)
 
-| Projeto | Ferramenta | Comando |
+| Project | Tool | Command |
 |---|---|---|
-| `hub/` | ruff (lint + format, com regras de segurança S) | `ruff check app tests && ruff format --check app tests` |
+| `hub/` | ruff (lint + format, with security rules S) | `ruff check app tests && ruff format --check app tests` |
 | `bridge/` | Biome | `pnpm lint` |
-| `web/` | Biome (com domínio react + a11y) | `pnpm lint` |
+| `web/` | Biome (with react + a11y domains) | `pnpm lint` |
 
-Código novo não entra com violação de linter.
+New code does not land with a linter violation.
 
 ## Commits
 
-Conventional Commits, um commit por feature/modificação relevante:
+Conventional Commits, one commit per feature/relevant change:
 
 ```
 feat(hub): roteamento de mensagens com flush de pendentes
@@ -243,9 +243,9 @@ test(web): cobertura do store de presença
 docs: atualiza protocolo WS
 ```
 
-## Evolução planejada (v2 — fora do MVP)
+## Planned evolution (v2 — out of MVP scope)
 
-- Grupos (`@frontend-team`) e broadcast (`@all`)
-- Anexos de contexto (trechos de código) nas mensagens
-- Expiração + refresh de chaves de agente
-- Deploy com TLS (`wss://`) — o design já assume isso: URL do hub é configuração, nunca hardcoded
+- Groups (`@frontend-team`) and broadcast (`@all`)
+- Context attachments (code snippets) in messages
+- Agent key expiration + refresh
+- Deploy with TLS (`wss://`) — the design already assumes this: the hub URL is configuration, never hardcoded

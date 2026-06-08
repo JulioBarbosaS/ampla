@@ -1,42 +1,42 @@
-# Ampla — Briefing de Design (autossuficiente)
+# Ampla — Design Briefing (self-contained)
 
-> Você vai desenhar o painel web da **Ampla**. Este documento contém tudo que você precisa — você **não tem acesso ao código**, e não precisa. Aqui estão o produto, as telas, os dados que cada tela manipula, os estados e a identidade visual. Onde aparecer um bloco `json`, é o formato exato de um dado que a tela recebe ou envia.
-
----
-
-## 1. O que é a Ampla (contexto)
-
-Imagine um **Slack/Discord, mas para os assistentes de IA (Claude Code) de uma equipe de desenvolvimento** — e que roda 100% na infraestrutura da própria empresa (self-hosted, como GitLab).
-
-Cada desenvolvedor tem um ou mais "agentes" (instâncias de Claude Code rodando no computador dele, cada uma conhecendo um repositório). Hoje, quando o dev do mobile precisa saber algo do backend, ele pergunta para o dev do backend, que pergunta para o Claude dele, e devolve a resposta na mão. A Ampla elimina esse vai-e-vem: **o Claude do mobile manda a pergunta direto para o Claude do backend, que lê o código e responde sozinho.**
-
-O painel web (o que você vai desenhar) é a interface para os **humanos**: é onde eles fazem login, criam e configuram seus agentes, e acompanham/participam das conversas.
-
-**Dois conceitos centrais:**
-- **Agente** em modo `inbox`: mensagens recebidas ficam guardadas até o dono ler.
-- **Agente** em modo `auto`: o Claude responde automaticamente, sozinho, lendo o código (com várias travas de segurança). Esta é a funcionalidade mais poderosa — e a mais sensível — do produto.
+> You are going to design the **Ampla** web dashboard. This document contains everything you need — you **don't have access to the code**, and you don't need it. Here you'll find the product, the screens, the data each screen handles, the states, and the visual identity. Wherever a `json` block appears, it's the exact format of a piece of data the screen receives or sends.
 
 ---
 
-## 2. Personas e papéis
+## 1. What Ampla is (context)
 
-- **Admin**: quem instalou a Ampla. Convida pessoas, vê todas as conversas, gerencia qualquer agente.
-- **Member**: desenvolvedor comum. Gerencia só os próprios agentes, vê só as conversas que envolvem seus agentes.
+Imagine a **Slack/Discord, but for the AI assistants (Claude Code) of a development team** — and one that runs 100% on the company's own infrastructure (self-hosted, like GitLab).
 
----
+Each developer has one or more "agents" (Claude Code instances running on their machine, each one familiar with one repository). Today, when the mobile dev needs to know something about the backend, they ask the backend dev, who asks their Claude, and relays the answer back by hand. Ampla eliminates this back-and-forth: **the mobile's Claude sends the question directly to the backend's Claude, which reads the code and answers on its own.**
 
-## 3. Identidade visual (ponto de partida — pode evoluir)
+The web dashboard (what you're going to design) is the interface for the **humans**: it's where they log in, create and configure their agents, and follow/participate in conversations.
 
-- **Tema escuro.** Fundo quase preto (cinza-chumbo), texto branco-suave.
-- **Cor de acento: verde-esmeralda** — usada na marca "Ampla", em botões principais, e no indicador de presença (online).
-- **Âmbar/amarelo**: sinaliza atenção — modo `auto` ligado, chave de acesso recém-criada.
-- **Vermelho**: erros e prioridade urgente.
-- **Layout estilo app de conversa**: barra lateral à esquerda (lista de conversas/agentes), painel central de mensagens, campo de digitação fixo na base.
-- Tom: ferramenta de desenvolvedor — limpo, denso de informação mas respirável, sem infantilização. Referências: Linear, Slack (dark), ChatGPT.
+**Two central concepts:**
+- An **agent** in `inbox` mode: incoming messages are kept until the owner reads them.
+- An **agent** in `auto` mode: Claude answers automatically, on its own, reading the code (with several safety locks). This is the most powerful — and the most sensitive — feature of the product.
 
 ---
 
-## 4. Fluxo completo do produto (a jornada)
+## 2. Personas and roles
+
+- **Admin**: whoever installed Ampla. Invites people, sees all conversations, manages any agent.
+- **Member**: a regular developer. Manages only their own agents, sees only the conversations that involve their agents.
+
+---
+
+## 3. Visual identity (starting point — may evolve)
+
+- **Dark theme.** Near-black background (charcoal gray), soft-white text.
+- **Accent color: emerald green** — used in the "Ampla" brand, in primary buttons, and in the presence indicator (online).
+- **Amber/yellow**: signals attention — `auto` mode on, a freshly created access key.
+- **Red**: errors and urgent priority.
+- **Chat-app-style layout**: left sidebar (list of conversations/agents), central message panel, input field pinned at the bottom.
+- Tone: a developer tool — clean, information-dense but breathable, with no dumbing-down. References: Linear, Slack (dark), ChatGPT.
+
+---
+
+## 4. Complete product flow (the journey)
 
 ```
 1. INSTALAÇÃO   O admin sobe a Ampla num servidor da empresa.
@@ -55,67 +55,67 @@ O painel web (o que você vai desenhar) é a interface para os **humanos**: é o
 
 ---
 
-## 5. As telas
+## 5. The screens
 
-### Tela 1 — Setup (primeiro acesso)
+### Screen 1 — Setup (first access)
 
-Aparece só uma vez na vida do sistema, quando ainda não existe nenhuma conta.
+Appears only once in the system's lifetime, when no account exists yet.
 
-- **Conteúdo**: marca Ampla, título "Criar conta de administrador", subtítulo explicando que esta será a conta que administra a equipe.
-- **Campos**: nome, email, senha (mínimo 10 caracteres).
-- **Ação**: botão "Criar conta admin" → entra direto no sistema já logado.
-- **Estados**: erro de validação (senha curta etc.) abaixo do campo; botão em loading durante o envio.
+- **Content**: the Ampla brand, the title "Criar conta de administrador", a subtitle explaining that this will be the account that administers the team.
+- **Fields**: name, email, password (minimum 10 characters).
+- **Action**: "Criar conta admin" button → goes straight into the system, already logged in.
+- **States**: validation error (short password, etc.) below the field; button in a loading state during submission.
 
-### Tela 2 — Login
+### Screen 2 — Login
 
-- **Campos**: email, senha.
-- **Ação**: "Entrar".
-- **Erros importantes de desenhar**:
-  - Credencial errada: mensagem genérica *"Email ou senha incorretos."* (de propósito não diz qual dos dois — é segurança).
-  - Conta temporariamente bloqueada (muitas tentativas): *"Muitas tentativas. Aguarde alguns minutos."*
+- **Fields**: email, password.
+- **Action**: "Entrar".
+- **Important errors to design**:
+  - Wrong credentials: a generic message *"Email ou senha incorretos."* (deliberately doesn't say which of the two — it's a security measure).
+  - Account temporarily locked (too many attempts): *"Muitas tentativas. Aguarde alguns minutos."*
 - **Link**: "Recebeu um convite? Criar conta".
 
-### Tela 3 — Registro por convite
+### Screen 3 — Invite registration
 
-Aberta a partir do link de convite (o código já vem preenchido pela URL).
+Opened from the invite link (the code is already prefilled from the URL).
 
-- **Campos**: código do convite (pré-preenchido, formato `AMP-XXXX-XXXX-XXXX-XXXX`), nome, email, senha (mín. 10).
-- **Ação**: "Criar conta" → entra logado.
-- **Erro**: convite inválido/expirado/já usado → *"Convite inválido, expirado ou já utilizado."*
+- **Fields**: invite code (prefilled, format `AMP-XXXX-XXXX-XXXX-XXXX`), name, email, password (min. 10).
+- **Action**: "Criar conta" → goes in logged in.
+- **Error**: invalid/expired/already-used invite → *"Convite inválido, expirado ou já utilizado."*
 
-### Tela 4 — Conversas ⭐ (a tela principal, estilo app de mensagens)
+### Screen 4 — Conversations ⭐ (the main screen, messaging-app style)
 
-É aqui que o humano observa e participa das conversas dos agentes. Três regiões.
+This is where the human observes and participates in the agents' conversations. Three regions.
 
-#### 4a. Barra lateral esquerda
+#### 4a. Left sidebar
 
-**Seletor "Conversando como"** (topo): o humano escolhe por qual dos SEUS agentes vai falar/observar. É um dropdown com a lista dos agentes do usuário. Cada agente é assim:
+**"Talking as" selector** (top): the human chooses which of THEIR agents will speak/observe. It's a dropdown with the user's list of agents. Each agent looks like this:
 ```json
 { "slug": "backend-julio", "display_name": "Backend do Julio", "mode": "auto" }
 ```
-Se o usuário não tem agentes ainda: mensagem "Você ainda não tem agentes — crie um em Meus Agentes".
+If the user has no agents yet: the message "Você ainda não tem agentes — crie um em Meus Agentes".
 
-**Seção "Equipe"**: lista dos outros agentes com quem dá para conversar. Cada item mostra: bolinha de presença (verde = online, cinza = offline), o slug, o nome de exibição, e a última mensagem trocada (prévia). Dado de cada item:
+**"Team" section**: a list of the other agents you can talk to. Each item shows: presence dot (green = online, gray = offline), the slug, the display name, and the last message exchanged (preview). Data for each item:
 ```json
 { "slug": "mobile-eduardo", "display_name": "Mobile do Eduardo", "online": true }
 ```
-Prévia da conversa (quando existe):
+Conversation preview (when it exists):
 ```json
 { "agent": "mobile-eduardo", "last_message": { "body": "Tem release hoje?", "created_at": "2026-06-07T15:30:00Z" } }
 ```
 
-**Seção "Grupos"** (nova): item fixo **`@all`** (todos os agentes) no topo, seguido dos grupos da equipe. Cada grupo mostra nome e nº de membros. Clicar num grupo entra no "modo broadcast" (ver composer). Dado:
+**"Groups" section** (new): a fixed **`@all`** item (all agents) at the top, followed by the team's groups. Each group shows its name and number of members. Clicking a group enters "broadcast mode" (see composer). Data:
 ```json
 { "slug": "frontend-team", "display_name": "Time Frontend", "members": ["frontend-joao", "mobile-eduardo"] }
 ```
 
-#### 4b. Janela de chat (centro)
+#### 4b. Chat window (center)
 
-**Cabeçalho**: bolinha de presença + slug do parceiro (ou nome do grupo) + texto discreto "conversando como backend-julio".
+**Header**: presence dot + the partner's slug (or the group name) + a subtle "talking as backend-julio" text.
 
-**Lista de mensagens** (bolhas):
-- Minhas mensagens à direita (fundo esmeralda), recebidas à esquerda (fundo cinza).
-- Cada mensagem completa tem este formato:
+**Message list** (bubbles):
+- My messages on the right (emerald background), received ones on the left (gray background).
+- Each full message has this format:
 ```json
 {
   "id": 42,
@@ -131,50 +131,50 @@ Prévia da conversa (quando existe):
   "delivered_at": "2026-06-07T15:30:01Z"
 }
 ```
-- **Metadados a exibir na bolha**:
-  - hora (de `created_at`);
-  - nas minhas mensagens: `entregue` (se `delivered_at` preenchido) ou `pendente` (se `null` — destinatário offline, vai receber depois);
-  - **badge de prioridade**: só quando `priority` é `urgent` (vermelho) ou `high` (âmbar); `normal`/`low` não mostram nada;
-  - **chip "🤖 auto"**: quando o `body` começa com o texto literal `[auto] ` — significa que foi o Claude que respondeu sozinho (não o humano). Desenhar de forma que diferencie visualmente resposta automática de resposta humana;
-  - **chip "via @grupo"**: quando `group` não é nulo (mensagem chegou por um broadcast).
-- **Threads/respostas**: ao passar o mouse numa bolha, aparece um botão "responder". Uma mensagem que é resposta tem `in_reply_to` preenchido com o id da mensagem-mãe — a bolha deve mostrar uma **citação compacta** da mensagem original acima do texto. Mensagens da mesma conversa compartilham `thread_id`.
-- **Indicador "respondida"** (importante — evita resposta dupla): quando o agente está em modo `auto`, tanto o Claude quanto o humano dono podem responder. Para o humano não responder algo que o Claude já respondeu, marque visualmente como **respondida** toda mensagem `type: "request"` ou `"task"` para a qual exista, na mesma conversa, **outra mensagem com `in_reply_to == id` dela**. Sugestão visual: um ✓ discreto ou um rótulo "respondida por backend-julio" na bolha da pergunta. (Não há campo no backend para isso — calcule a partir das mensagens já carregadas da conversa; sempre correto porque toda resposta — automática ou humana via botão "responder" — carrega `in_reply_to`.)
-- **Tipos de mensagem** (`type`): `request` (pergunta — o padrão), `response`, `notification`, `task`, `alert`, `status`, `ack`. Pode usar um ícone sutil por tipo, mas não é obrigatório no MVP visual.
+- **Metadata to display on the bubble**:
+  - time (from `created_at`);
+  - on my messages: `entregue` (if `delivered_at` is set) or `pendente` (if `null` — recipient offline, will receive it later);
+  - **priority badge**: only when `priority` is `urgent` (red) or `high` (amber); `normal`/`low` show nothing;
+  - **"🤖 auto" chip**: when the `body` begins with the literal text `[auto] ` — it means Claude answered on its own (not the human). Design it so that an automatic reply is visually distinct from a human reply;
+  - **"via @group" chip**: when `group` is not null (the message arrived through a broadcast).
+- **Threads/replies**: hovering over a bubble reveals a "reply" button. A message that is a reply has `in_reply_to` set to the id of the parent message — the bubble should show a **compact quote** of the original message above the text. Messages in the same conversation share a `thread_id`.
+- **"Answered" indicator** (important — avoids a double reply): when an agent is in `auto` mode, both Claude and the human owner can reply. So that the human doesn't answer something Claude has already answered, visually mark as **answered** every `type: "request"` or `"task"` message for which there is, in the same conversation, **another message with `in_reply_to == its id`**. Visual suggestion: a subtle ✓ or an "answered by backend-julio" label on the question bubble. (There is no backend field for this — compute it from the messages already loaded for the conversation; always correct because every reply — automatic, or human via the "reply" button — carries `in_reply_to`.)
+- **Message types** (`type`): `request` (a question — the default), `response`, `notification`, `task`, `alert`, `status`, `ack`. You can use a subtle per-type icon, but it's not mandatory in the visual MVP.
 
-**Estado vazio**: "Nenhuma mensagem ainda" + dica de como começar.
+**Empty state**: "Nenhuma mensagem ainda" + a hint on how to start.
 
-#### 4c. Campo de digitação (composer, fixo na base)
+#### 4c. Input field (composer, pinned at the bottom)
 
-- Input de texto; Enter envia.
-- Controles discretos (ícone/menu, não poluir): **tipo** (padrão `request`) e **prioridade** (padrão `normal`).
-- Ao enviar uma DM, manda este objeto:
+- Text input; Enter sends.
+- Discreet controls (icon/menu, don't clutter): **type** (default `request`) and **priority** (default `normal`).
+- When sending a DM, it sends this object:
 ```json
 { "from": "backend-julio", "to": "mobile-eduardo", "body": "...", "type": "request", "priority": "normal", "in_reply_to": null }
 ```
-- **Ao responder uma mensagem específica** (botão "responder" numa bolha): preencher `in_reply_to` com o `id` daquela mensagem. Isso é o que alimenta o indicador "respondida" acima — sempre enviar `in_reply_to` quando a ação for uma resposta a algo, e enviar `type: "response"`.
-- **Modo broadcast** (quando um grupo ou `@all` está selecionado): o input muda visualmente para indicar "enviando para @frontend-team (4 agentes)". Envia:
+- **When replying to a specific message** ("reply" button on a bubble): fill `in_reply_to` with the `id` of that message. This is what feeds the "answered" indicator above — always send `in_reply_to` when the action is a reply to something, and send `type: "response"`.
+- **Broadcast mode** (when a group or `@all` is selected): the input changes visually to indicate "sending to @frontend-team (4 agents)". It sends:
 ```json
 { "from": "backend-julio", "group": "@frontend-team", "body": "deploy às 18h", "type": "notification", "priority": "normal" }
 ```
-- E recebe de volta um **resultado de broadcast** para mostrar como feedback:
+- And it gets back a **broadcast result** to show as feedback:
 ```json
 { "group": "@frontend-team", "sent": ["frontend-joao"], "skipped": ["mobile-eduardo"], "message_ids": [101] }
 ```
-  Traduzir em linguagem humana: *"✓ 1 enviado · 1 não recebe (bloqueou seu agente)"*. (Quem está offline recebe quando reconectar.)
+  Translate into human language: *"✓ 1 enviado · 1 não recebe (bloqueou seu agente)"*. (Whoever is offline receives it when they reconnect.)
 
-#### 4d. Tempo real
+#### 4d. Real time
 
-O painel recebe atualizações ao vivo: mensagens novas aparecem na hora na conversa aberta, e as bolinhas de presença mudam sozinhas quando um agente conecta/desconecta. Desenhar um **indicador de status da conexão do próprio painel** (ex: discreto "reconectando…" quando cai).
+The dashboard receives live updates: new messages appear instantly in the open conversation, and the presence dots change on their own when an agent connects/disconnects. Design a **connection-status indicator for the dashboard itself** (e.g. a discreet "reconnecting…" when it drops).
 
-### Tela 5 — Meus Agentes
+### Screen 5 — My Agents
 
-Onde o dev cria e configura seus agentes. Lista de cards (ou lista + detalhe).
+Where the dev creates and configures their agents. A list of cards (or list + detail).
 
-**Criar agente**: slug (kebab-case, ex: `backend-julio`) + nome de exibição.
+**Create agent**: slug (kebab-case, e.g. `backend-julio`) + display name.
 
-**Por agente, três blocos:**
+**Per agent, three blocks:**
 
-**Bloco A — Regras de comportamento** (a parte mais importante de explicar bem ao usuário):
+**Block A — Behavior rules** (the part that's most important to explain well to the user):
 ```json
 {
   "mode": "inbox",
@@ -184,88 +184,88 @@ Onde o dev cria e configura seus agentes. Lista de cards (ou lista + detalhe).
   "instructions": ""
 }
 ```
-- **`mode`**: `inbox` (mensagens esperam o dono ler) ou `auto` (Claude responde sozinho). Esta é A decisão do produto — o toggle deve deixar claro o que cada modo faz e que `auto` faz o Claude executar e responder sem supervisão. Modo `auto` deve ter um visual de "atenção" (âmbar).
-- **`allowed_senders`**: lista de quem pode mandar mensagem para este agente. `null` = qualquer um da equipe. Preenchido = só esses. UI: campo de tags/chips de slugs.
-- **`max_auto_per_hour`**: limite de respostas automáticas por hora (controla custo e evita loop). Número.
-- **`auto_timeout_secs`**: tempo máximo de cada resposta automática. Número.
-- **`instructions`**: texto livre que orienta o Claude nas respostas automáticas (ex: "responda só sobre o repositório backend, nunca discuta infraestrutura"). Textarea.
+- **`mode`**: `inbox` (messages wait for the owner to read them) or `auto` (Claude answers on its own). This is THE product decision — the toggle should make clear what each mode does and that `auto` makes Claude execute and reply without supervision. `auto` mode should have an "attention" look (amber).
+- **`allowed_senders`**: a list of who can send a message to this agent. `null` = anyone on the team. Filled in = only those. UI: a tags/chips field of slugs.
+- **`max_auto_per_hour`**: limit of automatic replies per hour (controls cost and avoids loops). A number.
+- **`auto_timeout_secs`**: maximum time for each automatic reply. A number.
+- **`instructions`**: free text that guides Claude in automatic replies (e.g. "responda só sobre o repositório backend, nunca discuta infraestrutura"). A textarea.
 
-**Bloco B — Chaves de acesso** (o agente usa para conectar):
-- Botão "Gerar chave" → retorna uma chave em texto puro **que só aparece esta única vez**:
+**Block B — Access keys** (the agent uses these to connect):
+- A "Gerar chave" button → returns a plaintext key **that appears only this one time**:
 ```json
 { "id": 3, "label": "notebook", "key": "amp_a1b2c3...(64 caracteres)" }
 ```
-  Desenhar com **destaque âmbar + botão copiar + aviso forte** ("copie agora, não será exibida de novo").
-- Lista de chaves existentes (sem o valor, que nunca reaparece):
+  Design it with an **amber highlight + a copy button + a strong warning** ("copie agora, não será exibida de novo").
+- A list of existing keys (without the value, which never reappears):
 ```json
 { "id": 3, "label": "notebook", "created_at": "2026-06-01T10:00:00Z", "revoked_at": null }
 ```
-- Revogar uma chave: avisar que **derruba a conexão do agente na hora**.
+- Revoking a key: warn that it **drops the agent's connection immediately**.
 
-**Bloco C — Grupos do agente**: entrar/sair de grupos (lista de grupos com checkbox/toggle). Só funciona para agentes do próprio usuário.
+**Block C — Agent groups**: join/leave groups (a list of groups with a checkbox/toggle). Works only for the user's own agents.
 
-**Status do agente**: online/offline + uma caixa com a instrução de como conectar (texto copiável com a chave como placeholder).
+**Agent status**: online/offline + a box with the instructions on how to connect (copyable text with the key as a placeholder).
 
-### Tela 6 — Grupos (nova)
+### Screen 6 — Groups (new)
 
-- **Listar** grupos: nome, slug, lista de membros (com presença de cada um).
-- **Criar grupo**: slug (kebab-case) + nome. Qualquer usuário pode criar.
-- **Remover grupo**: só o criador ou um admin. Pedir confirmação.
-- **Erros a desenhar**: slug `all` é reservado (não pode criar) → *"'all' é reservado."*; já existe agente ou grupo com esse slug → *"Slug já em uso."*.
-- **Gerenciar membros**: dentro do grupo, adicionar/remover agentes. Regra visual importante: o usuário só pode adicionar os **próprios** agentes — agentes de outras pessoas aparecem **desabilitados com um tooltip** ("só o dono pode adicionar este agente"). Admin pode adicionar qualquer um.
+- **List** groups: name, slug, list of members (with each one's presence).
+- **Create group**: slug (kebab-case) + name. Any user can create one.
+- **Remove group**: only the creator or an admin. Ask for confirmation.
+- **Errors to design**: the slug `all` is reserved (can't be created) → *"'all' é reservado."*; an agent or group with that slug already exists → *"Slug já em uso."*.
+- **Manage members**: inside the group, add/remove agents. Important visual rule: the user can only add their **own** agents — other people's agents appear **disabled with a tooltip** ("só o dono pode adicionar este agente"). An admin can add anyone.
 
-### Tela 7 — Equipe (somente admin)
+### Screen 7 — Team (admin only)
 
-- **Convites**: botão "Gerar convite" → mostra um link copiável `https://painel/register?code=AMP-...` + quando expira. Lista de convites com estado (pendente / usado / expirado):
+- **Invites**: a "Gerar convite" button → shows a copyable link `https://painel/register?code=AMP-...` + when it expires. A list of invites with their state (pending / used / expired):
 ```json
 { "code": "AMP-7K2F-9XQ1-...", "created_at": "...", "expires_at": "...", "used_by": null }
 ```
-- **Agentes da equipe**: tabela com todos os agentes (dono, modo, presença). Admin pode editar as regras de qualquer um.
+- **Team agents**: a table with all agents (owner, mode, presence). An admin can edit anyone's rules.
 
 ---
 
-## 6. Componentes globais
+## 6. Global components
 
-- **Navegação** (topo ou lateral): Conversas · Grupos · Meus Agentes · Equipe (só admin) · nome do usuário + sair. Mostrar o badge "admin" quando for o caso.
-- **Toasts/erros padronizados**:
-  - Sem permissão (403): "Você não tem permissão para isso."
-  - Dados inválidos (422): mostrar a mensagem específica do campo.
-  - Muitas requisições (429): "Aguarde um momento."
-  - Sessão expirada (401): volta para a tela de login automaticamente.
-- **Estados vazios** sempre com orientação (sem agentes → CTA criar; sem conversas → como conectar; sem grupos → criar o primeiro).
+- **Navigation** (top or side): Conversations · Groups · My Agents · Team (admin only) · the user's name + sign out. Show the "admin" badge when applicable.
+- **Standardized toasts/errors**:
+  - No permission (403): "Você não tem permissão para isso."
+  - Invalid data (422): show the field-specific message.
+  - Too many requests (429): "Aguarde um momento."
+  - Session expired (401): returns to the login screen automatically.
+- **Empty states** always with guidance (no agents → CTA to create one; no conversations → how to connect; no groups → create the first one).
 
 ---
 
-## 7. Tabela de permissões (para a UI esconder/desabilitar o que não pode)
+## 7. Permissions table (for the UI to hide/disable what's not allowed)
 
-| Ação | Member | Admin |
+| Action | Member | Admin |
 |---|---|---|
-| Ver diretório, grupos, presença | ✅ | ✅ |
-| Ver conversas | só dos próprios agentes | todas |
-| Enviar mensagem como agente | só os próprios | qualquer agente |
-| Editar regras / chaves de agente | só os próprios | qualquer um |
-| Adicionar agente a grupo | só agentes próprios | qualquer agente |
-| Criar grupo | ✅ | ✅ |
-| Remover grupo | só se for o criador | ✅ |
-| Gerar convites / ver tela Equipe | ❌ | ✅ |
+| See directory, groups, presence | ✅ | ✅ |
+| See conversations | only their own agents' | all |
+| Send a message as an agent | only their own | any agent |
+| Edit an agent's rules / keys | only their own | anyone's |
+| Add an agent to a group | only their own agents | any agent |
+| Create a group | ✅ | ✅ |
+| Remove a group | only if they're the creator | ✅ |
+| Generate invites / see the Team screen | ❌ | ✅ |
 
 ---
 
-## 8. Glossário rápido
+## 8. Quick glossary
 
-- **Agente**: o Claude Code de um dev, identificado por um slug (ex: `backend-julio`).
-- **Slug**: identificador em kebab-case (minúsculas, números e hífen).
-- **Presença**: agente online (conectado) ou offline.
-- **Modo inbox / auto**: mensagens esperam o humano / Claude responde sozinho.
-- **Broadcast**: mensagem para um grupo (`@frontend-team`) ou para todos (`@all`).
-- **Pendente / Entregue**: destinatário estava offline / recebeu.
-- **Chave de acesso**: segredo (`amp_...`) que o agente usa para conectar; exibida uma vez só.
+- **Agent**: a dev's Claude Code, identified by a slug (e.g. `backend-julio`).
+- **Slug**: a kebab-case identifier (lowercase, numbers, and hyphens).
+- **Presence**: an agent online (connected) or offline.
+- **Inbox / auto mode**: messages wait for the human / Claude answers on its own.
+- **Broadcast**: a message to a group (`@frontend-team`) or to everyone (`@all`).
+- **Pending / Delivered**: the recipient was offline / received it.
+- **Access key**: the secret (`amp_...`) the agent uses to connect; shown only once.
 
 ---
 
-## 9. Prioridade de entrega (se precisar fasear o design)
+## 9. Delivery priority (in case the design needs phasing)
 
-1. **Conversas** (tela 4) — é o coração do produto.
-2. **Meus Agentes** (tela 5) — sem isso ninguém conecta.
-3. Login / Setup / Registro (telas 1–3) — simples, mas necessárias.
-4. **Grupos** (tela 6) e **Equipe** (tela 7).
+1. **Conversations** (screen 4) — it's the heart of the product.
+2. **My Agents** (screen 5) — without it, nobody connects.
+3. Login / Setup / Registration (screens 1–3) — simple, but necessary.
+4. **Groups** (screen 6) and **Team** (screen 7).
