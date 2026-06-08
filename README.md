@@ -42,8 +42,19 @@ To build the image yourself instead of pulling it: `docker compose -f docker-com
 AMP_DOMAIN=amp.example.com \
   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
 
-# Back up the database (SQLite on the amp-data volume) — copy all amp.db* files:
-docker compose cp hub:/data/. ./backup-$(date +%F)/   # or snapshot the volume
+# Consistent online backup (handles the WAL, no downtime), then copy it out:
+docker compose exec hub python -m app.db_backup /data/amp-backup.db
+docker compose cp hub:/data/amp-backup.db ./amp-backup-$(date +%F).db
+```
+
+**Restore** (replace the live database with a backup):
+
+```bash
+docker compose stop hub
+docker compose run --rm -v "$PWD/amp-backup-2026-06-08.db:/restore.db:ro" \
+  --entrypoint sh hub -c \
+  'cp /restore.db /data/amp.db && rm -f /data/amp.db-wal /data/amp.db-shm'
+docker compose up -d hub
 ```
 
 Without TLS, JWT tokens, agent keys and messages travel in plaintext — always run the proxy (or your own) in front in production. Run a single hub process (presence/ACK state is in-memory; do not use `--workers >1`).
