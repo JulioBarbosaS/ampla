@@ -39,3 +39,13 @@ class SetupStatus(BaseModel):
 
 class RoleUpdate(BaseModel):
     role: str = Field(pattern=r"^(admin|member)$")
+
+
+class AuditOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    event: str
+    actor: str
+    detail: dict | None
+    created_at: datetime

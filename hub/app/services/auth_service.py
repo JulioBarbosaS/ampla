@@ -160,6 +160,13 @@ class AuthService:
         await self._audit.record("login_ok", actor=user.email)
         return user, self._issue_token(user)
 
+    async def list_audit(self, actor: User, limit: int = 100):
+        """Admin-only view of the audit trail (events are recorded across the
+        services; this is the only way to review them)."""
+        if actor.role != "admin":
+            raise PermissionDeniedError("Apenas administradores veem a auditoria.")
+        return await self._audit.list_recent(limit)
+
     # ---- token resolution (used by the middleware/deps) ----
 
     async def get_user_by_token(self, token: str) -> User | None:
