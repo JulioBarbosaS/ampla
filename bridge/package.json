@@ -11,6 +11,7 @@
     "build": "tsc",
     "daemon": "tsx src/daemon/index.ts",
     "mcp": "tsx src/mcp/index.ts",
+    "connect": "tsx src/cli/connect.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
