@@ -19,6 +19,13 @@ export interface AgentSettings {
   max_auto_per_hour: number;
   auto_timeout_secs: number;
   instructions: string;
+  // Auto-respond filesystem guardrails
+  allow_write: boolean;
+  block_hidden_files: boolean;
+  block_sensitive_paths: boolean;
+  confine_to_dir: boolean;
+  denied_paths: string[];
+  trusted_senders: string[];
 }
 
 export interface Agent extends AgentSettings {

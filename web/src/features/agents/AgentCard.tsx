@@ -1,11 +1,102 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { FormError } from "../../components/forms";
-import { agentsApi } from "../../lib/api/agents";
+import { agentsApi, type SettingsPatch } from "../../lib/api/agents";
 import { wsUrl } from "../../lib/api/client";
 import { groupsApi } from "../../lib/api/groups";
 import type { Agent, AgentKey, Group } from "../../lib/api/types";
 import { connectToken } from "../../lib/connect";
 import { PresenceDot } from "../chat/Sidebar";
+
+const dangerBtn =
+  "rounded-md border border-red-700 px-2.5 py-1 text-xs font-medium text-red-300 hover:bg-red-950/40";
+
+/** A high-risk action gated behind three confirmations (warn → reconfirm →
+ * type the agent slug), GitHub danger-zone style. */
+function DangerAction({
+  trigger,
+  warning,
+  confirmWord,
+  onConfirm,
+}: {
+  trigger: string;
+  warning: string;
+  confirmWord: string;
+  onConfirm: () => void;
+}) {
+  const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
+  const [typed, setTyped] = useState("");
+  const reset = () => {
+    setStep(0);
+    setTyped("");
+  };
+
+  if (step === 0) {
+    return (
+      <button type="button" onClick={() => setStep(1)} className={dangerBtn}>
+        {trigger}
+      </button>
+    );
+  }
+
+  const cancel = (
+    <button
+      type="button"
+      onClick={reset}
+      className="rounded-md bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300 hover:bg-zinc-700"
+    >
+      Cancelar
+    </button>
+  );
+
+  return (
+    <div className="space-y-2 rounded-md border border-red-800 bg-red-950/40 p-2.5 text-xs">
+      <p className="text-red-200">{warning}</p>
+      {step === 1 && (
+        <div className="flex gap-2">
+          {cancel}
+          <button type="button" onClick={() => setStep(2)} className={dangerBtn}>
+            Entendo o risco
+          </button>
+        </div>
+      )}
+      {step === 2 && (
+        <div className="flex gap-2">
+          {cancel}
+          <button type="button" onClick={() => setStep(3)} className={dangerBtn}>
+            Confirmar de novo
+          </button>
+        </div>
+      )}
+      {step === 3 && (
+        <div className="space-y-1.5">
+          <p className="text-red-200">
+            Digite <span className="font-mono font-semibold">{confirmWord}</span> para aplicar:
+          </p>
+          <input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder={confirmWord}
+            className="w-full rounded-md border border-red-700 bg-zinc-900 px-2.5 py-1.5 text-sm outline-none focus:border-red-500"
+          />
+          <div className="flex gap-2">
+            {cancel}
+            <button
+              type="button"
+              disabled={typed !== confirmWord}
+              onClick={() => {
+                onConfirm();
+                reset();
+              }}
+              className={`${dangerBtn} disabled:cursor-not-allowed disabled:opacity-40`}
+            >
+              Aplicar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function AgentCard({
   agent,
@@ -24,6 +115,7 @@ export function AgentCard({
   const [newKey, setNewKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [trustInput, setTrustInput] = useState("");
 
   useEffect(() => {
     agentsApi
@@ -42,6 +134,13 @@ export function AgentCard({
           .map((s) => s.trim())
           .filter(Boolean)
       : [];
+    const deniedRaw = String(data.get("denied_paths") ?? "").trim();
+    const deniedList = deniedRaw
+      ? deniedRaw
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
     setError(null);
     setSaved(false);
     try {
@@ -53,8 +152,25 @@ export function AgentCard({
         max_auto_per_hour: Number(data.get("max_auto_per_hour")),
         auto_timeout_secs: Number(data.get("auto_timeout_secs")),
         instructions: String(data.get("instructions") ?? ""),
+        // sensitive-paths block and trusted senders live in the danger zone below
+        allow_write: data.get("allow_write") === "on",
+        block_hidden_files: data.get("block_hidden_files") === "on",
+        confine_to_dir: data.get("confine_to_dir") === "on",
+        denied_paths: deniedList,
       });
       setSaved(true);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao salvar.");
+    }
+  }
+
+  // Danger-zone fields are patched directly (outside the main form), each one
+  // behind a triple confirmation in the UI below.
+  async function patchDanger(patch: SettingsPatch) {
+    setError(null);
+    try {
+      await agentsApi.updateSettings(agent.slug, patch);
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao salvar.");
@@ -179,6 +295,49 @@ pnpm daemon   # deixe rodando`;
             className={inputClass}
           />
         </label>
+        <fieldset className="space-y-2 rounded-md border border-zinc-800 p-2.5">
+          <legend className="px-1 text-xs text-zinc-500">
+            Restrições de arquivo (auto-respond)
+          </legend>
+          <label className="flex items-center gap-2 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              name="block_hidden_files"
+              defaultChecked={agent.block_hidden_files}
+              className="accent-emerald-500"
+            />
+            Bloquear arquivos ocultos (.env, .gitignore, dotfiles)
+          </label>
+          <label className="flex items-center gap-2 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              name="confine_to_dir"
+              defaultChecked={agent.confine_to_dir}
+              className="accent-emerald-500"
+            />
+            Confinar ao diretório do projeto (bloqueia /etc, /var, /tmp…)
+          </label>
+          <label className="flex items-center gap-2 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              name="allow_write"
+              defaultChecked={agent.allow_write}
+              className="accent-emerald-500"
+            />
+            Permitir escrita (Edit/Write) — o padrão é só leitura
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-zinc-400">
+              Caminhos negados (separados por vírgula)
+            </span>
+            <input
+              name="denied_paths"
+              defaultValue={agent.denied_paths.join(", ")}
+              placeholder="secrets.txt, *.pem, config/prod.json"
+              className={inputClass}
+            />
+          </label>
+        </fieldset>
         <div className="flex items-center gap-3">
           <button
             type="submit"
@@ -296,6 +455,91 @@ pnpm daemon   # deixe rodando`;
             })}
           </div>
         )}
+      </div>
+
+      <div className="mt-4 rounded-md border border-red-800/70 bg-red-950/20 p-3">
+        <h4 className="mb-2 text-sm font-semibold text-red-300">⚠ Zona de perigo</h4>
+
+        <div className="mb-3">
+          <p className="text-xs text-zinc-400">
+            Bloqueio de segredos do SO (<span className="font-mono">~/.ssh, ~/.aws, /etc…</span>):{" "}
+            {agent.block_sensitive_paths ? (
+              <span className="text-emerald-400">ativo</span>
+            ) : (
+              <span className="font-semibold text-red-400">DESATIVADO</span>
+            )}
+          </p>
+          {agent.block_sensitive_paths ? (
+            <div className="mt-1.5">
+              <DangerAction
+                trigger="Desativar bloqueio de segredos"
+                warning="Sem isto, uma mensagem de terceiro pode fazer o auto-respond ler ~/.ssh, ~/.aws e .env e devolver o conteúdo na resposta. Só desative se confia em TODOS que podem enviar a este agente."
+                confirmWord={agent.slug}
+                onConfirm={() => patchDanger({ block_sensitive_paths: false })}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => patchDanger({ block_sensitive_paths: true })}
+              className="mt-1.5 rounded-md bg-emerald-800/60 px-2.5 py-1 text-xs font-medium text-emerald-200 hover:bg-emerald-800"
+            >
+              Reativar bloqueio
+            </button>
+          )}
+        </div>
+
+        <div>
+          <p className="text-xs text-zinc-400">
+            Agentes confiáveis (acesso TOTAL, sem restrições de arquivo):
+          </p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {agent.trusted_senders.length === 0 && (
+              <span className="text-xs text-zinc-500">nenhum</span>
+            )}
+            {agent.trusted_senders.map((s) => (
+              <span
+                key={s}
+                className="flex items-center gap-1 rounded-full border border-red-700 bg-red-950/40 px-2 py-0.5 font-mono text-xs text-red-300"
+              >
+                {s}
+                <button
+                  type="button"
+                  title="remover"
+                  onClick={() =>
+                    patchDanger({
+                      trusted_senders: agent.trusted_senders.filter((t) => t !== s),
+                    })
+                  }
+                  className="text-red-400 hover:text-red-200"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+          <input
+            value={trustInput}
+            onChange={(e) => setTrustInput(e.target.value)}
+            placeholder="slug-do-agente-confiável"
+            className={`${inputClass} mt-2`}
+          />
+          {trustInput.trim() && (
+            <div className="mt-1.5">
+              <DangerAction
+                trigger={`Tornar "${trustInput.trim()}" confiável`}
+                warning={`"${trustInput.trim()}" passará a rodar o auto-respond SEM nenhuma restrição de arquivo (acesso total). Se a sessão dele for comprometida, vaza tudo. Confirme só se confia plenamente.`}
+                confirmWord={agent.slug}
+                onConfirm={() => {
+                  patchDanger({
+                    trusted_senders: [...agent.trusted_senders, trustInput.trim()],
+                  });
+                  setTrustInput("");
+                }}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 border-t border-zinc-800 pt-3">

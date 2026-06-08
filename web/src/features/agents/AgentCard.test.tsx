@@ -32,6 +32,12 @@ const AGENT: Agent = {
   max_auto_per_hour: 10,
   auto_timeout_secs: 120,
   instructions: "",
+  allow_write: false,
+  block_hidden_files: true,
+  block_sensitive_paths: true,
+  confine_to_dir: true,
+  denied_paths: [],
+  trusted_senders: [],
 };
 
 const GROUPS: Group[] = [
@@ -91,5 +97,39 @@ describe("AgentCard", () => {
     await userEvent.click(screen.getByRole("button", { name: "Gerar chave" }));
     const code = await screen.findByText(/amp connect /);
     expect(code.textContent).toMatch(/^amp connect [A-Za-z0-9_-]+$/); // base64url token
+  });
+
+  it("saving the rules sends the filesystem guardrails", async () => {
+    vi.mocked(agentsApi.updateSettings).mockResolvedValue(AGENT);
+    render(<AgentCard agent={AGENT} groups={[]} onChanged={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "Salvar regras" }));
+    expect(agentsApi.updateSettings).toHaveBeenCalledWith(
+      "backend-julio",
+      expect.objectContaining({
+        allow_write: false,
+        block_hidden_files: true,
+        confine_to_dir: true,
+        denied_paths: [],
+      }),
+    );
+  });
+
+  it("danger zone: disabling the sensitive-path block needs 3 confirmations + the slug", async () => {
+    vi.mocked(agentsApi.updateSettings).mockResolvedValue(AGENT);
+    render(<AgentCard agent={AGENT} groups={[]} onChanged={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Desativar bloqueio de segredos" }));
+    await userEvent.click(screen.getByRole("button", { name: "Entendo o risco" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar de novo" }));
+
+    const apply = screen.getByRole("button", { name: "Aplicar" });
+    expect(apply).toBeDisabled(); // until the slug is typed
+    await userEvent.type(screen.getByPlaceholderText("backend-julio"), "backend-julio");
+    expect(apply).toBeEnabled();
+    await userEvent.click(apply);
+
+    expect(agentsApi.updateSettings).toHaveBeenCalledWith("backend-julio", {
+      block_sensitive_paths: false,
+    });
   });
 });
