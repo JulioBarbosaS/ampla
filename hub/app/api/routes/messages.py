@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_current_user, get_group_service, get_message_service
@@ -31,6 +31,11 @@ async def send_message(
 ) -> MessageOut:
     """Panel: a human sends on behalf of their own agent. Real-time delivery
     mirrors the WS flow (delivered + mirror to observers)."""
+    if not request.app.state.message_limiter.allow(str(user.id)):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Limite de mensagens excedido.",
+        )
     msg = await svc.send_as_user(
         user,
         payload.from_agent,
@@ -69,6 +74,11 @@ async def broadcast(
     groups: GroupService = Depends(get_group_service),
 ) -> BroadcastResult:
     """Panel: fan-out to @group or @all on behalf of the agent's own owner."""
+    if not request.app.state.broadcast_limiter.allow(payload.from_agent):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Limite de broadcasts por minuto excedido.",
+        )
     recipients = await groups.resolve_recipients(payload.group, payload.from_agent)
     sent, skipped = await svc.broadcast_as_user(
         user,

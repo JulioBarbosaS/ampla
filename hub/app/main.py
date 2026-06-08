@@ -47,6 +47,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.broadcast_limiter = SlidingWindowLimiter(
         max_events=settings.broadcast_per_minute, window_secs=60
     )
+    # Per-user limit for panel sends over REST (the WS path has its own bucket).
+    app.state.message_limiter = SlidingWindowLimiter(
+        max_events=settings.ws_messages_per_minute, window_secs=60
+    )
 
     app.add_middleware(
         CORSMiddleware,
