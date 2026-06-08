@@ -34,19 +34,19 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("BroadcastPanel", () => {
-  it("lista os membros do grupo selecionado", () => {
+  it("lists the members of the selected group", () => {
     render(<BroadcastPanel perspective="backend-julio" target="@frontend-team" />);
     expect(screen.getByText("mobile-eduardo")).toBeInTheDocument();
     expect(screen.getByText("infra-maria")).toBeInTheDocument();
     expect(screen.getByText(/Destinatários \(2\)/)).toBeInTheDocument();
   });
 
-  it("@all transmite para todos os agentes do diretório", () => {
+  it("@all broadcasts to every agent in the directory", () => {
     render(<BroadcastPanel perspective="backend-julio" target="@all" />);
     expect(screen.getByText(/Destinatários \(2\)/)).toBeInTheDocument();
   });
 
-  it("transmite e mostra o resultado humanizado do fan-out", async () => {
+  it("broadcasts and shows the humanized fan-out result", async () => {
     vi.mocked(messagesApi.broadcast).mockResolvedValue({
       group: "@frontend-team",
       sent: ["mobile-eduardo"],
@@ -64,7 +64,7 @@ describe("BroadcastPanel", () => {
       { type: "notification", priority: "normal" },
     );
     expect(await screen.findByText(/1 enviado/)).toBeInTheDocument();
-    // infra-maria aparece como "skipped" no resultado (texto único do bloco de resultado)
+    // infra-maria appears as "skipped" in the result (unique text in the result block)
     expect(screen.getByText(/não recebe\(m\): infra-maria/)).toBeInTheDocument();
   });
 });

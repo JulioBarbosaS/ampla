@@ -45,7 +45,7 @@ export function Sidebar() {
       .catch(() => {});
   }, [setGroups]);
 
-  // Prévia da última mensagem de cada parceiro (sob a perspectiva atual).
+  // Preview of each partner's last message (under the current perspective).
   useEffect(() => {
     if (!perspective) {
       setPreviews({});

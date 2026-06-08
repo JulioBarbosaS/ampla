@@ -1,13 +1,13 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Fluxo ponta a ponta no hub real: setup do admin → criação de agentes
- * → geração de chave → conversa via painel (perspectiva + envio).
- * Os testes são sequenciais — o banco é zerado uma vez no início do run.
+ * End-to-end flow against the real hub: admin setup → agent creation
+ * → key generation → conversation via the panel (perspective + send).
+ * The tests are sequential — the database is reset once at the start of the run.
  */
 test.describe.configure({ mode: "serial" });
 
-test("setup do administrador no primeiro acesso", async ({ page }) => {
+test("administrator setup on first access", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Criar conta de administrador" })).toBeVisible();
 
@@ -16,12 +16,12 @@ test("setup do administrador no primeiro acesso", async ({ page }) => {
   await page.getByLabel(/Senha/).fill("senha-muito-segura-1");
   await page.getByRole("button", { name: "Criar conta admin" }).click();
 
-  // logado: shell do app com navegação
+  // logged in: app shell with navigation
   await expect(page.getByRole("link", { name: "Conversas" })).toBeVisible();
   await expect(page.getByText("admin")).toBeVisible();
 });
 
-test("login, criação de agentes e chave do daemon", async ({ page }) => {
+test("login, agent creation and daemon key", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("Email").fill("julio@example.com");
   await page.getByLabel("Senha").fill("senha-muito-segura-1");
@@ -29,7 +29,7 @@ test("login, criação de agentes e chave do daemon", async ({ page }) => {
 
   await page.getByRole("link", { name: "Meus agentes" }).click();
 
-  // dois agentes para conversarem entre si
+  // two agents to talk to each other
   for (const [slug, display] of [
     ["backend-julio", "Backend do Julio"],
     ["mobile-eduardo", "Mobile do Eduardo"],
@@ -40,7 +40,7 @@ test("login, criação de agentes e chave do daemon", async ({ page }) => {
     await expect(page.getByRole("heading", { name: slug })).toBeVisible();
   }
 
-  // chave exibida uma única vez, com prefixo amp_
+  // key shown only once, with the amp_ prefix
   await page
     .locator("section", { hasText: "backend-julio" })
     .getByRole("button", { name: "Gerar chave" })
@@ -49,30 +49,30 @@ test("login, criação de agentes e chave do daemon", async ({ page }) => {
   await expect(page.getByText(/^amp_[0-9a-f]{64}$/)).toBeVisible();
 });
 
-test("conversa pelo painel: perspectiva, envio e bolha pendente", async ({ page }) => {
+test("conversation via the panel: perspective, send and pending bubble", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("Email").fill("julio@example.com");
   await page.getByLabel("Senha").fill("senha-muito-segura-1");
   await page.getByRole("button", { name: "Entrar" }).click();
 
-  // perspectiva selecionada automaticamente (primeiro agente meu)
+  // perspective selected automatically (the user's first agent)
   await expect(page.getByLabel("Conversando como")).toHaveValue("backend-julio");
 
-  // seleciona o parceiro e envia
+  // select the partner and send
   await page.getByRole("button", { name: /mobile-eduardo/ }).click();
   const composer = page.getByPlaceholder(/Mensagem para mobile-eduardo/);
   await composer.fill("Existe endpoint de reset de senha?");
   await page.getByRole("button", { name: "Enviar" }).click();
 
-  // bolha aparece; destinatário offline → pendente. A mensagem também vira
-  // prévia na sidebar (um <span>), então miramos a bolha do chat (um <p>).
+  // bubble appears; recipient offline → pending. The message also becomes a
+  // preview in the sidebar (a <span>), so we target the chat bubble (a <p>).
   const bubble = page
     .getByRole("paragraph")
     .filter({ hasText: "Existe endpoint de reset de senha?" });
   await expect(bubble).toBeVisible();
   await expect(page.getByText(/pendente/)).toBeVisible();
 
-  // histórico persiste após recarregar
+  // history persists after reload
   await page.reload();
   await page.getByRole("button", { name: /mobile-eduardo/ }).click();
   await expect(
@@ -80,7 +80,7 @@ test("conversa pelo painel: perspectiva, envio e bolha pendente", async ({ page 
   ).toBeVisible();
 });
 
-test("agente offline aparece com presença offline na sidebar", async ({ page }) => {
+test("offline agent appears with offline presence in the sidebar", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("Email").fill("julio@example.com");
   await page.getByLabel("Senha").fill("senha-muito-segura-1");

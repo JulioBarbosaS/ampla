@@ -1,9 +1,9 @@
 import { ApiError } from "./client";
 
 /**
- * Traduz um erro de chamada à API numa mensagem amigável em pt-BR.
- * `unauthorized` cobre o 401 com sentido específico da tela (no login,
- * "credenciais inválidas"); nas demais o 401 cai na mensagem do hub.
+ * Maps an API call error to a friendly pt-BR message.
+ * `unauthorized` covers the 401 with a screen-specific meaning (on login,
+ * "invalid credentials"); elsewhere the 401 falls back to the hub message.
  */
 export function authErrorMessage(err: unknown, opts: { unauthorized?: string } = {}): string {
   if (err instanceof ApiError) {

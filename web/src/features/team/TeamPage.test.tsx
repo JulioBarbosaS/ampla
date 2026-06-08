@@ -38,22 +38,22 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("TeamPage", () => {
-  it("lista membros com papéis e a ação correta por papel", async () => {
+  it("lists members with roles and the correct action per role", async () => {
     render(<TeamPage />);
     expect(await screen.findByText("Eduardo")).toBeInTheDocument();
-    // membro pode ser promovido; admin pode ser rebaixado
+    // a member can be promoted; an admin can be demoted
     expect(screen.getByRole("button", { name: "Tornar admin" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Rebaixar" })).toBeInTheDocument();
   });
 
-  it("promove um membro a admin", async () => {
+  it("promotes a member to admin", async () => {
     render(<TeamPage />);
     await screen.findByText("Eduardo");
     await userEvent.click(screen.getByRole("button", { name: "Tornar admin" }));
     expect(usersApi.setRole).toHaveBeenCalledWith(2, "admin");
   });
 
-  it("deriva o estado dos convites a partir das datas", async () => {
+  it("derives the invite state from the dates", async () => {
     vi.mocked(authApi.listInvites).mockResolvedValue([
       {
         id: 1,
@@ -86,7 +86,7 @@ describe("TeamPage", () => {
     expect(screen.getByText("usado")).toBeInTheDocument();
   });
 
-  it("esconde tudo de quem não é admin", () => {
+  it("hides everything from non-admins", () => {
     useAuthStore.setState({ user: MEMBER });
     render(<TeamPage />);
     expect(screen.getByText(/não tem permissão/)).toBeInTheDocument();

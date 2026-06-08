@@ -1,21 +1,21 @@
 import { create } from "zustand";
 import type { DirectoryEntry, Group, Message } from "../lib/api/types";
 
-/** Chave canônica de uma conversa (independe da direção). */
+/** Canonical key for a conversation (direction-independent). */
 export function conversationKey(a: string, b: string): string {
   return [a, b].sort().join("|");
 }
 
 interface ChatState {
-  /** Agente "meu" pelo qual o usuário conversa e enxerga a sidebar. */
+  /** The user's "own" agent through which they chat and view the sidebar. */
   perspective: string | null;
-  /** Parceiro selecionado na sidebar. */
+  /** Partner selected in the sidebar. */
   partner: string | null;
   directory: DirectoryEntry[];
   groups: Group[];
   online: Record<string, boolean>;
   conversations: Record<string, Message[]>;
-  /** Conexão WS do painel (para o indicador "reconectando…"). */
+  /** Panel WS connection (for the "reconectando…" indicator). */
   wsConnected: boolean;
 
   setPerspective: (slug: string | null) => void;
@@ -63,7 +63,7 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => ({
       conversations: {
         ...state.conversations,
-        // REST devolve mais recentes primeiro; UI lê em ordem cronológica
+        // REST returns newest first; UI reads in chronological order
         [conversationKey(a, b)]: [...messages].sort((m1, m2) => m1.id - m2.id),
       },
     })),
@@ -72,7 +72,7 @@ export const useChatStore = create<ChatState>((set) => ({
       const key = conversationKey(message.from, message.to);
       const existing = state.conversations[key] ?? [];
       if (existing.some((m) => m.id === message.id)) {
-        return state; // dedup (eco do próprio POST via observer)
+        return state; // dedup (echo of our own POST via observer)
       }
       return {
         conversations: { ...state.conversations, [key]: [...existing, message] },
@@ -80,12 +80,13 @@ export const useChatStore = create<ChatState>((set) => ({
     }),
   markDelivered: (messageId) =>
     set((state) => {
-      // O frame `delivered` chega depois da bolha (que entrou com delivered_at
-      // nulo no dispatch). Acha a mensagem na conversa e carimba a entrega.
+      // The `delivered` frame arrives after the bubble (which entered with a
+      // null delivered_at on dispatch). Find the message in the conversation
+      // and stamp the delivery.
       for (const [key, messages] of Object.entries(state.conversations)) {
         const idx = messages.findIndex((m) => m.id === messageId);
         if (idx === -1) continue;
-        if (messages[idx].delivered_at) return state; // já carimbada
+        if (messages[idx].delivered_at) return state; // already stamped
         const updated = [...messages];
         updated[idx] = { ...updated[idx], delivered_at: new Date().toISOString() };
         return { conversations: { ...state.conversations, [key]: updated } };

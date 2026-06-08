@@ -48,24 +48,24 @@ beforeEach(() => {
 });
 
 describe("Sidebar", () => {
-  it("lista a equipe sem o próprio agente, com presença", () => {
+  it("lists the team without the user's own agent, with presence", () => {
     render(<Sidebar />);
     expect(screen.getByText("mobile-eduardo")).toBeInTheDocument();
     expect(screen.getByText("infra-maria")).toBeInTheDocument();
-    // o agente-perspectiva não aparece na lista da equipe
+    // the perspective agent does not appear in the team list
     expect(screen.queryByRole("button", { name: /backend-julio/ })).not.toBeInTheDocument();
     expect(screen.getAllByLabelText("online")).toHaveLength(1);
     expect(screen.getAllByLabelText("offline")).toHaveLength(1);
   });
 
-  it("clicar num agente seleciona o parceiro da conversa", async () => {
+  it("clicking an agent selects the conversation partner", async () => {
     render(<Sidebar />);
     await userEvent.click(screen.getByText("mobile-eduardo"));
     expect(useChatStore.getState().partner).toBe("mobile-eduardo");
   });
 
-  it("mostra @all e os grupos; clicar entra no modo transmissão", async () => {
-    // grupos chegam pela API (a Sidebar carrega e popula o store)
+  it("shows @all and the groups; clicking enters broadcast mode", async () => {
+    // groups arrive via the API (the Sidebar loads and populates the store)
     vi.mocked(groupsApi.list).mockResolvedValueOnce([
       {
         slug: "frontend-team",
@@ -84,7 +84,7 @@ describe("Sidebar", () => {
     expect(useChatStore.getState().partner).toBe("@frontend-team");
   });
 
-  it("mostra a prévia da última mensagem do parceiro (sem o prefixo [auto])", async () => {
+  it("shows the partner's last-message preview (without the [auto] prefix)", async () => {
     vi.mocked(messagesApi.partners).mockResolvedValueOnce([
       {
         agent: "mobile-eduardo",

@@ -1,6 +1,29 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`snapshots > MessageBubble enviada (entregue) 1`] = `
+exports[`snapshots > MessageBubble received 1`] = `
+<div
+  class="group flex items-end gap-1 justify-start"
+>
+  <div
+    class="max-w-[75%] rounded-2xl px-3.5 py-2 text-sm rounded-bl-sm bg-zinc-800 text-zinc-100"
+  >
+    <p
+      class="whitespace-pre-wrap break-words"
+    >
+      Existe endpoint de reset de senha?
+    </p>
+    <p
+      class="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-zinc-500"
+    >
+      <span>
+        11:30
+      </span>
+    </p>
+  </div>
+</div>
+`;
+
+exports[`snapshots > MessageBubble sent (delivered) 1`] = `
 <div
   class="group flex items-end gap-1 justify-end"
 >
@@ -24,30 +47,7 @@ exports[`snapshots > MessageBubble enviada (entregue) 1`] = `
 </div>
 `;
 
-exports[`snapshots > MessageBubble recebida 1`] = `
-<div
-  class="group flex items-end gap-1 justify-start"
->
-  <div
-    class="max-w-[75%] rounded-2xl px-3.5 py-2 text-sm rounded-bl-sm bg-zinc-800 text-zinc-100"
-  >
-    <p
-      class="whitespace-pre-wrap break-words"
-    >
-      Existe endpoint de reset de senha?
-    </p>
-    <p
-      class="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-zinc-500"
-    >
-      <span>
-        11:30
-      </span>
-    </p>
-  </div>
-</div>
-`;
-
-exports[`snapshots > Sidebar com equipe e presença 1`] = `
+exports[`snapshots > Sidebar with team and presence 1`] = `
 <aside
   class="flex w-72 shrink-0 flex-col border-r border-zinc-800"
 >

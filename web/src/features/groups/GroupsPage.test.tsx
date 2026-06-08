@@ -57,29 +57,29 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("GroupsPage", () => {
-  it("lista grupos com membros e presença", async () => {
+  it("lists groups with members and presence", async () => {
     render(<GroupsPage />);
     expect(await screen.findByText("@frontend-team")).toBeInTheDocument();
     expect(screen.getByText("mobile-eduardo")).toBeInTheDocument();
     expect(screen.getByText(/Membros \(1\)/)).toBeInTheDocument();
   });
 
-  it("só permite adicionar os próprios agentes (outros desabilitados)", async () => {
+  it("only allows adding the user's own agents (others disabled)", async () => {
     render(<GroupsPage />);
     await screen.findByText("@frontend-team");
-    // backend-julio é meu → habilitado; infra-maria é de outro → desabilitado
+    // backend-julio is mine → enabled; infra-maria belongs to someone else → disabled
     expect(screen.getByRole("button", { name: "+ backend-julio" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "+ infra-maria" })).toBeDisabled();
   });
 
-  it("adiciona um agente próprio ao grupo", async () => {
+  it("adds one of the user's own agents to the group", async () => {
     render(<GroupsPage />);
     await screen.findByText("@frontend-team");
     await userEvent.click(screen.getByRole("button", { name: "+ backend-julio" }));
     expect(groupsApi.addMember).toHaveBeenCalledWith("frontend-team", "backend-julio");
   });
 
-  it("cria um grupo", async () => {
+  it("creates a group", async () => {
     render(<GroupsPage />);
     await screen.findByText("@frontend-team");
     await userEvent.type(screen.getByLabelText(/Slug/), "infra-team");

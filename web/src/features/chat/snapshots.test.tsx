@@ -1,6 +1,6 @@
 /**
- * Golden/snapshot dos componentes centrais do chat — mudanças de
- * markup/classes aparecem em diff de code review (vitest -u atualiza).
+ * Golden/snapshot of the core chat components — markup/class changes
+ * show up in the code-review diff (vitest -u updates them).
  */
 
 import { render } from "@testing-library/react";
@@ -53,17 +53,17 @@ beforeEach(() => {
 });
 
 describe("snapshots", () => {
-  it("MessageBubble recebida", () => {
+  it("MessageBubble received", () => {
     const { container } = render(<MessageBubble message={MESSAGE} mine={false} />);
     expect(container.firstChild).toMatchSnapshot();
   });
 
-  it("MessageBubble enviada (entregue)", () => {
+  it("MessageBubble sent (delivered)", () => {
     const { container } = render(<MessageBubble message={MESSAGE} mine />);
     expect(container.firstChild).toMatchSnapshot();
   });
 
-  it("Sidebar com equipe e presença", () => {
+  it("Sidebar with team and presence", () => {
     const { container } = render(<Sidebar />);
     expect(container.firstChild).toMatchSnapshot();
   });

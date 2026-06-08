@@ -1,6 +1,6 @@
 /**
- * Conexão WS do painel (observer): recebe message/presence em tempo real.
- * Único ponto de acesso WS (docs/ARCHITECTURE.md · Regras web).
+ * Panel WS connection (observer): receives message/presence in real time.
+ * Single WS entry point (docs/ARCHITECTURE.md · web rules).
  */
 
 import { wsUrl } from "../api/client";
@@ -10,16 +10,16 @@ export interface ObserverHandlers {
   onMessage: (message: Message) => void;
   onPresence: (agentId: string, online: boolean) => void;
   onOnlineList: (slugs: string[]) => void;
-  /** Status da conexão do painel (true após hello_ack, false ao cair). */
+  /** Panel connection status (true after hello_ack, false on drop). */
   onStatus?: (connected: boolean) => void;
-  /** Confirmação de entrega de uma mensagem (at-least-once): o destinatário
-   * ackou e o hub re-espelhou — atualiza o "entregue" na bolha. */
+  /** Delivery confirmation for a message (at-least-once): the recipient
+   * acked and the hub re-mirrored — updates the "delivered" mark on the bubble. */
   onDelivered?: (messageId: number) => void;
 }
 
 const RECONNECT_MS = 3000;
 
-/** Conecta como observer; retorna função de cleanup. */
+/** Connects as observer; returns a cleanup function. */
 export function connectObserver(token: string, handlers: ObserverHandlers): () => void {
   let ws: WebSocket | null = null;
   let stopped = false;

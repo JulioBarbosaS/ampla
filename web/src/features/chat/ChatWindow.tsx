@@ -5,7 +5,7 @@ import { conversationKey, useChatStore } from "../../stores/chat";
 import { BroadcastPanel } from "./BroadcastPanel";
 import { PresenceDot } from "./Sidebar";
 
-/** Prefixo das respostas automáticas (espelha AUTO_REPLY_PREFIX do daemon). */
+/** Prefix for automatic replies (mirrors the daemon's AUTO_REPLY_PREFIX). */
 const AUTO_PREFIX = "[auto] ";
 
 const PRIORITY_BADGE: Record<string, string> = {
@@ -56,9 +56,9 @@ export function MessageBubble({
 }: {
   message: Message;
   mine: boolean;
-  /** Mensagem-mãe (quando esta é uma resposta) — para a citação compacta. */
+  /** Parent message (when this is a reply) — for the compact quote. */
   repliedTo?: Message | null;
-  /** Quem já respondeu esta pergunta (request/task) — indicador "respondida". */
+  /** Who already answered this question (request/task) — "answered" indicator. */
   answeredBy?: string | null;
   onReply?: (message: Message) => void;
 }) {
@@ -151,7 +151,7 @@ export function ChatWindow() {
     [perspective, partner, conversations],
   );
 
-  // Lookup por id (citação) e quem respondeu cada pergunta (indicador "respondida").
+  // Lookup by id (quote) and who answered each question ("answered" indicator).
   const { byId, answeredBy } = useMemo(() => {
     const byId = new Map<number, Message>();
     const answeredBy = new Map<number, string>();
@@ -168,8 +168,8 @@ export function ChatWindow() {
     if (messages.length > 0) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Trocar de conversa cancela um reply pendente da conversa anterior.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: perspective/partner são gatilhos da troca, não valores lidos
+  // Switching conversations cancels a pending reply from the previous one.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: perspective/partner are switch triggers, not read values
   useEffect(() => {
     setReplyTo(null);
     setMsgType("request");
@@ -215,7 +215,7 @@ export function ChatWindow() {
     );
   }
 
-  // Grupo/@all selecionado → modo transmissão (não há timeline 1:1).
+  // Group/@all selected → broadcast mode (no 1:1 timeline).
   if (partner.startsWith("@")) {
     return <BroadcastPanel perspective={perspective} target={partner} />;
   }

@@ -7,8 +7,8 @@ import { PresenceDot } from "./Sidebar";
 const BROADCAST_TYPES: MessageType[] = ["notification", "request", "task", "alert", "status"];
 const PRIORITIES: Priority[] = ["low", "normal", "high", "urgent"];
 
-/** Painel de transmissão: aberto quando o "parceiro" selecionado é um
- * grupo (@slug) ou @all. Envia um broadcast e mostra o resultado do fan-out. */
+/** Broadcast panel: shown when the selected "partner" is a group (@slug)
+ * or @all. Sends a broadcast and shows the fan-out result. */
 export function BroadcastPanel({ perspective, target }: { perspective: string; target: string }) {
   const { directory, groups, online } = useChatStore();
   const [msgType, setMsgType] = useState<MessageType>("notification");

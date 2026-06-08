@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 describe("api client", () => {
-  it("envia Authorization quando há token", async () => {
+  it("sends Authorization when a token is present", async () => {
     useAuthStore.setState({ token: "jwt-token", user: USER });
     const fetchMock = mockFetch(200, { ok: true });
 
@@ -42,14 +42,14 @@ describe("api client", () => {
     });
   });
 
-  it("erro do hub vira ApiError com o detail", async () => {
+  it("hub error becomes an ApiError with the detail", async () => {
     mockFetch(403, { code: "permission_denied", detail: "Você não gerencia este agente." });
     await expect(api.get("/api/agents/x")).rejects.toThrowError(
       new ApiError(403, "Você não gerencia este agente."),
     );
   });
 
-  it("401 com token derruba a sessão (logout automático)", async () => {
+  it("401 with a token tears down the session (automatic logout)", async () => {
     useAuthStore.setState({ token: "expirado", user: USER });
     mockFetch(401, { detail: "Sessão inválida ou expirada." });
 

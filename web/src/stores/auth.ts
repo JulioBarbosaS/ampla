@@ -2,8 +2,8 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { User } from "../lib/api/types";
 
-/** localStorage funcional, com probe: Node ≥22 expõe um localStorage
- * experimental inerte que sombrearia o do jsdom nos testes. */
+/** Functional localStorage, with a probe: Node ≥22 exposes an inert
+ * experimental localStorage that would shadow jsdom's in tests. */
 function safeStorage(): Storage {
   try {
     const storage = window.localStorage;

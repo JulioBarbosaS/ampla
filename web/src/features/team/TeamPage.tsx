@@ -5,7 +5,7 @@ import type { Invite, User } from "../../lib/api/types";
 import { usersApi } from "../../lib/api/users";
 import { useAuthStore } from "../../stores/auth";
 
-/** Estado de um convite, derivado das datas (não há campo no backend). */
+/** Invite state, derived from the dates (there is no backend field). */
 function inviteState(invite: Invite): { label: string; cls: string } {
   if (invite.used_at) return { label: "usado", cls: "bg-zinc-700 text-zinc-300" };
   if (new Date(invite.expires_at).getTime() < Date.now()) {

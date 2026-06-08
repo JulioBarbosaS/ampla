@@ -3,7 +3,7 @@ import { ApiError } from "./client";
 import { authErrorMessage } from "./errors";
 
 describe("authErrorMessage", () => {
-  it("401 usa a mensagem específica da tela quando fornecida", () => {
+  it("401 uses the screen-specific message when provided", () => {
     expect(
       authErrorMessage(new ApiError(401, "Unauthorized"), {
         unauthorized: "E-mail ou senha incorretos.",
@@ -11,25 +11,25 @@ describe("authErrorMessage", () => {
     ).toBe("E-mail ou senha incorretos.");
   });
 
-  it("429 vira aviso de muitas tentativas", () => {
+  it("429 becomes a too-many-attempts warning", () => {
     expect(authErrorMessage(new ApiError(429, "rate limited"))).toMatch(/Muitas tentativas/);
   });
 
-  it("403 vira aviso de permissão", () => {
+  it("403 becomes a permission warning", () => {
     expect(authErrorMessage(new ApiError(403, "x"))).toMatch(/permissão/);
   });
 
-  it("422 mantém a mensagem específica do hub", () => {
+  it("422 keeps the hub-specific message", () => {
     expect(authErrorMessage(new ApiError(422, "Convite inválido ou expirado."))).toBe(
       "Convite inválido ou expirado.",
     );
   });
 
-  it("401 sem override cai na mensagem do hub", () => {
+  it("401 without override falls back to the hub message", () => {
     expect(authErrorMessage(new ApiError(401, "Sessão expirada."))).toBe("Sessão expirada.");
   });
 
-  it("erro genérico não-ApiError tem fallback", () => {
+  it("generic non-ApiError error has a fallback", () => {
     expect(authErrorMessage("boom")).toMatch(/Algo deu errado/);
   });
 });

@@ -49,19 +49,19 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(() => vi.clearAllMocks());
 
 describe("AgentCard", () => {
-  it("mostra status de presença e a instrução de conexão", () => {
+  it("shows presence status and the connection instructions", () => {
     render(<AgentCard agent={AGENT} online={true} groups={GROUPS} onChanged={() => {}} />);
     expect(screen.getByText("online")).toBeInTheDocument();
     expect(screen.getByText(/"agent_id": "backend-julio"/)).toBeInTheDocument();
   });
 
-  it("reflete pertencimento aos grupos (✓ membro, + não-membro)", () => {
+  it("reflects group membership (✓ member, + non-member)", () => {
     render(<AgentCard agent={AGENT} online={false} groups={GROUPS} onChanged={() => {}} />);
     expect(screen.getByRole("button", { name: /✓.*@frontend-team/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /\+.*@infra-team/ })).toBeInTheDocument();
   });
 
-  it("entrar e sair de grupo chama a API certa", async () => {
+  it("joining and leaving a group calls the right API", async () => {
     const onGroupsChanged = vi.fn();
     render(
       <AgentCard
@@ -80,16 +80,16 @@ describe("AgentCard", () => {
     expect(onGroupsChanged).toHaveBeenCalled();
   });
 
-  it("lista as chaves do agente ao montar", () => {
+  it("lists the agent's keys on mount", () => {
     render(<AgentCard agent={AGENT} groups={[]} onChanged={() => {}} />);
     expect(agentsApi.listKeys).toHaveBeenCalledWith("backend-julio");
   });
 
-  it("ao gerar chave, mostra o comando 'amp connect' de um comando", async () => {
+  it("on key generation, shows the one-command 'amp connect' command", async () => {
     vi.mocked(agentsApi.createKey).mockResolvedValue({ id: 1, label: "", key: "amp_chave123" });
     render(<AgentCard agent={AGENT} groups={[]} onChanged={() => {}} />);
     await userEvent.click(screen.getByRole("button", { name: "Gerar chave" }));
     const code = await screen.findByText(/amp connect /);
-    expect(code.textContent).toMatch(/^amp connect [A-Za-z0-9_-]+$/); // token base64url
+    expect(code.textContent).toMatch(/^amp connect [A-Za-z0-9_-]+$/); // base64url token
   });
 });

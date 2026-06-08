@@ -30,24 +30,24 @@ beforeEach(() => {
 });
 
 describe("conversationKey", () => {
-  it("é simétrica (independe da direção)", () => {
+  it("is symmetric (direction-independent)", () => {
     expect(conversationKey("a-x", "b-y")).toBe(conversationKey("b-y", "a-x"));
   });
 });
 
 describe("chat store", () => {
-  it("addMessage agrupa pela conversa e deduplica por id", () => {
+  it("addMessage groups by conversation and dedupes by id", () => {
     const { addMessage } = useChatStore.getState();
     addMessage(msg(1, "backend-julio", "mobile-eduardo"));
     addMessage(msg(2, "mobile-eduardo", "backend-julio"));
-    addMessage(msg(1, "backend-julio", "mobile-eduardo")); // eco do observer
+    addMessage(msg(1, "backend-julio", "mobile-eduardo")); // observer echo
 
     const key = conversationKey("backend-julio", "mobile-eduardo");
     const conversation = useChatStore.getState().conversations[key]!;
     expect(conversation.map((m) => m.id)).toEqual([1, 2]);
   });
 
-  it("setConversation ordena cronologicamente (REST chega invertido)", () => {
+  it("setConversation sorts chronologically (REST arrives reversed)", () => {
     useChatStore
       .getState()
       .setConversation("a-x", "b-y", [
@@ -59,7 +59,7 @@ describe("chat store", () => {
     expect(conversation.map((m) => m.id)).toEqual([1, 2, 3]);
   });
 
-  it("presença: setOnlineList zera e aplica; setPresence atualiza um", () => {
+  it("presence: setOnlineList resets and applies; setPresence updates one", () => {
     const store = useChatStore.getState();
     store.setDirectory([
       { slug: "backend-julio", display_name: "B", online: true },
@@ -75,14 +75,14 @@ describe("chat store", () => {
     expect(useChatStore.getState().online["backend-julio"]).toBe(true);
   });
 
-  it("trocar perspectiva limpa o parceiro selecionado", () => {
+  it("switching perspective clears the selected partner", () => {
     const store = useChatStore.getState();
     store.setPartner("mobile-eduardo");
     store.setPerspective("infra-julio");
     expect(useChatStore.getState().partner).toBeNull();
   });
 
-  it("markDelivered carimba a entrega da bolha quando chega o ack (delivered)", () => {
+  it("markDelivered stamps the bubble's delivery when the ack (delivered) arrives", () => {
     const store = useChatStore.getState();
     store.addMessage(msg(1, "backend-julio", "mobile-eduardo")); // delivered_at: null
     store.markDelivered(1);
@@ -90,7 +90,7 @@ describe("chat store", () => {
     expect(useChatStore.getState().conversations[key]![0].delivered_at).not.toBeNull();
   });
 
-  it("markDelivered ignora id inexistente sem quebrar", () => {
+  it("markDelivered ignores a nonexistent id without breaking", () => {
     const store = useChatStore.getState();
     store.addMessage(msg(1, "backend-julio", "mobile-eduardo"));
     expect(() => store.markDelivered(999)).not.toThrow();

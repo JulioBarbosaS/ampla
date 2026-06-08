@@ -1,4 +1,4 @@
-/** Tipos dos contratos REST do hub (hub/app/schemas/*). */
+/** Types for the hub's REST contracts (hub/app/schemas/*). */
 
 export interface User {
   id: number;

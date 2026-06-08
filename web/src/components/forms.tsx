@@ -1,4 +1,4 @@
-/** Primitivas de formulário compartilhadas pelas telas de auth e agentes. */
+/** Shared form primitives used by the auth and agents screens. */
 
 import type { InputHTMLAttributes, ReactNode } from "react";
 

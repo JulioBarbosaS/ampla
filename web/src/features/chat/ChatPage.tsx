@@ -21,7 +21,7 @@ export function ChatPage() {
     markDelivered,
   } = useChatStore();
 
-  // diretório + perspectiva inicial (primeiro agente meu)
+  // directory + initial perspective (the user's first agent)
   useEffect(() => {
     agentsApi
       .directory()
@@ -36,7 +36,7 @@ export function ChatPage() {
       .catch(() => {});
   }, [setDirectory, setPerspective]);
 
-  // tempo real (observer WS)
+  // real time (WS observer)
   useEffect(() => {
     if (!token) return;
     return connectObserver(token, {
@@ -48,7 +48,7 @@ export function ChatPage() {
     });
   }, [token, addMessage, setPresence, setOnlineList, setWsConnected, markDelivered]);
 
-  // histórico da conversa selecionada
+  // history of the selected conversation
   useEffect(() => {
     if (!perspective || !partner) return;
     messagesApi

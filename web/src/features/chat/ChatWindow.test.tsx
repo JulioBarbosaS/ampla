@@ -39,18 +39,18 @@ beforeEach(() => {
 });
 
 describe("MessageBubble", () => {
-  it("mostra corpo e estado de entrega das minhas mensagens", () => {
+  it("shows body and delivery state for my messages", () => {
     render(<MessageBubble message={msg(2, "backend-julio", "mobile-eduardo", "olá!")} mine />);
     expect(screen.getByText("olá!")).toBeInTheDocument();
     expect(screen.getByText(/entregue/)).toBeInTheDocument();
   });
 
-  it("mensagem pendente indica pendente", () => {
+  it("pending message indicates pending", () => {
     render(<MessageBubble message={msg(1, "backend-julio", "mobile-eduardo", "oi")} mine />);
     expect(screen.getByText(/pendente/)).toBeInTheDocument();
   });
 
-  it("chip 🤖 auto quando o corpo começa com [auto] e esconde o prefixo", () => {
+  it("shows the 🤖 auto chip when the body starts with [auto] and hides the prefix", () => {
     render(
       <MessageBubble
         message={msg(2, "backend-julio", "mobile-eduardo", "[auto] Sim, existe.", {
@@ -64,7 +64,7 @@ describe("MessageBubble", () => {
     expect(screen.queryByText(/\[auto\]/)).not.toBeInTheDocument();
   });
 
-  it("chip via @grupo quando a mensagem veio de um broadcast", () => {
+  it("shows the via @group chip when the message came from a broadcast", () => {
     render(
       <MessageBubble
         message={msg(1, "infra-maria", "backend-julio", "deploy às 18h", {
@@ -77,7 +77,7 @@ describe("MessageBubble", () => {
     expect(screen.getByText(/via @frontend-team/)).toBeInTheDocument();
   });
 
-  it("mostra citação compacta da mensagem-mãe", () => {
+  it("shows a compact quote of the parent message", () => {
     const parent = msg(1, "mobile-eduardo", "backend-julio", "existe reset de senha?");
     render(
       <MessageBubble
@@ -92,7 +92,7 @@ describe("MessageBubble", () => {
     expect(screen.getByText(/existe reset de senha\?/)).toBeInTheDocument();
   });
 
-  it("marca pergunta como respondida quando answeredBy é passado", () => {
+  it("marks a question as answered when answeredBy is passed", () => {
     render(
       <MessageBubble
         message={msg(1, "mobile-eduardo", "backend-julio", "dúvida?", { type: "request" })}
@@ -103,7 +103,7 @@ describe("MessageBubble", () => {
     expect(screen.getByText(/respondida/)).toBeInTheDocument();
   });
 
-  it("não marca 'respondida' em mensagem que não é pergunta", () => {
+  it("does not mark as answered on a message that is not a question", () => {
     render(
       <MessageBubble
         message={msg(1, "x", "y", "aviso", { type: "notification" })}
@@ -114,7 +114,7 @@ describe("MessageBubble", () => {
     expect(screen.queryByText(/respondida/)).not.toBeInTheDocument();
   });
 
-  it("botão responder dispara onReply com a mensagem", () => {
+  it("reply button fires onReply with the message", () => {
     const onReply = vi.fn();
     const m = msg(1, "mobile-eduardo", "backend-julio", "pergunta");
     render(<MessageBubble message={m} mine={false} onReply={onReply} />);
@@ -124,12 +124,12 @@ describe("MessageBubble", () => {
 });
 
 describe("ChatWindow", () => {
-  it("sem seleção mostra orientação", () => {
+  it("shows guidance when nothing is selected", () => {
     render(<ChatWindow />);
     expect(screen.getByText(/Selecione um agente/)).toBeInTheDocument();
   });
 
-  it("renderiza a conversa selecionada na ordem", () => {
+  it("renders the selected conversation in order", () => {
     useChatStore.setState({
       perspective: "backend-julio",
       partner: "mobile-eduardo",
@@ -148,7 +148,7 @@ describe("ChatWindow", () => {
     expect(screen.getByRole("heading", { name: "mobile-eduardo" })).toBeInTheDocument();
   });
 
-  it("calcula 'respondida' a partir do in_reply_to na conversa", () => {
+  it("computes 'answered' from in_reply_to within the conversation", () => {
     useChatStore.setState({
       perspective: "backend-julio",
       partner: "mobile-eduardo",
@@ -165,12 +165,12 @@ describe("ChatWindow", () => {
       directory: [],
     });
     render(<ChatWindow />);
-    // a pergunta (id 1) ganhou indicador, a resposta automática aparece sem prefixo
+    // the question (id 1) got the indicator, the auto reply shows without the prefix
     expect(screen.getByText(/respondida/)).toBeInTheDocument();
     expect(screen.getByText(/🤖 auto/)).toBeInTheDocument();
   });
 
-  it("expõe seletores de tipo e prioridade no composer", () => {
+  it("exposes type and priority selectors in the composer", () => {
     useChatStore.setState({
       perspective: "backend-julio",
       partner: "mobile-eduardo",

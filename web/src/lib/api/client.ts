@@ -1,6 +1,6 @@
 /**
- * Único ponto de acesso HTTP ao hub (docs/ARCHITECTURE.md · Regras web):
- * componentes nunca fazem fetch direto.
+ * Single HTTP entry point to the hub (docs/ARCHITECTURE.md · web rules):
+ * components never call fetch directly.
  */
 
 import { useAuthStore } from "../../stores/auth";
@@ -32,7 +32,7 @@ async function request<T>(
   });
 
   if (response.status === 401 && token) {
-    useAuthStore.getState().logout(); // sessão expirada → volta ao login
+    useAuthStore.getState().logout(); // session expired → back to login
   }
   const text = await response.text();
   const payload = text ? JSON.parse(text) : null;

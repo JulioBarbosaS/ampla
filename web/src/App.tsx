@@ -19,7 +19,7 @@ export default function App() {
     authApi
       .setupStatus()
       .then(({ needs_setup }) => setNeedsSetup(needs_setup))
-      .catch(() => setNeedsSetup(false)); // hub fora do ar → login mostra o erro
+      .catch(() => setNeedsSetup(false)); // hub down → login screen shows the error
   }, []);
 
   if (needsSetup === null) {

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { groupsApi } from "./groups";
 import { usersApi } from "./users";
 
-/** Captura método + URL da última chamada de fetch (resposta sempre 200). */
+/** Captures method + URL of the last fetch call (response always 200). */
 function spyFetch(payload: unknown = {}) {
   const fn = vi.fn().mockResolvedValue(
     new Response(JSON.stringify(payload), {
@@ -28,7 +28,7 @@ describe("groupsApi", () => {
     expect(call(f)).toEqual({ url: expect.stringContaining("/api/groups"), method: "GET" });
   });
 
-  it("create → POST /api/groups com slug e nome", async () => {
+  it("create → POST /api/groups with slug and name", async () => {
     const f = spyFetch({});
     await groupsApi.create({ slug: "frontend-team", display_name: "Frontend" });
     const { url, method } = call(f);
@@ -49,7 +49,7 @@ describe("groupsApi", () => {
     });
   });
 
-  it("addMember → POST /api/groups/{slug}/members com agent", async () => {
+  it("addMember → POST /api/groups/{slug}/members with agent", async () => {
     const f = spyFetch({});
     await groupsApi.addMember("frontend-team", "mobile-eduardo");
     const { url, method } = call(f);
@@ -77,7 +77,7 @@ describe("usersApi", () => {
     expect(call(f)).toEqual({ url: expect.stringContaining("/api/users"), method: "GET" });
   });
 
-  it("setRole → PATCH /api/users/{id}/role com role", async () => {
+  it("setRole → PATCH /api/users/{id}/role with role", async () => {
     const f = spyFetch({});
     await usersApi.setRole(7, "admin");
     const { url, method } = call(f);
