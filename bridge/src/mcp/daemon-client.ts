@@ -1,6 +1,6 @@
 /**
- * Cliente HTTP do MCP para a API local do daemon (unix socket 0600).
- * O MCP é stateless — todo estado vive no daemon (docs/ARCHITECTURE.md).
+ * MCP HTTP client for the daemon's local API (0600 unix socket).
+ * The MCP is stateless — all state lives in the daemon (docs/ARCHITECTURE.md).
  */
 
 import { Client } from "undici";

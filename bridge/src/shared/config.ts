@@ -1,8 +1,8 @@
 /**
- * Configuração local do daemon (~/.amp/config.json).
+ * Daemon local configuration (~/.amp/config.json).
  *
- * Segurança (docs/ARCHITECTURE.md · Ameaça 4): ~/.amp com 0700,
- * arquivos com 0600 — a chave do agente mora aqui.
+ * Security (docs/ARCHITECTURE.md · Threat 4): ~/.amp with 0700,
+ * files with 0600 — the agent's key lives here.
  */
 
 import { chmodSync, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
@@ -11,12 +11,12 @@ import { join } from "node:path";
 import { z } from "zod";
 
 export const daemonConfigSchema = z.object({
-  hub_url: z.string().url(), // ex: ws://localhost:8000/ws
+  hub_url: z.string().url(), // e.g. ws://localhost:8000/ws
   agent_id: z.string().regex(/^[a-z][a-z0-9-]{1,48}[a-z0-9]$/),
   agent_key: z.string().startsWith("amp_"),
-  /** Diretório do repositório usado pelo auto-respond (cwd do claude -p). */
+  /** Repository directory used by auto-respond (cwd of claude -p). */
   project_dir: z.string().optional(),
-  /** Binário do Claude Code (default: "claude" no PATH). */
+  /** Claude Code binary (default: "claude" on PATH). */
   claude_bin: z.string().default("claude"),
 });
 export type DaemonConfig = z.infer<typeof daemonConfigSchema>;
@@ -56,7 +56,7 @@ export function loadConfig(): DaemonConfig {
   }
   const mode = statSync(path).mode & 0o777;
   if ((mode & 0o077) !== 0) {
-    // Permissão frouxa expõe a chave a outros usuários da máquina
+    // Loose permissions expose the key to other users on the machine
     chmodSync(path, 0o600);
   }
   return daemonConfigSchema.parse(JSON.parse(readFileSync(path, "utf-8")));

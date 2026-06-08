@@ -14,20 +14,20 @@ describe("scanForSecrets", () => {
     ],
     ["connection string com senha", "postgres://app:supersenha@db.local:5432/prod"],
     ["atribuição de segredo (.env)", "DATABASE_PASSWORD=hunter2segura"],
-    // bypasses corrigidos
+    // fixed bypasses
     ["GitHub token", "github_pat_11ABCDEFG0aBcDeFgHiJkLmNoPqRsTuVwXyZ123456"],
     ["atribuição de segredo (.env)", "database_password=hunter2"],
     ["connection string com senha", "redis://:supersenha@cache:6379"],
     ["AWS access key", "AKIAIOSFODNN7EXAMPLEX e mais texto colado"],
   ];
 
-  it.each(leaks)("detecta %s", (name, text) => {
+  it.each(leaks)("detects %s", (name, text) => {
     const result = scanForSecrets(text);
     expect(result.clean).toBe(false);
     expect(result.matches).toContain(name);
   });
 
-  it("não bloqueia resposta técnica legítima", () => {
+  it("does not block a legitimate technical reply", () => {
     const text = [
       "Sim, existe: POST /api/v1/auth/password-reset.",
       "Recebe {email} e envia token por email. Veja app/api/routes/auth.py:42.",
@@ -37,7 +37,7 @@ describe("scanForSecrets", () => {
     expect(scanForSecrets(text)).toEqual({ clean: true, matches: [] });
   });
 
-  it("não bloqueia menção a NOMES de variáveis sem valor", () => {
+  it("does not block mentions of variable NAMES without a value", () => {
     const text =
       "Configure DATABASE_PASSWORD e JWT_SECRET no seu .env (valores com o time de infra).";
     expect(scanForSecrets(text).clean).toBe(true);

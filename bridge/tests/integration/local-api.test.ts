@@ -31,8 +31,8 @@ afterEach(async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe("API local do daemon (consumida pelo MCP)", () => {
-  it("GET /status reflete conexão, settings e não lidas", async () => {
+describe("daemon local API (consumed by the MCP)", () => {
+  it("GET /status reflects connection, settings and unread count", async () => {
     const response = await daemon.api.inject({ method: "GET", url: "/status" });
     expect(response.statusCode).toBe(200);
     const body = response.json();
@@ -42,7 +42,7 @@ describe("API local do daemon (consumida pelo MCP)", () => {
     expect(body.unread).toBe(0);
   });
 
-  it("POST /send envia pelo WS e registra no histórico", async () => {
+  it("POST /send sends over the WS and records in the history", async () => {
     const response = await daemon.api.inject({
       method: "POST",
       url: "/send",
@@ -61,7 +61,7 @@ describe("API local do daemon (consumida pelo MCP)", () => {
     expect(history.json().messages).toHaveLength(1);
   });
 
-  it("POST /send valida payload (422) e exige conexão (503)", async () => {
+  it("POST /send validates the payload (422) and requires a connection (503)", async () => {
     const invalid = await daemon.api.inject({
       method: "POST",
       url: "/send",
@@ -79,7 +79,7 @@ describe("API local do daemon (consumida pelo MCP)", () => {
     expect(offline.statusCode).toBe(503);
   });
 
-  it("GET /inbox retorna não lidas e marca como lidas por padrão", async () => {
+  it("GET /inbox returns unread messages and marks them read by default", async () => {
     hub.pushMessage(AGENT, wireMessage(21, "mobile-eduardo", AGENT, "primeira"));
     await waitFor(() => daemon.store.unreadCount() === 1, 5000, "mensagem na inbox");
 
@@ -87,10 +87,10 @@ describe("API local do daemon (consumida pelo MCP)", () => {
     expect(first.json().messages).toHaveLength(1);
 
     const second = await daemon.api.inject({ method: "GET", url: "/inbox" });
-    expect(second.json().messages).toHaveLength(0); // já lidas
+    expect(second.json().messages).toHaveLength(0); // already read
   });
 
-  it("POST /send para @grupo envia o frame de broadcast", async () => {
+  it("POST /send to @group sends the broadcast frame", async () => {
     const response = await daemon.api.inject({
       method: "POST",
       url: "/send",
@@ -101,17 +101,17 @@ describe("API local do daemon (consumida pelo MCP)", () => {
 
     await waitFor(() => hub.sentMessages().length === 1, 5000, "frame no hub");
     expect(hub.sentMessages()[0]).toEqual({ to: "@frontend-team", body: "deploy às 18h" });
-    // registrado no histórico local com a origem de grupo
+    // recorded in the local history with the group origin
     expect(daemon.store.conversation("@frontend-team")[0]?.group).toBe("@frontend-team");
   });
 
-  it("GET /groups expõe os grupos recebidos no hello_ack", async () => {
+  it("GET /groups exposes the groups received in the hello_ack", async () => {
     const response = await daemon.api.inject({ method: "GET", url: "/groups" });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ groups: [] });
   });
 
-  it("GET /presence lista online; GET /partners lista interlocutores", async () => {
+  it("GET /presence lists online agents; GET /partners lists interlocutors", async () => {
     const presence = await daemon.api.inject({ method: "GET", url: "/presence" });
     expect(presence.json().online).toContain(AGENT);
 

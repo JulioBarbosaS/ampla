@@ -44,21 +44,21 @@ async function startDaemon(runner?: Parameters<typeof createDaemon>[2]): Promise
 }
 
 describe("daemon ↔ hub", () => {
-  it("autentica com hello e recebe settings no ack", async () => {
+  it("authenticates with hello and receives settings in the ack", async () => {
     const d = await startDaemon();
     await waitFor(() => d.hub.settings !== null, 5000, "settings do ack");
     expect(d.hub.settings?.mode).toBe("inbox");
     expect(hub.received[0]).toEqual({ type: "hello", agent_id: AGENT, key: KEY });
   });
 
-  it("pendentes do hello_ack entram na inbox local", async () => {
+  it("hello_ack pending messages enter the local inbox", async () => {
     hub.pending = [wireMessage(7, "mobile-eduardo", AGENT, "está aí?")];
     const d = await startDaemon();
     await waitFor(() => d.store.unreadCount() === 1, 5000, "pendente na inbox");
     expect(d.store.inbox(true)[0]?.body).toBe("está aí?");
   });
 
-  it("acka toda mensagem recebida — pendente do hello e tempo real (at-least-once)", async () => {
+  it("acks every received message — hello pending and real-time (at-least-once)", async () => {
     hub.pending = [wireMessage(7, "mobile-eduardo", AGENT, "pendente")];
     const d = await startDaemon();
     await waitFor(() => hub.acks().includes(7), 5000, "ack da pendente");
@@ -67,7 +67,7 @@ describe("daemon ↔ hub", () => {
     expect(d.store.inbox(false).length).toBe(2);
   });
 
-  it("mensagem em tempo real entra na inbox (modo inbox: sem auto-respond)", async () => {
+  it("a real-time message enters the inbox (inbox mode: no auto-respond)", async () => {
     const runner = vi.fn();
     const d = await startDaemon(runner);
     hub.pushMessage(AGENT, wireMessage(8, "mobile-eduardo", AGENT, "pergunta"));
@@ -76,7 +76,7 @@ describe("daemon ↔ hub", () => {
     expect(hub.sentMessages()).toHaveLength(0);
   });
 
-  it("modo auto responde via claude headless com prefixo [auto]", async () => {
+  it("auto mode replies via headless claude with the [auto] prefix", async () => {
     const runner = vi.fn().mockResolvedValue("Sim: POST /api/v1/auth/password-reset");
     hub.settings = { ...hub.settings, mode: "auto" };
     const d = await startDaemon(runner);
@@ -87,11 +87,11 @@ describe("daemon ↔ hub", () => {
     const sent = hub.sentMessages()[0]!;
     expect(sent.to).toBe("mobile-eduardo");
     expect(sent.body).toBe(`${AUTO_REPLY_PREFIX}Sim: POST /api/v1/auth/password-reset`);
-    // resposta enviada também fica no histórico local
+    // the sent reply also stays in the local history
     expect(d.store.conversation("mobile-eduardo").some((m) => m.direction === "out")).toBe(true);
   });
 
-  it("não auto-responde mensagens [auto] (anti-loop)", async () => {
+  it("does not auto-respond to [auto] messages (anti-loop)", async () => {
     const runner = vi.fn().mockResolvedValue("nunca deveria rodar");
     hub.settings = { ...hub.settings, mode: "auto" };
     const d = await startDaemon(runner);
@@ -106,7 +106,7 @@ describe("daemon ↔ hub", () => {
     expect(hub.sentMessages()).toHaveLength(0);
   });
 
-  it("não auto-responde type=response (anti-loop semântico)", async () => {
+  it("does not auto-respond to type=response (semantic anti-loop)", async () => {
     const runner = vi.fn();
     hub.settings = { ...hub.settings, mode: "auto" };
     const d = await startDaemon(runner);
@@ -121,7 +121,7 @@ describe("daemon ↔ hub", () => {
     expect(hub.sentMessages()).toHaveLength(0);
   });
 
-  it("auto-resposta sai como response, com in_reply_to e prioridade herdada", async () => {
+  it("auto-reply goes out as response, with in_reply_to and inherited priority", async () => {
     const runner = vi.fn().mockResolvedValue("Sim, existe.");
     hub.settings = { ...hub.settings, mode: "auto" };
     await startDaemon(runner);
@@ -140,7 +140,7 @@ describe("daemon ↔ hub", () => {
     });
   });
 
-  it("memória: segunda pergunta recebe o histórico da conversa no prompt", async () => {
+  it("memory: the second question receives the conversation history in the prompt", async () => {
     const runner = vi.fn().mockResolvedValue("resposta qualquer");
     hub.settings = { ...hub.settings, mode: "auto" };
     await startDaemon(runner);
@@ -153,31 +153,31 @@ describe("daemon ↔ hub", () => {
     const secondPrompt = runner.mock.calls[1]?.[0] as string;
     expect(secondPrompt).toContain("<amp-history>");
     expect(secondPrompt).toContain("primeira pergunta?");
-    expect(secondPrompt).toContain("resposta qualquer"); // a própria resposta anterior
+    expect(secondPrompt).toContain("resposta qualquer"); // the previous reply itself
   });
 
-  it("loop guard: thread para de auto-responder após o limite de hops", async () => {
+  it("loop guard: thread stops auto-responding after the hop limit", async () => {
     const runner = vi.fn().mockResolvedValue("vai");
     hub.settings = { ...hub.settings, mode: "auto", max_auto_per_hour: 120 };
     const d = await startDaemon(runner);
 
-    // 7 requests na MESMA thread (id raiz 500) — guard corta na 6ª
+    // 7 requests on the SAME thread (root id 500) — guard cuts off at the 6th
     for (let i = 0; i < 7; i++) {
       hub.pushMessage(
         AGENT,
         wireMessage(500 + i, "mobile-eduardo", AGENT, `hop ${i}`, { thread_id: 500 }),
       );
       await waitFor(() => d.store.inbox(false).length >= i + 1, 5000, `msg ${i} no store`);
-      await new Promise((resolve) => setTimeout(resolve, 30)); // deixa o respond completar
+      await new Promise((resolve) => setTimeout(resolve, 30)); // let the respond complete
     }
     await waitFor(() => hub.sentMessages().length >= 5, 5000, "5 auto-respostas");
     await new Promise((resolve) => setTimeout(resolve, 200));
-    expect(hub.sentMessages().length).toBe(5); // guard segurou as demais
+    expect(hub.sentMessages().length).toBe(5); // guard held back the rest
   });
 
-  it("loop guard segura mesmo com disparos CONCORRENTES na mesma thread", async () => {
-    // runner lento: todas as 10 mensagens entram em voo antes de qualquer
-    // resposta ser persistida — sem reserva síncrona, todas escapariam o guard.
+  it("loop guard holds even with CONCURRENT triggers on the same thread", async () => {
+    // slow runner: all 10 messages go in flight before any
+    // reply is persisted — without the synchronous reservation, all would escape the guard.
     let release: () => void = () => {};
     const gate = new Promise<void>((r) => {
       release = r;
@@ -196,13 +196,13 @@ describe("daemon ↔ hub", () => {
       );
     }
     await waitFor(() => d.store.inbox(false).length === 10, 5000, "10 mensagens no store");
-    release(); // libera todas de uma vez
+    release(); // release them all at once
     await waitFor(() => hub.sentMessages().length >= 5, 5000, "respostas");
     await new Promise((resolve) => setTimeout(resolve, 200));
-    expect(hub.sentMessages().length).toBe(5); // reserva síncrona segurou o teto
+    expect(hub.sentMessages().length).toBe(5); // synchronous reservation held the cap
   });
 
-  it("resposta com segredo é bloqueada e vira aviso neutro", async () => {
+  it("a reply with a secret is blocked and becomes a neutral notice", async () => {
     const runner = vi.fn().mockResolvedValue("claro: postgres://app:senha123@db:5432/prod");
     hub.settings = { ...hub.settings, mode: "auto" };
     await startDaemon(runner);
@@ -215,9 +215,9 @@ describe("daemon ↔ hub", () => {
     expect(sent.body).not.toContain("senha123");
   });
 
-  it("settings_update do hub passa a valer imediatamente", async () => {
+  it("a settings_update from the hub takes effect immediately", async () => {
     const runner = vi.fn().mockResolvedValue("resposta");
-    const d = await startDaemon(runner); // começa em inbox
+    const d = await startDaemon(runner); // starts in inbox
 
     hub.pushSettings(AGENT, { ...hub.settings, mode: "auto" });
     await waitFor(() => d.hub.settings?.mode === "auto", 5000, "settings novas");
@@ -226,15 +226,15 @@ describe("daemon ↔ hub", () => {
     await waitFor(() => hub.sentMessages().length === 1, 5000, "auto-respond pós-update");
   });
 
-  it("responde pong ao ping do hub (heartbeat)", async () => {
+  it("replies pong to the hub's ping (heartbeat)", async () => {
     await startDaemon();
     hub.pushPing(AGENT);
     await waitFor(() => hub.pongs() >= 1, 5000, "pong do daemon");
   });
 
-  it("reconecta sozinho depois de queda do hub", async () => {
+  it("reconnects on its own after a hub outage", async () => {
     const d = await startDaemon();
-    // derruba a conexão pelo lado do servidor
+    // drop the connection from the server side
     hub.sockets.get(AGENT)?.terminate();
     await waitFor(() => !d.hub.connected, 5000, "queda detectada");
     await waitFor(() => d.hub.connected, 8000, "reconexão automática");

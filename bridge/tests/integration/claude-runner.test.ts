@@ -1,8 +1,8 @@
 /**
- * Exercita o defaultClaudeRunner REAL (spawn detached, parsing de stdout,
- * timeout com kill de process-group, exit code) — código que até aqui só
- * rodava mockado. Usa um "claude" FALSO (script shell) para não gastar a
- * conta nem depender de login: o que importa é o caminho de processo real.
+ * Exercises the REAL defaultClaudeRunner (detached spawn, stdout parsing,
+ * timeout with process-group kill, exit code) — code that until now only
+ * ran mocked. Uses a FAKE "claude" (shell script) so as not to burn the
+ * account nor depend on login: what matters is the real process path.
  */
 
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -13,7 +13,7 @@ import { defaultClaudeRunner } from "../../src/daemon/auto-responder.js";
 
 let dir: string;
 
-/** Cria um "claude" falso executável com o corpo bash dado. */
+/** Creates an executable fake "claude" with the given bash body. */
 function fakeClaude(body: string): string {
   const path = join(dir, "fake-claude.sh");
   writeFileSync(path, `#!/usr/bin/env bash\n${body}\n`, { mode: 0o755 });
@@ -26,35 +26,35 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-describe("defaultClaudeRunner (processo real)", () => {
-  it("caminho feliz: captura e devolve o stdout do binário", async () => {
+describe("defaultClaudeRunner (real process)", () => {
+  it("happy path: captures and returns the binary's stdout", async () => {
     const bin = fakeClaude('echo "Sim: POST /api/v1/auth/password-reset"');
     const out = await defaultClaudeRunner("pergunta", { bin, timeoutMs: 5000 });
     expect(out).toBe("Sim: POST /api/v1/auth/password-reset");
   });
 
-  it("recebe o prompt como argumento -p", async () => {
-    // o fake ecoa o 2º argumento (valor de -p) — prova que o prompt chega
+  it("receives the prompt as the -p argument", async () => {
+    // the fake echoes the 2nd argument (the value of -p) — proves the prompt arrives
     const bin = fakeClaude('echo "$2"');
     const out = await defaultClaudeRunner("minha pergunta secreta", { bin, timeoutMs: 5000 });
     expect(out).toBe("minha pergunta secreta");
   });
 
-  it("timeout: mata e rejeita com 'timeout' dentro do prazo", async () => {
+  it("timeout: kills and rejects with 'timeout' within the deadline", async () => {
     const bin = fakeClaude("sleep 5; echo tarde-demais");
     const start = Date.now();
     await expect(defaultClaudeRunner("p", { bin, timeoutMs: 300 })).rejects.toThrow("timeout");
-    expect(Date.now() - start).toBeLessThan(2000); // não esperou os 5s
+    expect(Date.now() - start).toBeLessThan(2000); // did not wait the full 5s
   });
 
-  it("exit code != 0 vira erro", async () => {
+  it("exit code != 0 becomes an error", async () => {
     const bin = fakeClaude("echo erro >&2; exit 3");
     await expect(defaultClaudeRunner("p", { bin, timeoutMs: 5000 })).rejects.toThrow("código 3");
   });
 
-  it("respeita o cwd (lê arquivo do diretório do projeto)", async () => {
+  it("respects the cwd (reads a file from the project directory)", async () => {
     writeFileSync(join(dir, "marcador.txt"), "conteudo-do-repo");
-    const bin = fakeClaude("cat marcador.txt"); // relativo ao cwd
+    const bin = fakeClaude("cat marcador.txt"); // relative to the cwd
     const out = await defaultClaudeRunner("p", { bin, cwd: dir, timeoutMs: 5000 });
     expect(out).toBe("conteudo-do-repo");
   });

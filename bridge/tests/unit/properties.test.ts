@@ -1,9 +1,9 @@
 /**
- * Property-based tests (fast-check) — invariantes para qualquer entrada.
+ * Property-based tests (fast-check) — invariants for any input.
  *
- * Secret-filter: segredos construídos por geração DEVEM ser detectados
- * em qualquer contexto ao redor (a propriedade que 8 exemplos fixos não dão).
- * Protocolo: round-trip de mensagem sobrevive a qualquer corpo.
+ * Secret-filter: secrets built by generation MUST be detected
+ * in any surrounding context (the property that 8 fixed examples don't give).
+ * Protocol: a message round-trip survives any body.
  */
 
 import fc from "fast-check";
@@ -14,14 +14,14 @@ import { parseServerFrame, type WireMessage } from "../../src/shared/protocol.js
 const hexChar = fc.constantFrom(..."0123456789abcdef");
 const hex = (n: number) => fc.string({ unit: hexChar, minLength: n, maxLength: n });
 
-/** Texto "inocente" ao redor do segredo (sem chance de formar padrão). */
+/** "Innocent" text surrounding the secret (no chance of forming a pattern). */
 const surrounding = fc.string({
   unit: fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz ÁÉÍãç.,!?\n"),
   maxLength: 80,
 });
 
-describe("secret-filter: segredos gerados são SEMPRE detectados", () => {
-  it("chave de agente Ampla em qualquer contexto", () => {
+describe("secret-filter: generated secrets are ALWAYS detected", () => {
+  it("Ampla agent key in any context", () => {
     fc.assert(
       fc.property(hex(64), surrounding, surrounding, (key, before, after) => {
         const result = scanForSecrets(`${before} amp_${key} ${after}`);
@@ -30,7 +30,7 @@ describe("secret-filter: segredos gerados são SEMPRE detectados", () => {
     );
   });
 
-  it("AWS access key em qualquer contexto", () => {
+  it("AWS access key in any context", () => {
     const awsTail = fc.string({
       unit: fc.constantFrom(..."ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"),
       minLength: 16,
@@ -43,7 +43,7 @@ describe("secret-filter: segredos gerados são SEMPRE detectados", () => {
     );
   });
 
-  it("connection string com credenciais em qualquer contexto", () => {
+  it("connection string with credentials in any context", () => {
     const word = fc.string({
       unit: fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789"),
       minLength: 1,
@@ -58,7 +58,7 @@ describe("secret-filter: segredos gerados são SEMPRE detectados", () => {
     );
   });
 
-  it("atribuição de variável de segredo em qualquer contexto", () => {
+  it("secret variable assignment in any context", () => {
     const name = fc.constantFrom("PASSWORD", "SECRET", "TOKEN", "API_KEY", "PRIVATE_KEY");
     const value = fc.string({
       unit: fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789!@#"),
@@ -73,12 +73,12 @@ describe("secret-filter: segredos gerados são SEMPRE detectados", () => {
   });
 });
 
-describe("protocolo: round-trip para qualquer mensagem", () => {
+describe("protocol: round-trip for any message", () => {
   const wireMessageArb: fc.Arbitrary<WireMessage> = fc.record({
     id: fc.integer({ min: 1, max: 2 ** 31 }),
     from: fc.constant("mobile-eduardo"),
     to: fc.constant("backend-julio"),
-    body: fc.string({ minLength: 1, maxLength: 2000 }), // unicode arbitrário
+    body: fc.string({ minLength: 1, maxLength: 2000 }), // arbitrary unicode
     type: fc.constantFrom("request", "response", "notification", "task", "alert", "status", "ack"),
     priority: fc.constantFrom("urgent", "high", "normal", "low"),
     group: fc.option(fc.constantFrom("@all", "@frontend-team"), { nil: null }),
@@ -89,7 +89,7 @@ describe("protocolo: round-trip para qualquer mensagem", () => {
     expires_at: fc.constant(null),
   });
 
-  it("message frame serializa → parseia → idêntico", () => {
+  it("message frame serializes → parses → identical", () => {
     fc.assert(
       fc.property(wireMessageArb, (message) => {
         const frame = parseServerFrame(JSON.stringify({ type: "message", message }));
@@ -98,7 +98,7 @@ describe("protocolo: round-trip para qualquer mensagem", () => {
     );
   });
 
-  it("frames corrompidos nunca lançam — retornam null", () => {
+  it("corrupted frames never throw — they return null", () => {
     fc.assert(
       fc.property(fc.string({ maxLength: 500 }), (garbage) => {
         expect(() => parseServerFrame(garbage)).not.toThrow();

@@ -1,6 +1,6 @@
 /**
- * Cliente WebSocket do daemon — único dono da conexão com o hub.
- * Reconexão com backoff exponencial + jitter; presença mantida localmente.
+ * Daemon WebSocket client — sole owner of the connection to the hub.
+ * Reconnection with exponential backoff + jitter; presence kept locally.
  */
 
 import { EventEmitter } from "node:events";
@@ -29,7 +29,7 @@ export interface HubClientEvents {
 
 const BACKOFF_BASE_MS = 1_000;
 const BACKOFF_MAX_MS = 60_000;
-/** Códigos do hub que indicam erro permanente — reconectar não resolve. */
+/** Hub codes that indicate a permanent error — reconnecting won't help. */
 const FATAL_CLOSE_CODES = new Set([4401]);
 
 export class HubClient extends EventEmitter<HubClientEvents> {
@@ -88,9 +88,9 @@ export class HubClient extends EventEmitter<HubClientEvents> {
     return true;
   }
 
-  /** Confirma o recebimento de uma mensagem (at-least-once): o hub só marca
-   * `delivered` e avisa o remetente após este ack. Sempre ackar — mesmo
-   * mensagem deduplicada — senão o hub a reenvia em toda reconexão. */
+  /** Confirms receipt of a message (at-least-once): the hub only marks it
+   * `delivered` and notifies the sender after this ack. Always ack — even a
+   * deduplicated message — otherwise the hub resends it on every reconnect. */
   ackMessage(messageId: number): boolean {
     const ws = this.ws;
     if (!ws || ws.readyState !== WebSocket.OPEN) return false;
@@ -114,7 +114,7 @@ export class HubClient extends EventEmitter<HubClientEvents> {
 
     ws.on("message", (data) => {
       const frame = parseServerFrame(data.toString());
-      if (!frame) return; // frame desconhecido é ignorado, nunca derruba o daemon
+      if (!frame) return; // unknown frame is ignored, never crashes the daemon
 
       switch (frame.type) {
         case "hello_ack":
@@ -150,7 +150,7 @@ export class HubClient extends EventEmitter<HubClientEvents> {
           });
           break;
         case "ping":
-          // heartbeat: responde imediatamente para não ser considerado zumbi
+          // heartbeat: respond immediately so we are not considered a zombie
           ws.send(JSON.stringify({ type: "pong" } satisfies ClientFrame));
           break;
         case "error":
@@ -172,7 +172,7 @@ export class HubClient extends EventEmitter<HubClientEvents> {
     });
 
     ws.on("error", () => {
-      // 'close' é emitido na sequência; o backoff acontece lá
+      // 'close' is emitted next; the backoff happens there
     });
   }
 

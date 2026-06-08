@@ -1,6 +1,6 @@
 /**
- * Servidor MCP da Ampla — expõe as tools de mensageria para o Claude Code.
- * Stateless: tudo é delegado ao daemon via unix socket.
+ * Ampla MCP server — exposes the messaging tools to Claude Code.
+ * Stateless: everything is delegated to the daemon over a unix socket.
  */
 
 import { pathToFileURL } from "node:url";

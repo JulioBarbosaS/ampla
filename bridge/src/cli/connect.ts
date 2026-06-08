@@ -1,13 +1,13 @@
 /**
- * `amp connect <token>` — conexão de um agente em UM comando.
+ * `amp connect <token>` — connect an agent in ONE command.
  *
- * Colapsa os 6 passos manuais (config.json, chmod, MCP, hooks) num só. O
- * token é o que o painel mostra após gerar a chave: base64url de
- * {hub_url, agent_id, key} — empacotamento no cliente, o hub não muda.
+ * Collapses the 6 manual steps (config.json, chmod, MCP, hooks) into one. The
+ * token is what the panel shows after generating the key: base64url of
+ * {hub_url, agent_id, key} — packed on the client, the hub does not change.
  *
- * Segurança: config escrito 0600 em ~/.amp/<agent>/ (0700); a chave nunca
- * é logada; `claude mcp add` roda com args em array (sem shell). Hooks são
- * mesclados sem sobrescrever os existentes. MCP/hooks são puláveis por flag.
+ * Security: config written 0600 under ~/.amp/<agent>/ (0700); the key is never
+ * logged; `claude mcp add` runs with args in an array (no shell). Hooks are
+ * merged without overwriting existing ones. MCP/hooks can be skipped via flag.
  */
 
 import { spawnSync } from "node:child_process";
@@ -19,7 +19,7 @@ import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { daemonConfigSchema } from "../shared/config.js";
 
-/** Raiz do pacote bridge — vale tanto rodando de src/ (tsx) quanto de dist/. */
+/** Bridge package root — valid both when running from src/ (tsx) and from dist/. */
 const BRIDGE_DIR = resolve(import.meta.dirname, "../..");
 
 export const connectTokenSchema = z.object({
@@ -29,7 +29,7 @@ export const connectTokenSchema = z.object({
 });
 export type ConnectToken = z.infer<typeof connectTokenSchema>;
 
-/** Decodifica e VALIDA o token de conexão (base64url de um JSON). */
+/** Decodes and VALIDATES the connection token (base64url of a JSON). */
 export function decodeToken(token: string): ConnectToken {
   let json: string;
   try {
@@ -54,8 +54,8 @@ interface HookEntry {
 type Settings = { hooks?: Record<string, Array<{ hooks?: Array<{ command?: string }> }>> };
 
 /**
- * Mescla os hooks da Ampla num settings.json existente SEM sobrescrever o
- * que já houver. Idempotente: rodar de novo não duplica.
+ * Merges Ampla's hooks into an existing settings.json WITHOUT overwriting
+ * whatever is already there. Idempotent: running again does not duplicate.
  */
 export function mergeHookSettings(existing: Settings, entries: HookEntry[]): Settings {
   const next: Settings = { ...existing, hooks: { ...(existing.hooks ?? {}) } };
@@ -135,7 +135,7 @@ function parseArgs(argv: string[]): { token: string; flags: Flags } {
 }
 
 async function promptProject(): Promise<string | undefined> {
-  if (!process.stdin.isTTY) return undefined; // não-interativo: pula sem travar
+  if (!process.stdin.isTTY) return undefined; // non-interactive: skip without blocking
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
     const answer = (

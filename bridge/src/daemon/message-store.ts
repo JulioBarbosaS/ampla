@@ -1,6 +1,6 @@
 /**
- * Histórico local de mensagens do agente (JSONL append-only, 0600).
- * Recebidas (direction=in) carregam flag de leitura para a inbox.
+ * Local history of the agent's messages (append-only JSONL, 0600).
+ * Received ones (direction=in) carry a read flag for the inbox.
  */
 
 import { appendFileSync, chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -8,11 +8,11 @@ import { z } from "zod";
 import { messageTypeSchema, prioritySchema } from "../shared/protocol.js";
 
 export const storedMessageSchema = z.object({
-  id: z.number().int().nullable(), // id do hub (null para registros locais)
+  id: z.number().int().nullable(), // hub id (null for local records)
   from: z.string(),
   to: z.string(),
   body: z.string(),
-  // defaults preservam compatibilidade com JSONL anterior ao threading
+  // defaults preserve compatibility with JSONL from before threading
   type: messageTypeSchema.default("request"),
   priority: prioritySchema.default("normal"),
   group: z.string().nullable().default(null),
@@ -42,13 +42,13 @@ export class MessageStore {
       try {
         this.messages.push(storedMessageSchema.parse(JSON.parse(line)));
       } catch {
-        // linha corrompida não derruba o daemon; é pulada
+        // a corrupted line does not crash the daemon; it is skipped
       }
     }
   }
 
   append(message: StoredMessage): void {
-    // dedup por id do hub (reentrega de pendentes após reconnect)
+    // dedup by hub id (redelivery of pending messages after reconnect)
     if (message.id !== null && this.messages.some((m) => m.id === message.id)) {
       return;
     }
@@ -56,7 +56,7 @@ export class MessageStore {
     appendFileSync(this.path, `${JSON.stringify(message)}\n`, { mode: 0o600 });
   }
 
-  /** Conversa com um parceiro, mais recentes por último (ordem de leitura). */
+  /** Conversation with a partner, most recent last (reading order). */
   conversation(partner: string, limit = 50): StoredMessage[] {
     return this.messages.filter((m) => m.from === partner || m.to === partner).slice(-limit);
   }

@@ -1,11 +1,11 @@
 /**
- * Auto-responder: responde perguntas de outros agentes via Claude headless.
+ * Auto-responder: answers questions from other agents via headless Claude.
  *
- * Contramedidas obrigatórias (docs/ARCHITECTURE.md · Ameaça 1):
- * - claude -p SOMENTE com ferramentas read-only (Read, Grep, Glob)
- * - mensagem recebida delimitada como dado não-confiável no prompt
- * - rate limit por hora + timeout com kill
- * - resposta passa pelo filtro de segredos antes de sair
+ * Mandatory countermeasures (docs/ARCHITECTURE.md · Threat 1):
+ * - claude -p ONLY with read-only tools (Read, Grep, Glob)
+ * - incoming message delimited as untrusted data in the prompt
+ * - hourly rate limit + timeout with kill
+ * - reply passes through the secret filter before leaving
  */
 
 import { spawn } from "node:child_process";
@@ -25,21 +25,21 @@ export type AutoRespondResult =
   | { kind: "blocked"; reason: string }
   | { kind: "failed"; reason: string };
 
-/** Item do histórico da conversa injetado no prompt (memória de thread). */
+/** Conversation history item injected into the prompt (thread memory). */
 export interface HistoryEntry {
   from: string;
   body: string;
   ts: string;
 }
 
-/** Corpo de mensagem antiga é truncado para o prompt não explodir. */
+/** Old message bodies are truncated so the prompt does not blow up. */
 export const HISTORY_BODY_MAX = 500;
 
 /**
- * Neutraliza tentativas de quebrar a delimitação do prompt (Ameaça 1):
- * um remetente que insere `</amp-message>` no corpo escaparia para o
- * nível superior do prompt. Zero-width space dentro das tags AMP impede
- * que o texto forme um delimitador real, sem alterar o sentido visível.
+ * Neutralizes attempts to break the prompt delimitation (Threat 1):
+ * a sender who inserts `</amp-message>` in the body would escape to the
+ * top level of the prompt. A zero-width space inside the AMP tags prevents
+ * the text from forming a real delimiter, without changing the visible meaning.
  */
 function neutralizeDelimiters(text: string): string {
   return text.replace(/<(\/?)(amp-message|amp-history)\b/gi, "<​$1$2");
@@ -85,9 +85,9 @@ const MAX_OUTPUT_BYTES = 1024 * 1024;
 
 export const defaultClaudeRunner: ClaudeRunner = (prompt, { bin, cwd, timeoutMs }) =>
   new Promise((resolve, reject) => {
-    // detached: cria um grupo de processos próprio, para no timeout matarmos
-    // o `claude` E todos os seus subprocessos (netos) — execFile só mata o
-    // filho direto, deixando netos órfãos (docs/ARCHITECTURE.md · Ameaça 1).
+    // detached: creates its own process group, so on timeout we kill
+    // `claude` AND all of its subprocesses (grandchildren) — execFile only kills
+    // the direct child, leaving grandchildren orphaned (docs/ARCHITECTURE.md · Threat 1).
     const child = spawn(
       bin,
       [
@@ -107,9 +107,9 @@ export const defaultClaudeRunner: ClaudeRunner = (prompt, { bin, cwd, timeoutMs 
 
     const killGroup = () => {
       try {
-        if (child.pid) process.kill(-child.pid, "SIGKILL"); // -pid = grupo todo
+        if (child.pid) process.kill(-child.pid, "SIGKILL"); // -pid = the whole group
       } catch {
-        // grupo já encerrado
+        // group already terminated
       }
     };
     const finish = (fn: () => void) => {
@@ -181,7 +181,7 @@ export class AutoResponder {
 
     const scan = scanForSecrets(reply);
     if (!scan.clean) {
-      // Bloqueio total — nunca enviar resposta com possível segredo
+      // Full block — never send a reply with a possible secret
       return { kind: "blocked", reason: `filtro de segredos: ${scan.matches.join(", ")}` };
     }
     return { kind: "replied", reply };

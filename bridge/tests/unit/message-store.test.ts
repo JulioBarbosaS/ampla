@@ -29,7 +29,7 @@ function incoming(id: number, from = "mobile-eduardo", body = `msg ${id}`): Stor
 }
 
 describe("MessageStore", () => {
-  it("persiste e recarrega do disco", () => {
+  it("persists and reloads from disk", () => {
     const store = new MessageStore(path);
     store.append(incoming(1));
     store.append(incoming(2));
@@ -38,14 +38,14 @@ describe("MessageStore", () => {
     expect(reloaded.inbox(false)).toHaveLength(2);
   });
 
-  it("deduplica reentrega por id do hub", () => {
+  it("deduplicates redelivery by hub id", () => {
     const store = new MessageStore(path);
     store.append(incoming(1));
-    store.append(incoming(1)); // reconexão reentrega pendentes
+    store.append(incoming(1)); // reconnect redelivers pending messages
     expect(store.inbox(false)).toHaveLength(1);
   });
 
-  it("inbox não lidas e markRead", () => {
+  it("unread inbox and markRead", () => {
     const store = new MessageStore(path);
     store.append(incoming(1));
     store.append(incoming(2));
@@ -53,12 +53,12 @@ describe("MessageStore", () => {
     expect(store.unreadCount()).toBe(1);
     expect(store.inbox(true).map((m) => m.id)).toEqual([2]);
 
-    // estado de leitura sobrevive ao reload
+    // read state survives the reload
     const reloaded = new MessageStore(path);
     expect(reloaded.unreadCount()).toBe(1);
   });
 
-  it("conversation filtra por parceiro nas duas direções", () => {
+  it("conversation filters by partner in both directions", () => {
     const store = new MessageStore(path);
     store.append(incoming(1, "mobile-eduardo"));
     store.append(incoming(2, "frontend-joao"));
@@ -76,14 +76,14 @@ describe("MessageStore", () => {
     expect(conversation.at(-1)?.body).toBe("resposta");
   });
 
-  it("partners lista os interlocutores", () => {
+  it("partners lists the interlocutors", () => {
     const store = new MessageStore(path);
     store.append(incoming(1, "mobile-eduardo"));
     store.append(incoming(2, "frontend-joao"));
     expect(store.partners()).toEqual(["frontend-joao", "mobile-eduardo"]);
   });
 
-  it("linha corrompida no JSONL é ignorada sem derrubar", () => {
+  it("a corrupted line in the JSONL is ignored without crashing", () => {
     const store = new MessageStore(path);
     store.append(incoming(1));
     appendFileSync(path, "linha corrompida\n");

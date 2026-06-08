@@ -1,6 +1,6 @@
 /**
- * Daemon AMP — processo persistente na máquina do dev.
- * Dono da conexão WS com o hub; inbox local; auto-respond; API local p/ MCP.
+ * AMP daemon — persistent process on the dev's machine.
+ * Owner of the WS connection to the hub; local inbox; auto-respond; local API for MCP.
  */
 
 import { chmodSync, existsSync, unlinkSync } from "node:fs";
@@ -19,15 +19,15 @@ import { buildLocalApi } from "./local-api.js";
 import { MessageStore } from "./message-store.js";
 import { HubClient } from "./ws-client.js";
 
-/** Respostas automáticas carregam este prefixo — e nunca disparam
- * auto-respond na outra ponta (anti-loop entre dois agentes em modo auto). */
+/** Automatic replies carry this prefix — and never trigger
+ * auto-respond on the other end (anti-loop between two agents in auto mode). */
 export const AUTO_REPLY_PREFIX = "[auto] ";
 
-/** Quantas mensagens da conversa entram no prompt como memória. */
+/** How many conversation messages enter the prompt as memory. */
 export const HISTORY_LIMIT = 6;
 
-/** Loop guard por hops: máximo de auto-respostas numa MESMA thread.
- * Terceira camada anti-loop (além do prefixo [auto] e da semântica de types). */
+/** Hop-based loop guard: maximum auto-replies within the SAME thread.
+ * Third anti-loop layer (besides the [auto] prefix and the type semantics). */
 export const MAX_AUTO_REPLIES_PER_THREAD = 5;
 
 export interface Daemon {
@@ -54,9 +54,9 @@ export function createDaemon(
   );
   const api = buildLocalApi({ agentId: config.agent_id, hub, store });
 
-  // Reserva síncrona de auto-respostas em voo por thread. Sem isso, disparos
-  // concorrentes leem a contagem do store ANTES de qualquer um persistir a
-  // resposta e todos passam pelo hop guard (read-then-await-then-write).
+  // Synchronous reservation of in-flight auto-replies per thread. Without this,
+  // concurrent triggers read the store count BEFORE any of them persists the
+  // reply and all pass the hop guard (read-then-await-then-write).
   const inFlightByThread = new Map<number, number>();
 
   hub.on("message", (message: WireMessage) => {
@@ -74,9 +74,9 @@ export function createDaemon(
       direction: "in",
       read: false,
     });
-    // at-least-once: confirma o recebimento DEPOIS de persistir. Sempre ackar,
-    // mesmo se o store deduplicou (id repetido de um reenvio) — senão o hub a
-    // reenviaria para sempre. A dedup por id no store fecha o ciclo.
+    // at-least-once: confirm receipt AFTER persisting. Always ack,
+    // even if the store deduplicated (repeated id from a resend) — otherwise the hub
+    // would resend it forever. The id-based dedup in the store closes the loop.
     if (message.id !== null) hub.ackMessage(message.id);
     void maybeAutoRespond(message);
   });
@@ -84,18 +84,18 @@ export function createDaemon(
   async function maybeAutoRespond(message: WireMessage): Promise<void> {
     const settings = hub.settings;
     if (!settings) return;
-    // Camada anti-loop 1/3: resposta automática não dispara outra resposta.
+    // Anti-loop layer 1/3: an automatic reply does not trigger another reply.
     if (message.body.startsWith(AUTO_REPLY_PREFIX)) return;
-    // Camada 2/3 (semântica): só request/task disparam — response/notification/
-    // status/ack/alert nunca disparam.
+    // Layer 2/3 (semantic): only request/task trigger — response/notification/
+    // status/ack/alert never trigger.
     if (message.type !== "request" && message.type !== "task") return;
 
     const conversation = store.conversation(message.from, 50);
     const threadId = message.thread_id;
 
-    // Camada 3/3 (hop guard): teto de auto-respostas por thread. A reserva
-    // (inFlightByThread) é incrementada AQUI, sincronamente, então disparos
-    // concorrentes na mesma thread enxergam as reservas uns dos outros.
+    // Layer 3/3 (hop guard): cap on auto-replies per thread. The reservation
+    // (inFlightByThread) is incremented HERE, synchronously, so concurrent
+    // triggers on the same thread see each other's reservations.
     if (threadId !== null) {
       const persisted = conversation.filter(
         (m) =>
@@ -127,7 +127,7 @@ export function createDaemon(
     settings: NonNullable<typeof hub.settings>,
     conversation: ReturnType<typeof store.conversation>,
   ): Promise<void> {
-    // Memória de conversa: últimas mensagens entram no prompt como contexto
+    // Conversation memory: latest messages enter the prompt as context
     const history = conversation
       .filter((m) => m.id !== message.id)
       .slice(-HISTORY_LIMIT)
@@ -136,7 +136,7 @@ export function createDaemon(
     const result = await responder.handle(message, settings, history);
     const replyOpts = {
       msgType: "response" as const,
-      priority: message.priority, // resposta herda a prioridade do pedido
+      priority: message.priority, // reply inherits the request's priority
       inReplyTo: message.id,
     };
     switch (result.kind) {
@@ -161,7 +161,7 @@ export function createDaemon(
         break;
       }
       case "blocked":
-        // Nunca enviar conteúdo bloqueado; o remetente recebe aviso neutro
+        // Never send blocked content; the sender gets a neutral notice
         hub.send(
           message.from,
           AUTO_REPLY_PREFIX +
@@ -174,7 +174,7 @@ export function createDaemon(
         console.error(`[amp] auto-respond falhou (${result.reason}) — mensagem segue na inbox`);
         break;
       case "skipped":
-        break; // inbox mode ou rate limit: mensagem fica na inbox para o dono
+        break; // inbox mode or rate limit: message stays in the inbox for the owner
     }
   }
 
@@ -219,9 +219,9 @@ async function main(): Promise<void> {
   const daemon = createDaemon(config, { store: storePath() });
 
   const sock = socketPath();
-  if (existsSync(sock)) unlinkSync(sock); // socket órfão de execução anterior
+  if (existsSync(sock)) unlinkSync(sock); // orphaned socket from a previous run
   await daemon.api.listen({ path: sock });
-  chmodSync(sock, 0o600); // só o dono fala com o daemon (Ameaça 4)
+  chmodSync(sock, 0o600); // only the owner talks to the daemon (Threat 4)
 
   daemon.hub.start();
   console.error(`[amp] daemon ativo — agente ${config.agent_id}, socket ${sock}`);

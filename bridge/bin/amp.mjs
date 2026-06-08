@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * `amp` — wrapper fino do bridge. Despacha os subcomandos para os entries
- * via o tsx local (roda de src/, sem build). Instale global com:
- *   cd bridge && pnpm link --global      # depois: amp connect <token>
+ * `amp` — thin bridge wrapper. Dispatches subcommands to the entries
+ * via the local tsx (runs from src/, no build). Install globally with:
+ *   cd bridge && pnpm link --global      # then: amp connect <token>
  */
 
 import { spawnSync } from "node:child_process";
@@ -28,6 +28,6 @@ if (!entry) {
 }
 
 const tsx = resolve(PKG, "node_modules/.bin/tsx");
-const bin = existsSync(tsx) ? tsx : "tsx"; // fallback ao tsx do PATH
+const bin = existsSync(tsx) ? tsx : "tsx"; // fallback to tsx on PATH
 const result = spawnSync(bin, [resolve(PKG, entry), ...rest], { stdio: "inherit" });
 process.exit(result.status ?? 1);

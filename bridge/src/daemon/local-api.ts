@@ -1,6 +1,6 @@
 /**
- * API local do daemon — consumida apenas pelo servidor MCP, via unix
- * socket 0600 (docs/ARCHITECTURE.md · Ameaça 4). Nunca abre porta TCP.
+ * Daemon local API — consumed only by the MCP server, over a 0600 unix
+ * socket (docs/ARCHITECTURE.md · Threat 4). Never opens a TCP port.
  */
 
 import Fastify, { type FastifyInstance } from "fastify";
@@ -10,7 +10,7 @@ import type { MessageStore } from "./message-store.js";
 import type { HubClient } from "./ws-client.js";
 
 const sendBodySchema = z.object({
-  // agente ("backend-julio") ou grupo ("@frontend-team", "@all")
+  // agent ("backend-julio") or group ("@frontend-team", "@all")
   to: z
     .string()
     .min(3)

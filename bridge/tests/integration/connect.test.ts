@@ -1,7 +1,7 @@
 /**
- * `amp connect <token>`: decode/validação do token, merge não-destrutivo
- * dos hooks e a integração que escreve o config (0600) + instala os hooks.
- * MCP é pulado (--no-mcp) para não depender do `claude` real.
+ * `amp connect <token>`: token decode/validation, non-destructive merge
+ * of the hooks and the integration that writes the config (0600) + installs the hooks.
+ * MCP is skipped (--no-mcp) so as not to depend on the real `claude`.
  */
 
 import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -18,19 +18,19 @@ const VALID = {
 const encode = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
 
 describe("decodeToken", () => {
-  it("decodifica e valida um token bom", () => {
+  it("decodes and validates a good token", () => {
     expect(decodeToken(encode(VALID))).toEqual(VALID);
   });
 
-  it("rejeita base64 que não é JSON", () => {
+  it("rejects base64 that is not JSON", () => {
     expect(() => decodeToken(Buffer.from("xpto").toString("base64url"))).toThrow();
   });
 
-  it("rejeita campos inválidos (chave sem amp_)", () => {
+  it("rejects invalid fields (key without amp_)", () => {
     expect(() => decodeToken(encode({ ...VALID, key: "sem-prefixo" }))).toThrow();
   });
 
-  it("rejeita agent_id fora do padrão de slug", () => {
+  it("rejects an agent_id outside the slug pattern", () => {
     expect(() => decodeToken(encode({ ...VALID, agent_id: "Tem Maiúscula" }))).toThrow();
   });
 });
@@ -41,30 +41,30 @@ describe("mergeHookSettings", () => {
     { event: "UserPromptSubmit" as const, command: "/x/amp-inbox.sh" },
   ];
 
-  it("adiciona os dois hooks", () => {
+  it("adds both hooks", () => {
     const merged = mergeHookSettings({}, entries);
     expect(merged.hooks?.SessionStart).toHaveLength(1);
     expect(merged.hooks?.UserPromptSubmit?.[0]?.hooks?.[0]?.command).toBe("/x/amp-inbox.sh");
   });
 
-  it("é idempotente (não duplica)", () => {
+  it("is idempotent (does not duplicate)", () => {
     const once = mergeHookSettings({}, entries);
     const twice = mergeHookSettings(once, entries);
     expect(twice.hooks?.SessionStart).toHaveLength(1);
   });
 
-  it("preserva hooks e chaves já existentes", () => {
+  it("preserves already-existing hooks and keys", () => {
     const existing = {
       model: "opus",
       hooks: { SessionStart: [{ hooks: [{ command: "/outro.sh" }] }] },
     };
     const merged = mergeHookSettings(existing, entries) as typeof existing & { model: string };
     expect(merged.model).toBe("opus");
-    expect(merged.hooks?.SessionStart).toHaveLength(2); // o do usuário + o nosso
+    expect(merged.hooks?.SessionStart).toHaveLength(2); // the user's + ours
   });
 });
 
-describe("run (integração: escreve config + hooks)", () => {
+describe("run (integration: writes config + hooks)", () => {
   let fakeHome: string;
   let project: string;
   let prevHome: string | undefined;
@@ -82,7 +82,7 @@ describe("run (integração: escreve config + hooks)", () => {
     rmSync(project, { recursive: true, force: true });
   });
 
-  it("escreve ~/.amp/<agent>/config.json (0600) com os campos do token", async () => {
+  it("writes ~/.amp/<agent>/config.json (0600) with the token fields", async () => {
     await run([encode(VALID), "--project", project, "--no-mcp"]);
     const path = join(fakeHome, ".amp", "backend-julio", "config.json");
     const config = JSON.parse(readFileSync(path, "utf-8"));
@@ -95,7 +95,7 @@ describe("run (integração: escreve config + hooks)", () => {
     expect(statSync(path).mode & 0o777).toBe(0o600);
   });
 
-  it("instala os dois hooks no settings.json do projeto (.claude criado se faltar)", async () => {
+  it("installs both hooks in the project's settings.json (.claude created if missing)", async () => {
     await run([encode(VALID), "--project", project, "--no-mcp"]);
     const settings = JSON.parse(readFileSync(join(project, ".claude", "settings.json"), "utf-8"));
     const cmds = [

@@ -1,11 +1,11 @@
 /**
- * Protocolo WebSocket — ESPELHO de hub/app/schemas/ws.py.
- * Alterou lá, altera aqui NO MESMO COMMIT (docs/ARCHITECTURE.md · Protocolo WS).
+ * WebSocket protocol — MIRROR of hub/app/schemas/ws.py.
+ * Changed it there, change it here IN THE SAME COMMIT (docs/ARCHITECTURE.md · WS Protocol).
  */
 
 import { z } from "zod";
 
-// ---------- settings do agente (fonte de verdade: hub) ----------
+// ---------- agent settings (source of truth: hub) ----------
 
 export const agentSettingsSchema = z.object({
   mode: z.enum(["inbox", "auto"]),
@@ -16,7 +16,7 @@ export const agentSettingsSchema = z.object({
 });
 export type AgentSettings = z.infer<typeof agentSettingsSchema>;
 
-// ---------- mensagem como trafega (REST e WS) ----------
+// ---------- message as it travels (REST and WS) ----------
 
 export const messageTypeSchema = z.enum([
   "request",
@@ -39,7 +39,7 @@ export const wireMessageSchema = z.object({
   body: z.string(),
   type: messageTypeSchema,
   priority: prioritySchema,
-  group: z.string().nullable().default(null), // "@frontend-team"/"@all" em fan-out
+  group: z.string().nullable().default(null), // "@frontend-team"/"@all" in fan-out
   thread_id: z.number().int().nullable(),
   in_reply_to: z.number().int().nullable(),
   created_at: z.string(),
@@ -72,14 +72,14 @@ export interface SendMessageFrame {
   in_reply_to?: number;
 }
 
-/** Confirmação de recebimento (at-least-once): enviada pelo daemon ao gravar
- * a mensagem; sem ela o hub reenvia no próximo hello. Espelha AckFrame. */
+/** Receipt confirmation (at-least-once): sent by the daemon when it writes
+ * the message; without it the hub resends on the next hello. Mirrors AckFrame. */
 export interface AckFrame {
   type: "ack";
   message_id: number;
 }
 
-/** Resposta ao ping do hub (heartbeat). Espelha PongFrame. */
+/** Reply to the hub's ping (heartbeat). Mirrors PongFrame. */
 export interface PongFrame {
   type: "pong";
 }
@@ -150,7 +150,7 @@ export const serverFrameSchema = z.discriminatedUnion("type", [
 export type ServerFrame = z.infer<typeof serverFrameSchema>;
 export type HelloAckFrame = z.infer<typeof helloAckFrameSchema>;
 
-/** Parse seguro de frame vindo do hub; null para frame desconhecido/inválido. */
+/** Safe parse of a frame coming from the hub; null for an unknown/invalid frame. */
 export function parseServerFrame(raw: string): ServerFrame | null {
   try {
     return serverFrameSchema.parse(JSON.parse(raw));

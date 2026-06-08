@@ -1,11 +1,11 @@
 /**
- * Smoke da casca MCP: conecta um cliente MCP REAL (protocolo MCP, via
- * transporte em memória) ao servidor `buildServer()` e exercita as tools
- * amp_* contra um daemon vivo (unix socket) ligado a um hub fake.
+ * MCP shell smoke test: connects a REAL MCP client (MCP protocol, via an
+ * in-memory transport) to the `buildServer()` server and exercises the
+ * amp_* tools against a live daemon (unix socket) wired to a fake hub.
  *
- * Fecha a lacuna do PLAN-onboarding-smoke: até aqui só a local-api do daemon
- * tinha teste; a camada MCP (tools/list, tools/call → socket → hub) nunca
- * fora exercitada. Não usa o `claude` real — valida a casca, não a conta.
+ * Closes the gap from PLAN-onboarding-smoke: until now only the daemon's
+ * local-api had a test; the MCP layer (tools/list, tools/call → socket → hub) had
+ * never been exercised. Does not use the real `claude` — validates the shell, not the account.
  */
 
 import { existsSync, mkdtempSync, rmSync, unlinkSync } from "node:fs";
@@ -28,7 +28,7 @@ let daemon: Daemon;
 let server: McpServer;
 let client: Client;
 
-/** Lê o JSON que a tool devolve como texto (asText: JSON.stringify). */
+/** Reads the JSON the tool returns as text (asText: JSON.stringify). */
 function payload(result: { content: Array<{ type: string; text?: string }> }): unknown {
   const text = result.content.find((c) => c.type === "text")?.text ?? "{}";
   return JSON.parse(text);
@@ -36,8 +36,8 @@ function payload(result: { content: Array<{ type: string; text?: string }> }): u
 
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "amp-mcp-"));
-  // AMP_HOME precisa estar setado ANTES de importar o módulo MCP: o
-  // DaemonClient singleton resolve o socketPath() no carregamento.
+  // AMP_HOME must be set BEFORE importing the MCP module: the
+  // DaemonClient singleton resolves socketPath() at load time.
   process.env.AMP_HOME = dir;
 
   const { socketPath, storePath } = await import("../../src/shared/config.js");
@@ -57,7 +57,7 @@ beforeAll(async () => {
   daemon.hub.start();
   await waitFor(() => daemon.hub.connected, 5000, "daemon conectado ao hub");
 
-  // Servidor MCP real + cliente MCP real, ligados por transporte em memória.
+  // Real MCP server + real MCP client, wired by an in-memory transport.
   const { buildServer } = await import("../../src/mcp/index.js");
   server = buildServer();
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -74,8 +74,8 @@ afterAll(async () => {
   process.env.AMP_HOME = undefined;
 });
 
-describe("smoke MCP: cliente real ↔ servidor real ↔ daemon", () => {
-  it("tools/list expõe as seis tools amp_*", async () => {
+describe("MCP smoke: real client ↔ real server ↔ daemon", () => {
+  it("tools/list exposes the six amp_* tools", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual([
@@ -88,7 +88,7 @@ describe("smoke MCP: cliente real ↔ servidor real ↔ daemon", () => {
     ]);
   });
 
-  it("amp_status reflete a conexão real com o hub", async () => {
+  it("amp_status reflects the real connection to the hub", async () => {
     const status = payload(await client.callTool({ name: "amp_status", arguments: {} })) as {
       agent_id: string;
       connected: boolean;
@@ -97,14 +97,14 @@ describe("smoke MCP: cliente real ↔ servidor real ↔ daemon", () => {
     expect(status.connected).toBe(true);
   });
 
-  it("amp_inbox lê a mensagem que o hub entregou (pendente do hello)", async () => {
+  it("amp_inbox reads the message the hub delivered (hello pending)", async () => {
     const inbox = payload(
       await client.callTool({ name: "amp_inbox", arguments: { unread_only: true } }),
     ) as { messages: Array<{ from: string; body: string }> };
     expect(inbox.messages.some((m) => m.body === "tem reset de senha?")).toBe(true);
   });
 
-  it("amp_send roteia pelo socket do daemon até o hub", async () => {
+  it("amp_send routes through the daemon socket to the hub", async () => {
     const res = payload(
       await client.callTool({
         name: "amp_send",
@@ -119,10 +119,10 @@ describe("smoke MCP: cliente real ↔ servidor real ↔ daemon", () => {
     );
   });
 
-  it("amp_send com destino inválido devolve erro pela tool (isError)", async () => {
+  it("amp_send with an invalid destination returns an error via the tool (isError)", async () => {
     const res = (await client.callTool({
       name: "amp_send",
-      arguments: { to: "x", body: "vazio?" }, // 'x' viola o regex de destinatário
+      arguments: { to: "x", body: "vazio?" }, // 'x' violates the recipient regex
     })) as { isError?: boolean; content: Array<{ type: string; text?: string }> };
     expect(res.isError).toBe(true);
   });

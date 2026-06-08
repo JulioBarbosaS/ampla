@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseServerFrame } from "../../src/shared/protocol.js";
 
-// Fixtures idênticas ao que o hub serializa (hub/app/schemas/ws.py)
+// Fixtures identical to what the hub serializes (hub/app/schemas/ws.py)
 const WIRE_MESSAGE = {
   id: 1,
   from: "mobile-eduardo",
@@ -26,7 +26,7 @@ const SETTINGS = {
 };
 
 describe("parseServerFrame", () => {
-  it("aceita hello_ack completo do hub", () => {
+  it("accepts a complete hello_ack from the hub", () => {
     const frame = parseServerFrame(
       JSON.stringify({
         type: "hello_ack",
@@ -43,7 +43,7 @@ describe("parseServerFrame", () => {
     }
   });
 
-  it("aceita todos os tipos de frame do servidor", () => {
+  it("accepts all server frame types", () => {
     const frames = [
       { type: "message", message: WIRE_MESSAGE },
       { type: "delivered", message_id: 1, to: "backend-julio" },
@@ -56,7 +56,7 @@ describe("parseServerFrame", () => {
     }
   });
 
-  it("retorna null para frame inválido sem lançar", () => {
+  it("returns null for an invalid frame without throwing", () => {
     expect(parseServerFrame("não é json")).toBeNull();
     expect(parseServerFrame(JSON.stringify({ type: "desconhecido" }))).toBeNull();
     expect(parseServerFrame(JSON.stringify({ type: "message" }))).toBeNull();

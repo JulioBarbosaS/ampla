@@ -1,11 +1,11 @@
 /**
- * Integração ponta a ponta REAL: hub (uvicorn + SQLite) ↔ dois daemons.
+ * REAL end-to-end integration: hub (uvicorn + SQLite) ↔ two daemons.
  *
- * Valida o fluxo completo do produto: setup do admin via REST, chaves,
- * hello/ack, roteamento em tempo real, inbox, settings_update push,
- * auto-respond (runner fake) e o anti-loop do prefixo [auto].
+ * Validates the full product flow: admin setup via REST, keys,
+ * hello/ack, real-time routing, inbox, settings_update push,
+ * auto-respond (fake runner) and the [auto] prefix anti-loop.
  *
- * Requer o venv do hub (hub/.venv) — o suite é pulado se não existir.
+ * Requires the hub venv (hub/.venv) — the suite is skipped if it does not exist.
  */
 
 import { type ChildProcess, spawn } from "node:child_process";
@@ -20,7 +20,7 @@ import { waitFor } from "../integration/fake-hub.js";
 const HUB_DIR = resolve(import.meta.dirname, "../../../hub");
 const PYTHON = join(HUB_DIR, ".venv/bin/python");
 
-/** Porta efêmera: evita flakiness por conflito/TIME_WAIT de porta fixa. */
+/** Ephemeral port: avoids flakiness from conflict/TIME_WAIT of a fixed port. */
 function getFreePort(): Promise<number> {
   return new Promise((resolvePort, reject) => {
     const server = createServer();
@@ -39,7 +39,7 @@ function getFreePort(): Promise<number> {
 
 const hasHub = existsSync(PYTHON);
 
-describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
+describe.skipIf(!hasHub)("full-stack: real hub ↔ real daemons", () => {
   let hubProcess: ChildProcess;
   let dir: string;
   let token = "";
@@ -77,7 +77,7 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
       },
       stdio: "ignore",
     });
-    // espera o hub responder
+    // wait for the hub to respond
     await waitFor(
       () => {
         void fetch(`${BASE}/api/health`)
@@ -91,7 +91,7 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
       "hub de pé",
     );
 
-    // setup do time: admin + 2 agentes + chaves
+    // team setup: admin + 2 agents + keys
     token = (
       await api("POST", "/api/auth/setup", {
         email: "admin@example.com",
@@ -104,7 +104,7 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
     const keyA = (await api("POST", "/api/agents/backend-julio/keys", { label: "e2e" })).key;
     const keyB = (await api("POST", "/api/agents/mobile-eduardo/keys", { label: "e2e" })).key;
 
-    // dois daemons reais; o de B usa um "claude" fake que responde na hora
+    // two real daemons; B's uses a fake "claude" that replies on the spot
     const runnerB = vi.fn().mockResolvedValue("Sim: POST /api/v1/auth/password-reset (auth.py:42)");
     daemonA = createDaemon(
       {
@@ -141,7 +141,7 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("presença: cada daemon vê o outro online", async () => {
+  it("presence: each daemon sees the other online", async () => {
     await waitFor(
       () => daemonA!.hub.onlineAgents().includes("mobile-eduardo"),
       5_000,
@@ -150,7 +150,7 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
     expect(daemonB!.hub.onlineAgents()).toContain("backend-julio");
   });
 
-  it("mensagem roteada em tempo real cai na inbox do destinatário", async () => {
+  it("a real-time routed message lands in the recipient's inbox", async () => {
     const response = await daemonA!.api.inject({
       method: "POST",
       url: "/send",
@@ -161,8 +161,8 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
     expect(daemonB!.store.inbox(true)[0]?.body).toBe("Tem release hoje?");
   });
 
-  it("PATCH no painel chega como settings_update e ativa o auto-respond", async () => {
-    // B começa em inbox (default seguro) — painel muda para auto
+  it("a PATCH from the panel arrives as settings_update and enables auto-respond", async () => {
+    // B starts in inbox (safe default) — panel switches to auto
     await api("PATCH", "/api/agents/mobile-eduardo/settings", { mode: "auto" });
     await waitFor(() => daemonB!.hub.settings?.mode === "auto", 5_000, "settings push");
 
@@ -172,7 +172,7 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
       payload: { to: "mobile-eduardo", body: "Existe endpoint de reset de senha?" },
     });
 
-    // resposta automática de B chega na inbox/histórico de A
+    // B's automatic reply arrives in A's inbox/history
     await waitFor(
       () =>
         daemonA!.store
@@ -187,7 +187,7 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
     expect(reply.body).toContain("password-reset");
   });
 
-  it("anti-loop: A (auto) não responde a resposta [auto] de B", async () => {
+  it("anti-loop: A (auto) does not reply to B's [auto] reply", async () => {
     await api("PATCH", "/api/agents/backend-julio/settings", { mode: "auto" });
     await waitFor(() => daemonA!.hub.settings?.mode === "auto", 5_000, "A em modo auto");
 
@@ -195,7 +195,7 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
       .conversation("mobile-eduardo")
       .filter((m) => m.direction === "out").length;
 
-    // já existe uma [auto] na inbox de A (teste anterior) — nada novo deve sair
+    // there is already an [auto] in A's inbox (previous test) — nothing new should go out
     await new Promise((resolve) => setTimeout(resolve, 300));
     const sentAfter = daemonA!.store
       .conversation("mobile-eduardo")
@@ -203,7 +203,7 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
     expect(sentAfter).toBe(sentBefore);
   });
 
-  it("histórico no hub bate com o fluxo (REST)", async () => {
+  it("history in the hub matches the flow (REST)", async () => {
     const messages = await api(
       "GET",
       "/api/messages/conversation?a=backend-julio&b=mobile-eduardo&limit=50",
@@ -211,7 +211,7 @@ describe.skipIf(!hasHub)("full-stack: hub real ↔ daemons reais", () => {
     const bodies = messages.map((m: { body: string }) => m.body);
     expect(bodies.some((b: string) => b.includes("reset de senha"))).toBe(true);
     expect(bodies.some((b: string) => b.startsWith(AUTO_REPLY_PREFIX))).toBe(true);
-    // tudo entregue (ambos online)
+    // everything delivered (both online)
     expect(messages.every((m: { delivered_at: string | null }) => m.delivered_at !== null)).toBe(
       true,
     );

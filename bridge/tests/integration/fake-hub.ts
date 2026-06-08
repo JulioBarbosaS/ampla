@@ -1,6 +1,6 @@
 /**
- * Hub fake para testes de integração do daemon: WebSocket server real
- * que fala o protocolo do hub (hello → hello_ack, delivered, push).
+ * Fake hub for daemon integration tests: a real WebSocket server
+ * that speaks the hub protocol (hello → hello_ack, delivered, push).
  */
 
 import { once } from "node:events";
@@ -69,7 +69,7 @@ export class FakeHub {
     return `ws://127.0.0.1:${port}`;
   }
 
-  /** Empurra uma mensagem para o daemon conectado (como o hub real faria). */
+  /** Pushes a message to the connected daemon (as the real hub would). */
   pushMessage(to: string, message: WireMessage): void {
     this.sockets.get(to)?.send(JSON.stringify({ type: "message", message }));
   }
@@ -79,24 +79,24 @@ export class FakeHub {
     this.sockets.get(to)?.send(JSON.stringify({ type: "settings_update", settings }));
   }
 
-  /** Heartbeat: o hub pinga o daemon (que deve responder pong). */
+  /** Heartbeat: the hub pings the daemon (which must reply pong). */
   pushPing(to: string): void {
     this.sockets.get(to)?.send(JSON.stringify({ type: "ping" }));
   }
 
-  /** Quantos frames `pong` o daemon enviou ao hub. */
+  /** How many `pong` frames the daemon sent to the hub. */
   pongs(): number {
     return this.received.filter((f) => f.type === "pong").length;
   }
 
-  /** Frames `message` enviados pelo daemon ao hub. */
+  /** `message` frames sent by the daemon to the hub. */
   sentMessages(): Array<{ to: string; body: string }> {
     return this.received
       .filter((f) => f.type === "message")
       .map((f) => ({ to: String(f.to), body: String(f.body) }));
   }
 
-  /** message_ids confirmados pelo daemon via frame `ack` (at-least-once). */
+  /** message_ids confirmed by the daemon via the `ack` frame (at-least-once). */
   acks(): number[] {
     return this.received.filter((f) => f.type === "ack").map((f) => Number(f.message_id));
   }

@@ -1,7 +1,7 @@
 /**
- * O bin `amp` (wrapper global): despacha os subcomandos para o tsx local.
- * Roda o bin como subprocesso real — prova o wiring que `pnpm link --global`
- * expõe como o comando `amp`.
+ * The `amp` bin (global wrapper): dispatches subcommands to the local tsx.
+ * Runs the bin as a real subprocess — proves the wiring that `pnpm link --global`
+ * exposes as the `amp` command.
  */
 
 import { spawnSync } from "node:child_process";
@@ -18,24 +18,24 @@ function amp(args: string[], env: NodeJS.ProcessEnv = {}) {
 }
 
 describe("bin amp", () => {
-  it("sem argumentos imprime uso e sai 0", () => {
+  it("with no arguments prints usage and exits 0", () => {
     const r = amp([]);
     expect(r.status).toBe(0);
     expect(r.stderr).toMatch(/amp connect/);
   });
 
-  it("subcomando inválido sai 1", () => {
+  it("invalid subcommand exits 1", () => {
     expect(amp(["xpto"]).status).toBe(1);
   });
 
-  describe("dispatch do connect", () => {
+  describe("connect dispatch", () => {
     let home: string;
     beforeEach(() => {
       home = mkdtempSync(join(tmpdir(), "amp-bin-home-"));
     });
     afterEach(() => rmSync(home, { recursive: true, force: true }));
 
-    it("amp connect <token> escreve o config (despacha p/ o CLI)", () => {
+    it("amp connect <token> writes the config (dispatches to the CLI)", () => {
       const tok = token({
         hub_url: "ws://localhost:8000/ws",
         agent_id: "backend-julio",
