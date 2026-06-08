@@ -21,6 +21,7 @@ from app.api.deps import (
     build_group_service,
     build_message_service,
 )
+from app.core.cookies import SESSION_COOKIE
 from app.core.ratelimit import TokenBucket
 from app.schemas.agent import AgentSettings
 from app.schemas.message import MessageOut
@@ -91,7 +92,9 @@ async def ws_endpoint(ws: WebSocket) -> None:
 
     if hello.agent_id and hello.key:
         await _run_agent_connection(ws, hello)
-    elif hello.jwt:
+    elif hello.jwt or ws.cookies.get(SESSION_COOKIE):
+        # Panel observer: the browser carries the session cookie on the WS
+        # upgrade (same origin); programmatic observers may still pass jwt.
         await _run_observer_connection(ws, hello)
     else:
         await _send_error(ws, "bad_hello", "Informe (agent_id, key) ou jwt.")
@@ -330,7 +333,8 @@ async def _run_observer_connection(ws: WebSocket, hello: HelloFrame) -> None:
 
     async with session_factory() as session:
         auth = build_auth_service(session, state.settings)
-        user = await auth.get_user_by_token(hello.jwt or "")
+        token = hello.jwt or ws.cookies.get(SESSION_COOKIE) or ""
+        user = await auth.get_user_by_token(token)
         if user is None:
             await _send_error(ws, "auth_failed", "Sessão inválida ou expirada.")
             await ws.close(code=CLOSE_AUTH_FAIL, reason="auth failed")

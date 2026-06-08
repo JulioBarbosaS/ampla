@@ -9,6 +9,8 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
+from app.core.cookies import SESSION_COOKIE
 from app.models.user import User
 from app.repositories.agent_repo import AgentRepository
 from app.repositories.audit_repo import AuditRepository
@@ -67,6 +69,12 @@ def build_message_service(session: AsyncSession, settings) -> MessageService:
     )
 
 
+def get_app_settings(request: Request) -> Settings:
+    """The Settings the app was built with (tests inject their own — never the
+    module-level get_settings cache)."""
+    return request.app.state.settings
+
+
 def get_auth_service(request: Request, session: AsyncSession = Depends(get_session)) -> AuthService:
     return build_auth_service(session, request.app.state.settings)
 
@@ -86,12 +94,19 @@ def get_message_service(
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     auth: AuthService = Depends(get_auth_service),
 ) -> User:
-    if credentials is None:
+    # Header first (deliberate, used by the CLI/tests), cookie as fallback (the
+    # web panel, which keeps the JWT out of JavaScript reach). An explicit
+    # Authorization header always wins over an ambient cookie.
+    token = (credentials.credentials if credentials else None) or request.cookies.get(
+        SESSION_COOKIE
+    )
+    if token is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Não autenticado.")
-    user = await auth.get_user_by_token(credentials.credentials)
+    user = await auth.get_user_by_token(token)
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão inválida ou expirada.")
     return user

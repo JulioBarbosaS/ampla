@@ -43,6 +43,7 @@ class TestAuth:
 
     def test_incomplete_hello_receives_error(self, client):
         do_setup(client)
+        client.cookies.clear()  # no session cookie either → genuinely credential-less
         with client.websocket_connect("/ws") as ws:
             ws.send_json({"type": "hello"})
             assert ws.receive_json()["code"] == "bad_hello"
