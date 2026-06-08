@@ -4,6 +4,10 @@
   "description": "Ampla Web — painel de conversas e gestão de agentes",
   "type": "module",
   "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "@tailwindcss/oxide"]
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
