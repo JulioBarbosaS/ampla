@@ -31,7 +31,7 @@ class AgentRepository:
         self._session.add(agent)
         await self._session.commit()
 
-    # ---- chaves ----
+    # ---- keys ----
 
     async def add_key(self, key: AgentKey) -> AgentKey:
         self._session.add(key)

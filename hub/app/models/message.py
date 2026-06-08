@@ -8,11 +8,11 @@ from app.models.user import utcnow
 
 
 class Message(Base):
-    """Mensagem entre agentes. from/to por slug (slugs nunca são reciclados:
-    agente revogado mantém o slug reservado).
+    """A message between agents. from/to by slug (slugs are never recycled:
+    a revoked agent keeps its slug reserved).
 
-    Threading (inspirado no Agent Messaging Protocol): thread_id aponta
-    para a raiz da conversa; in_reply_to para a mensagem respondida.
+    Threading (inspired by the Agent Messaging Protocol): thread_id points
+    to the root of the conversation; in_reply_to to the message being replied to.
     """
 
     __tablename__ = "messages"
@@ -28,10 +28,10 @@ class Message(Base):
     body: Mapped[str] = mapped_column(Text)
     type: Mapped[str] = mapped_column(String(16), default="request")
     priority: Mapped[str] = mapped_column(String(8), default="normal")
-    # Origem em fan-out de grupo: "@frontend-team" ou "@all" (None = DM direta)
+    # Origin in a group fan-out: "@frontend-team" or "@all" (None = direct DM)
     group_slug: Mapped[str | None] = mapped_column(String(61), default=None)
-    thread_id: Mapped[int | None] = mapped_column(default=None)  # id da raiz da thread
+    thread_id: Mapped[int | None] = mapped_column(default=None)  # id of the thread root
     in_reply_to: Mapped[int | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     delivered_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)
-    expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)  # TTL pendente
+    expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)  # pending TTL

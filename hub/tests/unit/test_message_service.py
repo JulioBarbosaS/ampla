@@ -55,73 +55,73 @@ async def seed_agents(agents):
 
 
 class TestSend:
-    async def test_envia_e_fica_pendente(self, service):
+    async def test_sends_and_stays_pending(self, service):
         msg = await service.send("mobile-eduardo", "backend-julio", "Existe endpoint de reset?")
         assert msg.delivered_at is None
         pending = await service.pending_for("backend-julio")
         assert [m.id for m in pending] == [msg.id]
 
-    async def test_destinatario_inexistente(self, service):
+    async def test_nonexistent_recipient(self, service):
         with pytest.raises(NotFoundError):
             await service.send("backend-julio", "fantasma-x", "olá")
 
-    async def test_corpo_vazio(self, service):
+    async def test_empty_body(self, service):
         with pytest.raises(InvalidInputError):
             await service.send("backend-julio", "mobile-eduardo", "   ")
 
-    async def test_corpo_acima_do_limite(self, service):
+    async def test_body_over_the_limit(self, service):
         with pytest.raises(InvalidInputError):
             await service.send("backend-julio", "mobile-eduardo", "x" * 101)
 
-    async def test_nao_envia_para_si(self, service):
+    async def test_does_not_send_to_self(self, service):
         with pytest.raises(InvalidInputError):
             await service.send("backend-julio", "backend-julio", "eco")
 
 
 class TestAllowlist:
-    async def test_bloqueia_remetente_fora_da_lista(self, service, agents, audit):
+    async def test_blocks_sender_not_in_the_list(self, service, agents, audit):
         backend = await agents.get("backend-julio")
         backend.allowed_senders = ["frontend-joao"]
         with pytest.raises(PermissionDeniedError):
             await service.send("mobile-eduardo", "backend-julio", "oi")
         assert audit.has("message_blocked_allowlist")
 
-    async def test_permite_remetente_da_lista(self, service, agents):
+    async def test_allows_sender_in_the_list(self, service, agents):
         backend = await agents.get("backend-julio")
         backend.allowed_senders = ["mobile-eduardo"]
         msg = await service.send("mobile-eduardo", "backend-julio", "oi")
         assert msg.id is not None
 
-    async def test_sem_allowlist_todos_podem(self, service):
+    async def test_without_allowlist_everyone_can(self, service):
         msg = await service.send("mobile-eduardo", "backend-julio", "oi")
         assert msg.id is not None
 
 
 class TestDelivery:
-    async def test_mark_delivered_limpa_pendentes(self, service):
+    async def test_mark_delivered_clears_pending(self, service):
         msg = await service.send("mobile-eduardo", "backend-julio", "oi")
         await service.mark_delivered([msg.id])
         assert await service.pending_for("backend-julio") == []
 
-    async def test_pendente_expirada_nao_entra_no_flush(self, service):
+    async def test_expired_pending_excluded_from_flush(self, service):
         from datetime import timedelta
 
         from app.models.user import utcnow
 
         msg = await service.send("mobile-eduardo", "backend-julio", "antiga")
-        msg.expires_at = utcnow() - timedelta(seconds=1)  # simula TTL vencido
+        msg.expires_at = utcnow() - timedelta(seconds=1)  # simulates an expired TTL
         assert await service.pending_for("backend-julio") == []
 
 
 class TestThreading:
-    async def test_mensagem_raiz_inicia_a_propria_thread(self, service):
+    async def test_root_message_starts_its_own_thread(self, service):
         msg = await service.send("mobile-eduardo", "backend-julio", "pergunta")
         assert msg.thread_id == msg.id
         assert msg.in_reply_to is None
         assert msg.type == "request"
         assert msg.priority == "normal"
 
-    async def test_resposta_herda_a_thread(self, service):
+    async def test_reply_inherits_the_thread(self, service):
         root = await service.send("mobile-eduardo", "backend-julio", "pergunta")
         reply = await service.send(
             "backend-julio", "mobile-eduardo", "resposta", type="response", in_reply_to=root.id
@@ -133,7 +133,7 @@ class TestThreading:
         assert followup.thread_id == root.id
         assert followup.in_reply_to == reply.id
 
-    async def test_in_reply_to_de_outra_conversa_rejeitado(self, service, agents):
+    async def test_in_reply_to_from_another_conversation_rejected(self, service, agents):
         from app.models.agent import Agent
 
         await agents.add(Agent(slug="frontend-joao", user_id=5, display_name="F"))
@@ -143,17 +143,17 @@ class TestThreading:
                 "mobile-eduardo", "backend-julio", "cross-thread", in_reply_to=outra.id
             )
 
-    async def test_in_reply_to_inexistente_rejeitado(self, service):
+    async def test_nonexistent_in_reply_to_rejected(self, service):
         with pytest.raises(InvalidInputError):
             await service.send("mobile-eduardo", "backend-julio", "oi", in_reply_to=999)
 
-    async def test_expires_at_definido_pelo_ttl(self, service):
+    async def test_expires_at_set_by_the_ttl(self, service):
         msg = await service.send("mobile-eduardo", "backend-julio", "oi")
         assert msg.expires_at is not None
 
 
 class TestBroadcast:
-    async def test_fan_out_cria_uma_dm_por_destinatario(self, service, agents):
+    async def test_fan_out_creates_one_dm_per_recipient(self, service, agents):
         await agents.add(Agent(slug="frontend-joao", user_id=5, display_name="F"))
         sent, skipped = await service.send_broadcast(
             "backend-julio",
@@ -167,40 +167,40 @@ class TestBroadcast:
         assert all(m.group_slug == "@all" for m in sent)
         assert all(m.type == "notification" for m in sent)
 
-    async def test_allowlist_do_destinatario_vence_o_broadcast(self, service, agents):
+    async def test_recipient_allowlist_wins_over_broadcast(self, service, agents):
         backend = await agents.get("backend-julio")
-        backend.allowed_senders = ["frontend-joao"]  # mobile-eduardo não pode
+        backend.allowed_senders = ["frontend-joao"]  # mobile-eduardo cannot
         sent, skipped = await service.send_broadcast(
             "mobile-eduardo", "@all", ["backend-julio"], "oi time"
         )
         assert sent == []
         assert skipped == ["backend-julio"]
 
-    async def test_broadcast_sem_destinatarios_e_erro(self, service):
+    async def test_broadcast_without_recipients_is_error(self, service):
         with pytest.raises(InvalidInputError):
             await service.send_broadcast("backend-julio", "@vazio", [], "eco")
 
 
 class TestHistory:
-    async def test_dono_ve_conversa_do_proprio_agente(self, service):
+    async def test_owner_sees_their_own_agents_conversation(self, service):
         await service.send("mobile-eduardo", "backend-julio", "pergunta")
         await service.send("backend-julio", "mobile-eduardo", "resposta")
         messages = await service.conversation(JULIO, "backend-julio", "mobile-eduardo")
         assert len(messages) == 2
-        assert messages[0].body == "resposta"  # mais recente primeiro
+        assert messages[0].body == "resposta"  # most recent first
 
-    async def test_terceiro_nao_ve_conversa(self, service):
+    async def test_third_party_does_not_see_conversation(self, service):
         intruso = make_user(5)
         await service.send("mobile-eduardo", "backend-julio", "privado")
         with pytest.raises(PermissionDeniedError):
             await service.conversation(intruso, "backend-julio", "mobile-eduardo")
 
-    async def test_admin_ve_tudo(self, service):
+    async def test_admin_sees_everything(self, service):
         await service.send("mobile-eduardo", "backend-julio", "privado")
         messages = await service.conversation(ADMIN, "backend-julio", "mobile-eduardo")
         assert len(messages) == 1
 
-    async def test_partners_agrupa_com_ultima_mensagem(self, service, agents):
+    async def test_partners_groups_by_last_message(self, service, agents):
         await agents.add(Agent(slug="frontend-joao", user_id=5, display_name="F"))
         await service.send("mobile-eduardo", "backend-julio", "primeira")
         await service.send("mobile-eduardo", "backend-julio", "segunda")

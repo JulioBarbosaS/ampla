@@ -1,5 +1,5 @@
-"""App factory do hub. Estado da aplicação: engine, session_factory,
-ConnectionManager e rate limiter de auth."""
+"""Hub app factory. Application state: engine, session_factory,
+ConnectionManager and the auth rate limiter."""
 
 from contextlib import asynccontextmanager
 

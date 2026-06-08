@@ -29,8 +29,8 @@ async def send_message(
     user: User = Depends(get_current_user),
     svc: MessageService = Depends(get_message_service),
 ) -> MessageOut:
-    """Painel: humano envia em nome do próprio agente. Entrega em tempo real
-    espelha o fluxo do WS (delivered + espelho para observers)."""
+    """Panel: a human sends on behalf of their own agent. Real-time delivery
+    mirrors the WS flow (delivered + mirror to observers)."""
     msg = await svc.send_as_user(
         user,
         payload.from_agent,
@@ -45,7 +45,7 @@ async def send_message(
     frame = {"type": "message", "message": out.model_dump(mode="json", by_alias=True)}
     if await manager.send_to_agent(payload.to_agent, frame):
         await svc.mark_delivered([msg.id])
-        out.delivered_at = utcnow()  # reflete o update na resposta
+        out.delivered_at = utcnow()  # reflect the update in the response
     await manager.notify_message(frame, payload.from_agent, payload.to_agent)
     return out
 
@@ -68,7 +68,7 @@ async def broadcast(
     svc: MessageService = Depends(get_message_service),
     groups: GroupService = Depends(get_group_service),
 ) -> BroadcastResult:
-    """Painel: fan-out para @grupo ou @all em nome do próprio agente."""
+    """Panel: fan-out to @group or @all on behalf of the agent's own owner."""
     recipients = await groups.resolve_recipients(payload.group, payload.from_agent)
     sent, skipped = await svc.broadcast_as_user(
         user,

@@ -1,4 +1,4 @@
-"""Tradução de exceções de domínio para respostas HTTP."""
+"""Translation of domain exceptions into HTTP responses."""
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse

@@ -1,4 +1,4 @@
-"""Fábrica de engine/sessão. Única fonte do Base declarativo."""
+"""Engine/session factory. Single source of the declarative Base."""
 
 from datetime import UTC, datetime
 
@@ -15,8 +15,8 @@ from sqlalchemy.types import TypeDecorator
 
 
 class UTCDateTime(TypeDecorator):
-    """SQLite descarta tzinfo; este tipo garante UTC aware na leitura
-    e armazena sempre em UTC naive."""
+    """SQLite drops tzinfo; this type guarantees UTC-aware on read
+    and always stores as naive UTC."""
 
     impl = DateTime
     cache_ok = True
@@ -39,7 +39,7 @@ class Base(DeclarativeBase):
 def build_engine(database_url: str) -> AsyncEngine:
     kwargs: dict = {}
     if database_url.endswith(":memory:"):
-        # Testes: uma única conexão compartilhada para o banco em memória
+        # Tests: a single shared connection for the in-memory database
         kwargs = {"poolclass": StaticPool, "connect_args": {"check_same_thread": False}}
     engine = create_async_engine(database_url, **kwargs)
 
@@ -60,7 +60,7 @@ def build_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSessio
 
 
 async def create_tables(engine: AsyncEngine) -> None:
-    # Importa models para registrá-los no metadata antes do create_all
+    # Import models to register them in the metadata before create_all
     from app import models  # noqa: F401
 
     async with engine.begin() as conn:

@@ -1,4 +1,4 @@
-"""Envio com allowlist aplicada no hub (Ameaça 3) e histórico autorizado."""
+"""Sending with the allowlist enforced at the hub (Threat 3) and authorized history."""
 
 from datetime import timedelta
 
@@ -53,7 +53,7 @@ class MessageService:
         if recipient is None:
             raise NotFoundError(f"Agente {to_slug!r} não existe.")
 
-        # Allowlist do destinatário — autoridade é o hub, nunca o daemon
+        # Recipient's allowlist — the authority is the hub, never the daemon
         if recipient.allowed_senders is not None and from_slug not in recipient.allowed_senders:
             await self._audit.record(
                 "message_blocked_allowlist",
@@ -62,8 +62,8 @@ class MessageService:
             )
             raise PermissionDeniedError(f"{to_slug!r} não aceita mensagens deste agente.")
 
-        # Threading: resposta herda a thread da mensagem referenciada,
-        # que precisa pertencer à MESMA conversa (anti cross-thread injection)
+        # Threading: a reply inherits the thread of the referenced message,
+        # which must belong to the SAME conversation (anti cross-thread injection)
         thread_id: int | None = None
         if in_reply_to is not None:
             parent = await self._messages.get(in_reply_to)
@@ -95,9 +95,9 @@ class MessageService:
         type: str = "request",
         priority: str = "normal",
     ) -> tuple[list[Message], list[str]]:
-        """Fan-out: uma DM por destinatário, reusando todo o pipeline de send().
-        Allowlist do destinatário vence o broadcast → vai para `skipped`.
-        Retorna (mensagens criadas, slugs pulados)."""
+        """Fan-out: one DM per recipient, reusing the entire send() pipeline.
+        The recipient's allowlist wins over the broadcast → goes to `skipped`.
+        Returns (created messages, skipped slugs)."""
         if not recipients:
             raise InvalidInputError(f"{group_ref!r} não tem outros membros para receber.")
         sent: list[Message] = []
@@ -108,7 +108,7 @@ class MessageService:
                     from_slug, recipient, body, type=type, priority=priority, group=group_ref
                 )
             except PermissionDeniedError:
-                skipped.append(recipient)  # allowlist do destinatário — já auditado em send()
+                skipped.append(recipient)  # recipient's allowlist — already audited in send()
                 continue
             sent.append(message)
         await self._audit.record(
@@ -129,7 +129,7 @@ class MessageService:
         priority: str = "normal",
         in_reply_to: int | None = None,
     ) -> Message:
-        """Humano envia em nome do próprio agente (painel). Admin pode por qualquer um."""
+        """A human sends on behalf of their own agent (panel). An admin can send for anyone."""
         await self._assert_sender_owned(actor, from_slug)
         return await self.send(
             from_slug, to_slug, body, type=type, priority=priority, in_reply_to=in_reply_to
@@ -158,7 +158,7 @@ class MessageService:
         if sender.user_id != actor.id and actor.role != "admin":
             raise PermissionDeniedError("Você não envia mensagens por este agente.")
 
-    # ---- entrega ----
+    # ---- delivery ----
 
     async def pending_for(self, slug: str) -> list[Message]:
         return await self._messages.pending_for(slug)
@@ -167,11 +167,11 @@ class MessageService:
         await self._messages.mark_delivered(message_ids)
 
     async def ack_delivery(self, recipient_slug: str, message_id: int) -> Message | None:
-        """Confirma a entrega (at-least-once). Só o próprio destinatário pode
-        ackar a sua mensagem (Ameaça 3: um daemon não marca a mensagem de
-        outro como entregue). Marca `delivered_at` na primeira vez e devolve a
-        mensagem para o hub avisar o remetente; ack alheio/inexistente → None.
-        Idempotente: re-ack apenas devolve a mensagem já entregue."""
+        """Confirms delivery (at-least-once). Only the recipient itself can ack
+        its own message (Threat 3: a daemon cannot mark someone else's message
+        as delivered). Sets `delivered_at` the first time and returns the
+        message so the hub can notify the sender; ack from another/nonexistent → None.
+        Idempotent: a re-ack just returns the already-delivered message."""
         msg = await self._messages.get(message_id)
         if msg is None or msg.to_agent != recipient_slug:
             return None
@@ -180,7 +180,7 @@ class MessageService:
             await self._messages.save(msg)
         return msg
 
-    # ---- histórico (dono vê conversas dos próprios agentes; admin vê tudo) ----
+    # ---- history (owner sees their own agents' conversations; admin sees everything) ----
 
     async def conversation(
         self, actor: User, agent_a: str, agent_b: str, limit: int = 50
@@ -189,11 +189,11 @@ class MessageService:
         return await self._messages.conversation(agent_a, agent_b, limit=min(limit, 200))
 
     async def partners(self, actor: User, slug: str) -> list[ConversationPartner]:
-        """Lista de conversas do agente com a última mensagem (sidebar)."""
+        """List of the agent's conversations with the last message (sidebar)."""
         await self._authorize_view(actor, {slug})
         recent = await self._messages.involving([slug])
         partners: dict[str, Message] = {}
-        for msg in recent:  # recent vem em ordem decrescente
+        for msg in recent:  # recent comes in descending order
             other = msg.to_agent if msg.from_agent == slug else msg.from_agent
             partners.setdefault(other, msg)
         return [

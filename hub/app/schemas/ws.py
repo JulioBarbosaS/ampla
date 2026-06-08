@@ -1,7 +1,7 @@
-"""Protocolo WebSocket — definição canônica.
+"""WebSocket protocol — canonical definition.
 
-ESPELHO: bridge/src/shared/protocol.ts. Alterou aqui, altera lá NO MESMO COMMIT
-(docs/ARCHITECTURE.md · Protocolo WebSocket).
+MIRROR: bridge/src/shared/protocol.ts. Change it here, change it there IN THE SAME COMMIT
+(docs/ARCHITECTURE.md · WebSocket protocol).
 """
 
 from typing import Annotated, Literal
@@ -11,11 +11,11 @@ from pydantic import BaseModel, Field, TypeAdapter
 from app.schemas.agent import AgentSettings
 from app.schemas.message import PRIORITY_PATTERN, TYPE_PATTERN, MessageOut
 
-# ---------- cliente → hub ----------
+# ---------- client → hub ----------
 
 
 class HelloFrame(BaseModel):
-    """Primeiro frame obrigatório. Daemon usa (agent_id, key); painel usa jwt."""
+    """First required frame. The daemon uses (agent_id, key); the panel uses jwt."""
 
     type: Literal["hello"] = "hello"
     agent_id: str | None = None
@@ -33,17 +33,17 @@ class SendMessageFrame(BaseModel):
 
 
 class AckFrame(BaseModel):
-    """Confirmação de recebimento (at-least-once). O daemon envia ao gravar a
-    mensagem localmente; só então o hub marca `delivered_at` e avisa o
-    remetente. Sem ack, a mensagem volta no `pending` da reconexão."""
+    """Receipt confirmation (at-least-once). The daemon sends it once it stores the
+    message locally; only then does the hub mark `delivered_at` and notify the
+    sender. Without the ack, the message comes back in the reconnect `pending`."""
 
     type: Literal["ack"] = "ack"
     message_id: int
 
 
 class PongFrame(BaseModel):
-    """Resposta do daemon ao ping do hub (heartbeat). Prova que a conexão está
-    viva; 2 ciclos sem qualquer frame ⇒ o hub derruba a conexão zumbi."""
+    """The daemon's reply to the hub's ping (heartbeat). Proves the connection is
+    alive; 2 cycles without any frame ⇒ the hub drops the zombie connection."""
 
     type: Literal["pong"] = "pong"
 
@@ -53,7 +53,7 @@ ClientFrame = Annotated[
 ]
 client_frame_adapter: TypeAdapter[ClientFrame] = TypeAdapter(ClientFrame)
 
-# ---------- hub → cliente ----------
+# ---------- hub → client ----------
 
 
 class GroupInfo(BaseModel):
@@ -64,9 +64,9 @@ class GroupInfo(BaseModel):
 
 class HelloAckFrame(BaseModel):
     type: Literal["hello_ack"] = "hello_ack"
-    agent_id: str | None  # None para conexões de painel (observer)
+    agent_id: str | None  # None for panel connections (observer)
     online: list[str]
-    settings: AgentSettings | None  # None para observers
+    settings: AgentSettings | None  # None for observers
     pending: list[MessageOut]
     groups: list[GroupInfo] = []
 
@@ -94,13 +94,13 @@ class SettingsUpdateFrame(BaseModel):
 
 
 class BroadcastResultFrame(BaseModel):
-    """Devolvido ao remetente após fan-out de @grupo/@all."""
+    """Returned to the sender after an @group/@all fan-out."""
 
     type: Literal["broadcast_result"] = "broadcast_result"
     group: str
     sent: list[str]
-    skipped: list[str]  # bloqueados pela allowlist do destinatário
-    offline: list[str]  # receberão como pendente na reconexão
+    skipped: list[str]  # blocked by the recipient's allowlist
+    offline: list[str]  # will receive it as pending on reconnect
 
 
 class ErrorFrame(BaseModel):
@@ -110,7 +110,7 @@ class ErrorFrame(BaseModel):
 
 
 class PingFrame(BaseModel):
-    """Heartbeat do hub. O daemon responde `pong` imediatamente."""
+    """The hub's heartbeat. The daemon replies `pong` immediately."""
 
     type: Literal["ping"] = "ping"
 

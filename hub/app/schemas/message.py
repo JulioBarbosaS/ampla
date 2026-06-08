@@ -2,13 +2,13 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# Tipos e prioridades (subconjunto do Agent Messaging Protocol)
+# Types and priorities (subset of the Agent Messaging Protocol)
 TYPE_PATTERN = r"^(request|response|notification|task|alert|status|ack)$"
 PRIORITY_PATTERN = r"^(urgent|high|normal|low)$"
 
 
 class MessageOut(BaseModel):
-    """Mensagem como trafega no REST e no WS (campo `from` é alias)."""
+    """A message as it travels over REST and WS (the `from` field is an alias)."""
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -29,7 +29,7 @@ class MessageOut(BaseModel):
 
 
 class ConversationPartner(BaseModel):
-    """Item da lista de conversas (sidebar do painel)."""
+    """Item in the conversation list (panel sidebar)."""
 
     agent: str
     last_message: MessageOut

@@ -43,65 +43,65 @@ async def seed_agents(agents):
 
 
 class TestCreate:
-    async def test_cria_grupo(self, service):
+    async def test_creates_group(self, service):
         group = await service.create(JULIO, GroupCreate(slug="backend-team", display_name="Time"))
         assert group.slug == "backend-team"
         assert group.created_by == JULIO.id
 
-    async def test_slug_all_reservado(self, service):
+    async def test_slug_all_reserved(self, service):
         with pytest.raises(InvalidInputError):
             await service.create(JULIO, GroupCreate(slug="all", display_name="Todos"))
 
-    async def test_colisao_com_agente(self, service):
+    async def test_collision_with_agent(self, service):
         with pytest.raises(ConflictError):
             await service.create(JULIO, GroupCreate(slug="backend-julio", display_name="X"))
 
-    async def test_colisao_com_grupo(self, service):
+    async def test_collision_with_group(self, service):
         await service.create(JULIO, GroupCreate(slug="backend-team", display_name="T"))
         with pytest.raises(ConflictError):
             await service.create(EDUARDO, GroupCreate(slug="backend-team", display_name="T2"))
 
 
 class TestDelete:
-    async def test_criador_remove(self, service):
+    async def test_creator_removes(self, service):
         await service.create(JULIO, GroupCreate(slug="backend-team", display_name="T"))
         await service.delete(JULIO, "backend-team")
         assert await service.list_with_members() == []
 
-    async def test_terceiro_nao_remove(self, service):
+    async def test_third_party_does_not_remove(self, service):
         await service.create(JULIO, GroupCreate(slug="backend-team", display_name="T"))
         with pytest.raises(PermissionDeniedError):
             await service.delete(EDUARDO, "backend-team")
 
-    async def test_admin_remove(self, service):
+    async def test_admin_removes(self, service):
         await service.create(JULIO, GroupCreate(slug="backend-team", display_name="T"))
         await service.delete(ADMIN, "backend-team")
 
 
 class TestMembership:
-    async def test_dono_adiciona_o_proprio_agente(self, service):
+    async def test_owner_adds_their_own_agent(self, service):
         await service.create(JULIO, GroupCreate(slug="backend-team", display_name="T"))
         await service.add_member(JULIO, "backend-team", "backend-julio")
         [(_, members)] = await service.list_with_members()
         assert members == ["backend-julio"]
 
-    async def test_terceiro_nao_inscreve_agente_alheio(self, service):
-        """Opt-in do dono: ninguém inscreve seu agente sem você."""
+    async def test_third_party_does_not_enroll_someone_elses_agent(self, service):
+        """Owner opt-in: no one enrolls your agent without you."""
         await service.create(JULIO, GroupCreate(slug="backend-team", display_name="T"))
         with pytest.raises(PermissionDeniedError):
             await service.add_member(JULIO, "backend-team", "mobile-eduardo")
 
-    async def test_admin_gerencia_qualquer_agente(self, service):
+    async def test_admin_manages_any_agent(self, service):
         await service.create(JULIO, GroupCreate(slug="backend-team", display_name="T"))
         await service.add_member(ADMIN, "backend-team", "mobile-eduardo")
         await service.remove_member(ADMIN, "backend-team", "mobile-eduardo")
 
-    async def test_agente_inexistente(self, service):
+    async def test_nonexistent_agent(self, service):
         await service.create(JULIO, GroupCreate(slug="backend-team", display_name="T"))
         with pytest.raises(NotFoundError):
             await service.add_member(JULIO, "backend-team", "fantasma-x")
 
-    async def test_adicionar_duas_vezes_e_idempotente(self, service):
+    async def test_adding_twice_is_idempotent(self, service):
         await service.create(JULIO, GroupCreate(slug="backend-team", display_name="T"))
         await service.add_member(JULIO, "backend-team", "backend-julio")
         await service.add_member(JULIO, "backend-team", "backend-julio")
@@ -110,21 +110,21 @@ class TestMembership:
 
 
 class TestResolve:
-    async def test_all_exclui_o_remetente(self, service):
+    async def test_all_excludes_the_sender(self, service):
         recipients = await service.resolve_recipients("@all", "backend-julio")
         assert recipients == ["frontend-joao", "mobile-eduardo"]
 
-    async def test_grupo_resolve_membros(self, service):
+    async def test_group_resolves_members(self, service):
         await service.create(JULIO, GroupCreate(slug="mobile-team", display_name="M"))
         await service.add_member(EDUARDO, "mobile-team", "mobile-eduardo")
         await service.add_member(EDUARDO, "mobile-team", "frontend-joao")
         recipients = await service.resolve_recipients("@mobile-team", "frontend-joao")
         assert recipients == ["mobile-eduardo"]
 
-    async def test_grupo_inexistente(self, service):
+    async def test_nonexistent_group(self, service):
         with pytest.raises(NotFoundError):
             await service.resolve_recipients("@fantasmas", "backend-julio")
 
-    async def test_referencia_sem_arroba(self, service):
+    async def test_reference_without_at_sign(self, service):
         with pytest.raises(InvalidInputError):
             await service.resolve_recipients("all", "backend-julio")

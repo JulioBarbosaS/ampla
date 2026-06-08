@@ -2,18 +2,18 @@ from tests.helpers import auth, create_agent, create_key, do_setup, register_mem
 
 
 class TestAgentCrud:
-    def test_cria_lista_e_consulta(self, client):
+    def test_creates_lists_and_reads(self, client):
         token = do_setup(client)
         create_agent(client, token, "backend-julio", "Backend do Julio")
 
         agents = client.get("/api/agents", headers=auth(token)).json()
         assert [a["slug"] for a in agents] == ["backend-julio"]
-        assert agents[0]["mode"] == "inbox"  # default seguro
+        assert agents[0]["mode"] == "inbox"  # safe default
 
         one = client.get("/api/agents/backend-julio", headers=auth(token))
         assert one.status_code == 200
 
-    def test_slug_duplicado_409(self, client):
+    def test_duplicate_slug_409(self, client):
         admin_token = do_setup(client)
         member_token = register_member(client, admin_token)
         create_agent(client, admin_token, "backend-julio")
@@ -24,7 +24,7 @@ class TestAgentCrud:
         )
         assert response.status_code == 409
 
-    def test_slug_all_reservado_422(self, client):
+    def test_slug_all_reserved_422(self, client):
         token = do_setup(client)
         response = client.post(
             "/api/agents",
@@ -33,7 +33,7 @@ class TestAgentCrud:
         )
         assert response.status_code == 422
 
-    def test_slug_invalido_422(self, client):
+    def test_invalid_slug_422(self, client):
         token = do_setup(client)
         response = client.post(
             "/api/agents",
@@ -42,7 +42,7 @@ class TestAgentCrud:
         )
         assert response.status_code == 422
 
-    def test_directory_visivel_a_todos_logados(self, client):
+    def test_directory_visible_to_all_logged_in(self, client):
         admin_token = do_setup(client)
         member_token = register_member(client, admin_token)
         create_agent(client, admin_token, "backend-julio")
@@ -53,7 +53,7 @@ class TestAgentCrud:
 
 
 class TestSettings:
-    def test_dono_atualiza(self, client):
+    def test_owner_updates(self, client):
         token = do_setup(client)
         create_agent(client, token, "backend-julio")
         response = client.patch(
@@ -70,11 +70,11 @@ class TestSettings:
         assert body["mode"] == "auto"
         assert body["allowed_senders"] == ["mobile-eduardo"]
 
-    def test_terceiro_nao_atualiza_403(self, client):
+    def test_third_party_does_not_update_403(self, client):
         admin_token = do_setup(client)
         member_token = register_member(client, admin_token)
         create_agent(client, member_token, "mobile-eduardo")
-        # admin PODE (gestão), mas outro member não — criamos um segundo member
+        # admin CAN (management), but another member cannot — we create a second member
         second = register_member(
             client,
             admin_token,
@@ -87,7 +87,7 @@ class TestSettings:
         )
         assert response.status_code == 403
 
-    def test_admin_atualiza_agente_de_member(self, client):
+    def test_admin_updates_members_agent(self, client):
         admin_token = do_setup(client)
         member_token = register_member(client, admin_token)
         create_agent(client, member_token, "mobile-eduardo")
@@ -100,7 +100,7 @@ class TestSettings:
 
 
 class TestKeys:
-    def test_cria_chave_plaintext_so_uma_vez(self, client):
+    def test_creates_key_plaintext_only_once(self, client):
         token = do_setup(client)
         create_agent(client, token, "backend-julio")
         key = create_key(client, token, "backend-julio")
@@ -108,10 +108,10 @@ class TestKeys:
 
         listed = client.get("/api/agents/backend-julio/keys", headers=auth(token)).json()
         assert len(listed) == 1
-        assert "key" not in listed[0]  # plaintext nunca aparece de novo
+        assert "key" not in listed[0]  # plaintext never appears again
         assert listed[0]["revoked_at"] is None
 
-    def test_revoga_chave(self, client):
+    def test_revokes_key(self, client):
         token = do_setup(client)
         create_agent(client, token, "backend-julio")
         create_key(client, token, "backend-julio")
@@ -120,7 +120,7 @@ class TestKeys:
         assert response.status_code == 200
         assert response.json()["revoked_at"] is not None
 
-    def test_terceiro_nao_gerencia_chaves(self, client):
+    def test_third_party_does_not_manage_keys(self, client):
         admin_token = do_setup(client)
         member_token = register_member(client, admin_token)
         create_agent(client, admin_token, "backend-julio")
@@ -131,4 +131,4 @@ class TestKeys:
         )
         response = client.post("/api/agents/backend-julio/keys", json={}, headers=auth(second))
         assert response.status_code == 403
-        assert member_token  # silencia lint de variável
+        assert member_token  # silences unused-variable lint

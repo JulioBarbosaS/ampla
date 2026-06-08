@@ -1,12 +1,12 @@
-"""Endpoint WebSocket: daemons de agentes e observers do painel.
+"""WebSocket endpoint: agent daemons and panel observers.
 
-Camada de transporte: faz parse/serialização de frames e orquestra
-services + ConnectionManager. Nunca toca repositories diretamente —
-services são construídos via fábricas locais com sessão por operação.
+Transport layer: parses/serializes frames and orchestrates
+services + ConnectionManager. Never touches repositories directly —
+services are built via local factories with one session per operation.
 
-Segurança (docs/ARCHITECTURE.md · Ameaça 3): hello obrigatório em 10s,
-limite de frame, token bucket por conexão, desconexão após frames
-malformados repetidos.
+Security (docs/ARCHITECTURE.md · Threat 3): hello required within 10s,
+frame size limit, per-connection token bucket, disconnect after repeated
+malformed frames.
 """
 
 import asyncio
@@ -47,11 +47,11 @@ router = APIRouter()
 
 MAX_MALFORMED_FRAMES = 5
 
-# Códigos de fechamento próprios (4xxx = aplicação)
+# Custom close codes (4xxx = application)
 CLOSE_BAD_HELLO = 4400
 CLOSE_AUTH_FAIL = 4401
 CLOSE_PROTOCOL_ABUSE = 4429
-CLOSE_HEARTBEAT_TIMEOUT = 4408  # zumbi: 2 ciclos sem frame — daemon reconecta
+CLOSE_HEARTBEAT_TIMEOUT = 4408  # zombie: 2 cycles without a frame — daemon reconnects
 
 
 def _message_payload(msg) -> dict:
@@ -70,11 +70,11 @@ async def ws_endpoint(ws: WebSocket) -> None:
     state = ws.app.state
     settings = state.settings
 
-    # ---- hello obrigatório dentro do timeout ----
+    # ---- hello required within the timeout ----
     try:
         raw = await asyncio.wait_for(ws.receive_text(), timeout=settings.ws_hello_timeout_secs)
     except WebSocketDisconnect:
-        return  # cliente desistiu antes do hello
+        return  # client gave up before the hello
     except TimeoutError:
         await ws.close(code=CLOSE_BAD_HELLO, reason="hello timeout")
         return
@@ -108,7 +108,7 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
     session_factory = state.session_factory
     slug = hello.agent_id
 
-    # autenticação + snapshot inicial (sessão curta)
+    # authentication + initial snapshot (short-lived session)
     async with session_factory() as session:
         agent = await build_agent_service(session).authenticate_key(slug, hello.key or "")
         if agent is None:
@@ -134,17 +134,17 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
     )
     await ws.send_json(ack.model_dump(mode="json", by_alias=True))
 
-    # As pendentes seguem no hello_ack; o daemon ackará cada uma (at-least-once).
-    # Sem o ack, continuam pendentes e voltam na próxima reconexão — nada de
-    # marcar entregue otimisticamente aqui (docs/ARCHITECTURE.md · Protocolo WS).
+    # Pending messages ride along in the hello_ack; the daemon will ack each one
+    # (at-least-once). Without the ack they stay pending and come back on the next
+    # reconnect — no optimistic delivered-marking here (docs/ARCHITECTURE.md · WS protocol).
 
     bucket = TokenBucket(settings.ws_messages_per_minute)
     malformed = 0
 
-    # Heartbeat (Ameaça 3 · conexão zumbi): pinga a cada intervalo; se passar 2
-    # ciclos sem QUALQUER frame (pong inclusive), a conexão está morta — fecha,
-    # e o finally difunde offline. asyncio é monothread, então last_seen é lido
-    # pela task e escrito pelo loop sem corrida.
+    # Heartbeat (Threat 3 · zombie connection): pings every interval; if 2 cycles
+    # pass without ANY frame (pong included), the connection is dead — close it,
+    # and the finally block broadcasts offline. asyncio is single-threaded, so
+    # last_seen is read by the task and written by the loop without a race.
     loop = asyncio.get_running_loop()
     interval = settings.ws_heartbeat_secs
     last_seen = loop.time()
@@ -155,19 +155,19 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
             if loop.time() - last_seen > 2 * interval:
                 try:
                     await ws.close(code=CLOSE_HEARTBEAT_TIMEOUT, reason="heartbeat timeout")
-                except Exception:  # noqa: S110 — socket já morto; loop principal trata
+                except Exception:  # noqa: S110 — socket already dead; main loop handles it
                     pass
                 return
             try:
                 await ws.send_json(PingFrame().model_dump(mode="json"))
             except Exception:
-                return  # socket morto; a desconexão cai no loop principal
+                return  # dead socket; the disconnect falls through to the main loop
 
     hb_task = asyncio.create_task(_heartbeat()) if interval > 0 else None
     try:
         while True:
             raw = await ws.receive_text()
-            last_seen = loop.time()  # qualquer frame recebido prova liveness
+            last_seen = loop.time()  # any received frame proves liveness
             if len(raw.encode()) > settings.ws_max_frame_bytes:
                 await ws.close(code=CLOSE_PROTOCOL_ABUSE, reason="frame too large")
                 break
@@ -182,13 +182,13 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
                 await _send_error(ws, "bad_frame", "Frame inválido.")
                 continue
 
-            # pong: só serve para provar liveness (já registrada acima).
+            # pong: only used to prove liveness (already recorded above).
             if isinstance(frame, PongFrame):
                 continue
 
-            # ack de entrega: confirma recebimento e libera o `delivered` ao
-            # remetente. Não conta no token bucket (é resposta, não envio) e é
-            # naturalmente limitado pelas mensagens que chegaram a este agente.
+            # delivery ack: confirms receipt and releases the `delivered` to the
+            # sender. Does not count against the token bucket (it is a response, not
+            # a send) and is naturally bounded by the messages that reached this agent.
             if isinstance(frame, AckFrame):
                 await _handle_ack(ws, slug, frame.message_id)
                 continue
@@ -220,8 +220,8 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
 async def _handle_send(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -> None:
     session_factory = ws.app.state.session_factory
 
-    # Escritas protegidas por shield: desconexão do remetente no meio da
-    # operação não pode deixar o banco/conexão em estado inconsistente.
+    # Writes protected by shield: a sender disconnect in the middle of the
+    # operation must not leave the database/connection in an inconsistent state.
     async def _persist():
         async with session_factory() as session:
             return await _message_service(ws, session).send(
@@ -239,16 +239,16 @@ async def _handle_send(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -
         await _send_error(ws, exc.code, exc.detail)
         return
 
-    # Empurra ao destinatário; o `delivered` ao remetente só sai quando o
-    # destinatário ackar (at-least-once — ver _handle_ack).
+    # Pushes to the recipient; the `delivered` to the sender only goes out when
+    # the recipient acks (at-least-once — see _handle_ack).
     await _dispatch(ws, msg)
 
 
 async def _dispatch(ws: WebSocket, msg) -> bool:
-    """Entrega em tempo real + espelha para observers, SEM marcar delivered.
-    'Entregue' passa a significar 'o destinatário confirmou', não 'empurrei
-    pro cano' — então delivered_at fica nulo até o ack. Retorna se o socket do
-    destinatário aceitou (usado pelo broadcast para listar quem está offline)."""
+    """Real-time delivery + mirror to observers, WITHOUT marking delivered.
+    'Delivered' now means 'the recipient confirmed', not 'I pushed it down the
+    pipe' — so delivered_at stays null until the ack. Returns whether the
+    recipient's socket accepted (used by broadcast to list who is offline)."""
     manager: ConnectionManager = ws.app.state.manager
     accepted = await manager.send_to_agent(msg.to_agent, _message_payload(msg))
     await manager.notify_message(_message_payload(msg), msg.from_agent, msg.to_agent)
@@ -256,8 +256,8 @@ async def _dispatch(ws: WebSocket, msg) -> bool:
 
 
 async def _handle_ack(ws: WebSocket, recipient_slug: str, message_id: int) -> None:
-    """Destinatário confirmou recebimento: marca delivered, avisa o remetente
-    (`delivered`) e re-espelha aos observers com delivered_at preenchido."""
+    """Recipient confirmed receipt: marks delivered, notifies the sender
+    (`delivered`) and re-mirrors to observers with delivered_at filled in."""
     manager: ConnectionManager = ws.app.state.manager
     session_factory = ws.app.state.session_factory
 
@@ -267,7 +267,7 @@ async def _handle_ack(ws: WebSocket, recipient_slug: str, message_id: int) -> No
 
     msg = await asyncio.shield(_ack())
     if msg is None:
-        return  # ack alheio, repetido sem efeito ou de mensagem inexistente
+        return  # ack from someone else, a no-op repeat, or for a nonexistent message
 
     await manager.send_to_agent(
         msg.from_agent,
@@ -277,7 +277,7 @@ async def _handle_ack(ws: WebSocket, recipient_slug: str, message_id: int) -> No
 
 
 async def _handle_broadcast(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -> None:
-    """Fan-out @grupo/@all: rate limit próprio + uma DM por membro."""
+    """Fan-out @group/@all: dedicated rate limit + one DM per member."""
     state = ws.app.state
     session_factory = state.session_factory
 
@@ -344,7 +344,7 @@ async def _run_observer_connection(ws: WebSocket, hello: HelloFrame) -> None:
 
     try:
         while True:
-            # Observers não enviam frames no MVP — só mantêm a conexão viva
+            # Observers do not send frames in the MVP — they just keep the connection alive
             await ws.receive_text()
     except WebSocketDisconnect:
         pass

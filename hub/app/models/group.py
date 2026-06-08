@@ -8,9 +8,9 @@ from app.models.user import utcnow
 
 
 class Group(Base):
-    """Grupo de agentes (ex: frontend-team). Slug em namespace próprio —
-    colisão com slug de agente é proibida na criação (e vice-versa).
-    "all" é reservado para o broadcast virtual."""
+    """A group of agents (e.g. frontend-team). Slug in its own namespace —
+    collision with an agent slug is forbidden at creation (and vice versa).
+    "all" is reserved for the virtual broadcast."""
 
     __tablename__ = "groups"
 

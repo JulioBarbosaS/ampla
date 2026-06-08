@@ -1,4 +1,4 @@
-"""Exceções de domínio — services lançam, camada API traduz para HTTP."""
+"""Domain exceptions — services raise them, the API layer translates to HTTP."""
 
 
 class DomainError(Exception):
@@ -22,7 +22,8 @@ class PermissionDeniedError(DomainError):
 
 
 class AuthError(DomainError):
-    """Credenciais inválidas — mensagem sempre genérica (não revela se a conta existe)."""
+    """Invalid credentials — the message is always generic (never reveals
+    whether the account exists)."""
 
     code = "auth_failed"
 

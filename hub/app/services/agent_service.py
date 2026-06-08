@@ -1,4 +1,4 @@
-"""Agentes, settings e chaves. Dono gerencia os próprios; admin gerencia todos."""
+"""Agents, settings and keys. The owner manages their own; an admin manages all."""
 
 import re
 
@@ -58,7 +58,7 @@ class AgentService:
         return await self._agents.list_all()
 
     async def get_owned(self, actor: User, slug: str) -> Agent:
-        """Carrega o agente garantindo que actor é dono ou admin."""
+        """Loads the agent, ensuring the actor is the owner or an admin."""
         agent = await self._agents.get(slug)
         if agent is None:
             raise NotFoundError("Agente não encontrado.")
@@ -91,7 +91,7 @@ class AgentService:
             changed["auto_timeout_secs"] = patch.auto_timeout_secs
         if patch.instructions is not None:
             agent.instructions = patch.instructions
-            changed["instructions"] = True  # conteúdo não vai pro audit
+            changed["instructions"] = True  # content does not go to the audit
         await self._agents.save(agent)
         await self._audit.record(
             "settings_changed", actor=actor.email, detail={"slug": slug, "fields": list(changed)}
@@ -101,7 +101,7 @@ class AgentService:
     def settings_of(self, agent: Agent) -> AgentSettings:
         return AgentSettings.model_validate(agent)
 
-    # ---- chaves ----
+    # ---- keys ----
 
     async def create_key(self, actor: User, slug: str, label: str = "") -> tuple[AgentKey, str]:
         agent = await self.get_owned(actor, slug)
@@ -135,10 +135,10 @@ class AgentService:
             )
         return key
 
-    # ---- autenticação do daemon (frame hello) ----
+    # ---- daemon authentication (hello frame) ----
 
     async def authenticate_key(self, agent_id: str, key: str) -> Agent | None:
-        """Resolve a chave para o agente. None ⇒ falha (auditada aqui)."""
+        """Resolves the key to its agent. None ⇒ failure (audited here)."""
         found = await self._agents.get_key_by_hash(security.hash_agent_key(key))
         if found is None or found.revoked_at is not None or found.agent_slug != agent_id:
             await self._audit.record("ws_auth_fail", actor=agent_id or "?")

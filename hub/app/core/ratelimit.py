@@ -1,11 +1,11 @@
-"""Rate limiting in-memory (Ameaças 2 e 3).
+"""In-memory rate limiting (Threats 2 and 3).
 
-SlidingWindowLimiter: por chave (IP nas rotas de auth).
-TokenBucket: por conexão WebSocket.
-Suficiente para deploy single-process; multi-process exigiria backend externo.
+SlidingWindowLimiter: per key (IP on the auth routes).
+TokenBucket: per WebSocket connection.
+Sufficient for a single-process deploy; multi-process would require an external backend.
 
-`clock` é injetável (default time.monotonic) — permite property tests
-determinísticos sobre as invariantes de limite.
+`clock` is injectable (default time.monotonic) — enables deterministic
+property tests over the limit invariants.
 """
 
 import time

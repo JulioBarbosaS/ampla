@@ -65,7 +65,7 @@ async def update_settings(
     svc: AgentService = Depends(get_agent_service),
 ) -> AgentOut:
     agent = await svc.update_settings(user, slug, body)
-    # Push em tempo real para o daemon (docs/ARCHITECTURE.md · Protocolo WS)
+    # Real-time push to the daemon (docs/ARCHITECTURE.md · WS protocol)
     frame = SettingsUpdateFrame(settings=svc.settings_of(agent))
     await request.app.state.manager.send_settings_update(slug, frame.model_dump(mode="json"))
     return AgentOut.model_validate(agent)
@@ -100,11 +100,11 @@ async def revoke_key(
     svc: AgentService = Depends(get_agent_service),
 ) -> AgentKeyOut:
     key = await svc.revoke_key(user, slug, key_id)
-    # Revogação derruba o WS na hora (Ameaça 2). A conexão pode estar usando
-    # outra chave válida — o daemon reconecta sozinho nesse caso.
+    # Revocation drops the WS immediately (Threat 2). The connection may be using
+    # another valid key — in that case the daemon reconnects on its own.
     manager = request.app.state.manager
     if await manager.kick_agent(slug, reason="key_revoked"):
-        # o loop derrubado não emite offline (slug já removido), então difunde aqui
+        # the dropped loop does not emit offline (slug already removed), so broadcast here
         await manager.broadcast_presence(
             {"type": "presence", "agent_id": slug, "status": "offline"}
         )

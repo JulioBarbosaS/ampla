@@ -1,7 +1,7 @@
-"""Repositories fake em memória — mesma interface dos reais.
+"""In-memory fake repositories — same interface as the real ones.
 
-SQLAlchemy só aplica defaults de coluna no flush; os fakes os aplicam
-no `add` para que os models se comportem como persistidos.
+SQLAlchemy only applies column defaults on flush; the fakes apply them
+on `add` so the models behave as if persisted.
 """
 
 from datetime import datetime
@@ -180,7 +180,7 @@ class FakeMessageRepository:
         self._seq += 1
         message.id = self._seq
         if message.thread_id is None:
-            message.thread_id = message.id  # raiz inicia a própria thread
+            message.thread_id = message.id  # the root starts its own thread
         _default(message, "type", "request")
         _default(message, "priority", "normal")
         _default(message, "created_at", utcnow())

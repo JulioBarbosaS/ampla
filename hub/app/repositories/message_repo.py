@@ -13,9 +13,9 @@ class MessageRepository:
 
     async def add(self, message: Message) -> Message:
         self._session.add(message)
-        await self._session.flush()  # garante o id antes de fechar a thread
+        await self._session.flush()  # ensure the id before closing the thread
         if message.thread_id is None:
-            message.thread_id = message.id  # mensagem raiz inicia a própria thread
+            message.thread_id = message.id  # a root message starts its own thread
         await self._session.commit()
         await self._session.refresh(message)
         return message
@@ -28,7 +28,7 @@ class MessageRepository:
         await self._session.commit()
 
     async def conversation(self, agent_a: str, agent_b: str, limit: int = 50) -> list[Message]:
-        """Mensagens entre dois agentes, mais recentes primeiro."""
+        """Messages between two agents, most recent first."""
         result = await self._session.execute(
             select(Message)
             .where(
@@ -43,7 +43,7 @@ class MessageRepository:
         return list(result.scalars())
 
     async def pending_for(self, to_agent: str) -> list[Message]:
-        """Não entregues nem expiradas, mais antigas primeiro (ordem de entrega)."""
+        """Neither delivered nor expired, oldest first (delivery order)."""
         result = await self._session.execute(
             select(Message)
             .where(
@@ -64,7 +64,7 @@ class MessageRepository:
         await self._session.commit()
 
     async def involving(self, agent_slugs: list[str], limit: int = 200) -> list[Message]:
-        """Mensagens que envolvem qualquer um dos slugs (para listar conversas)."""
+        """Messages involving any of the slugs (for listing conversations)."""
         if not agent_slugs:
             return []
         result = await self._session.execute(

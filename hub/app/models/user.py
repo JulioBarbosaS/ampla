@@ -20,7 +20,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(10), default="member")  # admin | member
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
-    # Lockout incremental (Ameaça 2): tentativas falhas consecutivas e bloqueio
+    # Incremental lockout (Threat 2): consecutive failed attempts and the block
     failed_logins: Mapped[int] = mapped_column(default=0)
     locked_until: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)
 

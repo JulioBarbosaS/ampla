@@ -1,4 +1,4 @@
-"""Helpers compartilhados pelos testes de integração."""
+"""Helpers shared by the integration tests."""
 
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -15,14 +15,14 @@ def auth(token: str) -> dict[str, str]:
 
 
 def do_setup(client) -> str:
-    """Cria o admin inicial e retorna o JWT."""
+    """Creates the initial admin and returns the JWT."""
     response = client.post("/api/auth/setup", json=ADMIN)
     assert response.status_code == 200, response.text
     return response.json()["token"]
 
 
 def register_member(client, admin_token: str, member: dict | None = None) -> str:
-    """Admin gera convite; member se registra. Retorna o JWT do member."""
+    """Admin generates an invite; the member registers. Returns the member's JWT."""
     invite = client.post("/api/invites", headers=auth(admin_token))
     assert invite.status_code == 201, invite.text
     body = dict(member or MEMBER)
@@ -43,7 +43,7 @@ def create_agent(client, token: str, slug: str, display_name: str | None = None)
 
 
 def create_key(client, token: str, slug: str) -> str:
-    """Cria uma chave e retorna o plaintext (única vez que aparece)."""
+    """Creates a key and returns the plaintext (the only time it appears)."""
     response = client.post(f"/api/agents/{slug}/keys", json={}, headers=auth(token))
     assert response.status_code == 201, response.text
     return response.json()["key"]
@@ -51,20 +51,20 @@ def create_key(client, token: str, slug: str) -> str:
 
 @contextmanager
 def connect_agent_ws(client, slug: str, key: str) -> Iterator[WebSocketTestSession]:
-    """Abre WS e manda o hello de daemon. Chamador consome o hello_ack."""
+    """Opens the WS and sends the daemon hello. The caller consumes the hello_ack."""
     with client.websocket_connect("/ws") as ws:
         ws.send_json({"type": "hello", "agent_id": slug, "key": key})
         yield ws
 
 
 def ack(ws: WebSocketTestSession, message_id: int) -> None:
-    """Confirma o recebimento (at-least-once) — sem isto o hub não marca
-    delivered nem avisa o remetente, e a mensagem volta no próximo hello."""
+    """Confirms receipt (at-least-once) — without this the hub does not mark
+    delivered nor notify the sender, and the message comes back on the next hello."""
     ws.send_json({"type": "ack", "message_id": message_id})
 
 
 def recv_until(ws: WebSocketTestSession, frame_type: str, max_frames: int = 20) -> dict[str, Any]:
-    """Lê frames descartando os de outros tipos (ex: presence intercalada)."""
+    """Reads frames, discarding those of other types (e.g. interleaved presence)."""
     for _ in range(max_frames):
         frame = ws.receive_json()
         if frame["type"] == frame_type:

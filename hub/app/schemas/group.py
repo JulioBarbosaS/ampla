@@ -25,9 +25,9 @@ class GroupMemberAdd(BaseModel):
 
 
 class BroadcastResult(BaseModel):
-    """Resultado de um fan-out: quem recebeu, quem foi pulado (allowlist)."""
+    """Result of a fan-out: who received it, who was skipped (allowlist)."""
 
-    group: str  # "@frontend-team" ou "@all"
+    group: str  # "@frontend-team" or "@all"
     sent: list[str]
     skipped: list[str]
     message_ids: list[int]

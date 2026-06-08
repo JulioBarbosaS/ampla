@@ -1,11 +1,11 @@
-"""Primitivas de segurança: senhas, chaves de agente, convites e JWT.
+"""Security primitives: passwords, agent keys, invites and JWT.
 
-Decisões (docs/ARCHITECTURE.md · seção Segurança):
-- senhas: bcrypt custo 12
-- chaves de agente: 256 bits ("amp_" + 64 hex), armazenadas como sha256,
-  comparação via lookup de hash (determinístico) — nunca plaintext no banco
-- convites: "AMP-" + 4 grupos de 4 chars sem ambiguidade visual
-- JWT: HS256 com expiração, alg fixo na decodificação
+Decisions (docs/ARCHITECTURE.md · Security section):
+- passwords: bcrypt cost 12
+- agent keys: 256 bits ("amp_" + 64 hex), stored as sha256,
+  compared via hash lookup (deterministic) — never plaintext in the database
+- invites: "AMP-" + 4 groups of 4 chars without visual ambiguity
+- JWT: HS256 with expiration, algorithm pinned on decode
 """
 
 import hashlib
@@ -17,7 +17,7 @@ import jwt
 
 BCRYPT_ROUNDS = 12
 AGENT_KEY_PREFIX = "amp_"
-_INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # sem 0/O/1/I
+_INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # without 0/O/1/I
 
 
 def hash_password(password: str) -> str:
@@ -31,9 +31,9 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-# Hash bcrypt constante (custo padrão) para o caminho de login com e-mail
-# inexistente: uma verificação de mesmo custo do caminho real, sem gerar hash
-# a cada chamada. Computado uma vez na importação. Nenhuma senha real bate.
+# Constant bcrypt hash (default cost) for the login path with a nonexistent
+# email: a check with the same cost as the real path, without generating a hash
+# on every call. Computed once at import time. No real password matches it.
 DUMMY_PASSWORD_HASH = hash_password(secrets.token_urlsafe(32))
 
 
@@ -57,7 +57,7 @@ def create_jwt(user_id: int, secret: str, expires_days: int) -> str:
 
 
 def decode_jwt(token: str, secret: str) -> int | None:
-    """Retorna o user_id ou None para token inválido/expirado."""
+    """Returns the user_id or None for an invalid/expired token."""
     try:
         payload = jwt.decode(token, secret, algorithms=["HS256"])
         return int(payload["sub"])

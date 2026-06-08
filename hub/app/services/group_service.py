@@ -1,5 +1,5 @@
-"""Grupos de agentes: criação, membership (opt-in do dono) e resolução
-de destinatários para broadcast (@grupo / @all)."""
+"""Agent groups: creation, membership (owner opt-in) and recipient
+resolution for broadcast (@group / @all)."""
 
 from app.models.group import Group
 from app.models.user import User
@@ -48,13 +48,13 @@ class GroupService:
         groups = await self._groups.list_all()
         return [(group, await self._groups.members_of(group.slug)) for group in groups]
 
-    # ---- membership: opt-in do dono do agente ----
+    # ---- membership: opt-in by the agent's owner ----
 
     async def add_member(self, actor: User, group_slug: str, agent_slug: str) -> None:
         await self._get(group_slug)
         await self._authorize_member_change(actor, agent_slug)
         if await self._groups.is_member(group_slug, agent_slug):
-            return  # idempotente
+            return  # idempotent
         await self._groups.add_member(group_slug, agent_slug)
         await self._audit.record(
             "group_member_added",
@@ -72,11 +72,11 @@ class GroupService:
             detail={"group": group_slug, "agent": agent_slug},
         )
 
-    # ---- resolução para broadcast ----
+    # ---- resolution for broadcast ----
 
     async def resolve_recipients(self, group_ref: str, sender_slug: str) -> list[str]:
-        """ "@all" → todos os agentes; "@slug" → membros do grupo.
-        O remetente nunca recebe a própria mensagem."""
+        """ "@all" → all agents; "@slug" → the group's members.
+        The sender never receives their own message."""
         if not group_ref.startswith("@"):
             raise InvalidInputError("Referência de grupo deve começar com @.")
         name = group_ref[1:]
@@ -88,7 +88,7 @@ class GroupService:
             slugs = await self._groups.members_of(name)
         return [slug for slug in slugs if slug != sender_slug]
 
-    # ---- internos ----
+    # ---- internals ----
 
     async def _get(self, slug: str) -> Group:
         group = await self._groups.get(slug)

@@ -1,13 +1,13 @@
-"""Golden tests — o contrato externo do hub comparado com arquivos aprovados.
+"""Golden tests — the hub's external contract compared against approved files.
 
-Qualquer mudança de contrato (REST ou protocolo WS) quebra estes testes:
-se a mudança for intencional, regenere os goldens e revise o diff no commit:
+Any contract change (REST or WS protocol) breaks these tests:
+if the change is intentional, regenerate the goldens and review the diff in the commit:
 
     AMP_UPDATE_GOLDEN=1 pytest tests/golden
 
-O arquivo ws_frames.json também é consumido pelo golden test do bridge
-(bridge/tests/golden/protocol-mirror.test.ts) — é o que TRAVA o
-espelhamento exigido em docs/ARCHITECTURE.md · Protocolo WebSocket.
+The ws_frames.json file is also consumed by the bridge's golden test
+(bridge/tests/golden/protocol-mirror.test.ts) — it is what LOCKS the
+mirroring required in docs/ARCHITECTURE.md · WebSocket protocol.
 """
 
 import json
@@ -34,7 +34,7 @@ GOLDEN_DIR = Path(__file__).parent
 
 
 def _accepted_client_frame(raw: dict) -> dict:
-    """Garante que o hub aceita o frame cru antes de congelá-lo no golden."""
+    """Ensures the hub accepts the raw frame before freezing it into the golden."""
     from app.schemas.ws import client_frame_adapter
 
     client_frame_adapter.validate_json(json.dumps(raw))
@@ -54,13 +54,13 @@ def check_golden(name: str, actual: object) -> None:
 
 
 def test_openapi_contract(client) -> None:
-    """Contrato REST completo (rotas, schemas, status codes)."""
+    """Full REST contract (routes, schemas, status codes)."""
     schema = client.get("/openapi.json").json()
     check_golden("openapi.json", schema)
 
 
 def test_ws_frames_contract() -> None:
-    """Frames WS exatamente como trafegam — espelhado pelo bridge."""
+    """WS frames exactly as they travel — mirrored by the bridge."""
     settings = AgentSettings()
     message = MessageOut(
         id=1,
@@ -76,15 +76,15 @@ def test_ws_frames_contract() -> None:
         expires_at=datetime(2026, 6, 13, 12, 0, 0, tzinfo=UTC),
     )
     frames = {
-        # exclude_none: o daemon envia hello SEM o campo jwt (e o painel sem key)
+        # exclude_none: the daemon sends hello WITHOUT the jwt field (and the panel without key)
         "client.hello": HelloFrame(agent_id="backend-julio", key="amp_" + "ab" * 32).model_dump(
             mode="json", exclude_none=True
         ),
-        # frame mínimo, como o daemon envia sem opções (defaults aplicados no hub)
+        # minimal frame, as the daemon sends it without options (defaults applied at the hub)
         "client.message": _accepted_client_frame(
             {"type": "message", "to": "backend-julio", "body": "Existe endpoint de reset de senha?"}
         ),
-        # frame completo, com threading e prioridade
+        # full frame, with threading and priority
         "client.message_full": _accepted_client_frame(
             {
                 "type": "message",
@@ -98,9 +98,9 @@ def test_ws_frames_contract() -> None:
         "client.broadcast": _accepted_client_frame(
             {"type": "message", "to": "@frontend-team", "body": "deploy às 18h"}
         ),
-        # ack de entrega (at-least-once) — daemon confirma recebimento
+        # delivery ack (at-least-once) — the daemon confirms receipt
         "client.ack": _accepted_client_frame({"type": "ack", "message_id": 1}),
-        # heartbeat: hub pinga, daemon responde pong
+        # heartbeat: the hub pings, the daemon replies pong
         "client.pong": _accepted_client_frame({"type": "pong"}),
         "server.hello_ack": HelloAckFrame(
             agent_id="backend-julio",

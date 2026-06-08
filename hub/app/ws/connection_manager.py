@@ -1,7 +1,7 @@
-"""Registro de conexões ativas: daemons de agentes e observers (painel).
+"""Registry of active connections: agent daemons and observers (panel).
 
-Camada de transporte — única parte do hub (além das rotas WS) que toca
-WebSocket cru. Services interagem apenas com esta abstração.
+Transport layer — the only part of the hub (besides the WS routes) that touches
+the raw WebSocket. Services interact only with this abstraction.
 """
 
 import asyncio
@@ -27,19 +27,19 @@ class ConnectionManager:
         self._observers: list[ObserverConn] = []
         self._lock = asyncio.Lock()
 
-    # ---- agentes (daemons) ----
+    # ---- agents (daemons) ----
 
     async def connect_agent(self, slug: str, ws: WebSocket) -> None:
         async with self._lock:
             old = self._agents.get(slug)
             self._agents[slug] = ws
         if old is not None:
-            # Conexão nova substitui a antiga (reconnect ou chave roubada —
-            # nos dois casos a antiga não pode continuar recebendo)
+            # The new connection replaces the old one (reconnect or stolen key —
+            # in both cases the old one must not keep receiving)
             await self._close_quietly(old, code=4000, reason="replaced")
 
     async def disconnect_agent(self, slug: str, ws: WebSocket) -> bool:
-        """Remove se ainda for a conexão atual. True se removeu."""
+        """Removes it if it is still the current connection. True if removed."""
         async with self._lock:
             if self._agents.get(slug) is ws:
                 del self._agents[slug]
@@ -47,10 +47,10 @@ class ConnectionManager:
         return False
 
     async def kick_agent(self, slug: str, reason: str = "revoked") -> bool:
-        """Derruba o daemon imediatamente (revogação de chave — Ameaça 2).
-        Retorna True se havia conexão. O broadcast de presença `offline` é
-        responsabilidade do chamador (o loop da conexão derrubada não emite,
-        pois disconnect_agent já não encontra o slug)."""
+        """Drops the daemon immediately (key revocation — Threat 2).
+        Returns True if there was a connection. Broadcasting the `offline` presence
+        is the caller's responsibility (the dropped connection's loop does not emit
+        it, since disconnect_agent no longer finds the slug)."""
         async with self._lock:
             ws = self._agents.pop(slug, None)
         if ws is not None:
@@ -74,7 +74,7 @@ class ConnectionManager:
         except Exception:
             return False
 
-    # ---- observers (painel humano) ----
+    # ---- observers (human panel) ----
 
     async def add_observer(self, conn: ObserverConn) -> None:
         async with self._lock:
@@ -93,7 +93,7 @@ class ConnectionManager:
             await self._send_quietly(obs.ws, payload)
 
     async def notify_message(self, payload: dict, from_slug: str, to_slug: str) -> None:
-        """Espelha a mensagem para observers autorizados (dono ou admin)."""
+        """Mirrors the message to authorized observers (owner or admin)."""
         for obs in list(self._observers):
             if obs.can_see(from_slug, to_slug):
                 await self._send_quietly(obs.ws, payload)
@@ -101,18 +101,18 @@ class ConnectionManager:
     async def send_settings_update(self, slug: str, payload: dict) -> bool:
         return await self.send_to_agent(slug, payload)
 
-    # ---- internos ----
+    # ---- internals ----
 
     @staticmethod
     async def _send_quietly(ws: WebSocket, payload: dict) -> None:
         try:
             await ws.send_json(payload)
-        except Exception:  # noqa: S110 — broadcast best-effort
-            pass  # conexão morta é removida pelo loop dela própria
+        except Exception:  # noqa: S110 — best-effort broadcast
+            pass  # a dead connection is removed by its own loop
 
     @staticmethod
     async def _close_quietly(ws: WebSocket, code: int, reason: str) -> None:
         try:
             await ws.close(code=code, reason=reason)
-        except Exception:  # noqa: S110 — fechar conexão já morta é no-op
+        except Exception:  # noqa: S110 — closing an already-dead connection is a no-op
             pass

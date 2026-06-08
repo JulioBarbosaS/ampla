@@ -36,7 +36,7 @@
         "type": "object"
       },
       "AgentKeyCreated": {
-        "description": "Resposta da criação — única vez que a chave aparece em plaintext.",
+        "description": "Creation response — the only time the key appears in plaintext.",
         "properties": {
           "id": {
             "title": "Id",
@@ -161,7 +161,7 @@
         "type": "object"
       },
       "AgentSettingsUpdate": {
-        "description": "PATCH parcial — apenas campos presentes são alterados.",
+        "description": "Partial PATCH — only fields that are present get changed.",
         "properties": {
           "allowed_senders": {
             "anyOf": [
@@ -278,7 +278,7 @@
         "type": "object"
       },
       "BroadcastResult": {
-        "description": "Resultado de um fan-out: quem recebeu, quem foi pulado (allowlist).",
+        "description": "Result of a fan-out: who received it, who was skipped (allowlist).",
         "properties": {
           "group": {
             "title": "Group",
@@ -316,7 +316,7 @@
         "type": "object"
       },
       "ConversationPartner": {
-        "description": "Item da lista de conversas (sidebar do painel).",
+        "description": "Item in the conversation list (panel sidebar).",
         "properties": {
           "agent": {
             "title": "Agent",
@@ -334,7 +334,7 @@
         "type": "object"
       },
       "DirectoryEntry": {
-        "description": "Visão pública de um agente para o diretório da equipe.",
+        "description": "Public view of an agent for the team directory.",
         "properties": {
           "display_name": {
             "title": "Display Name",
@@ -520,7 +520,7 @@
         "type": "object"
       },
       "MessageOut": {
-        "description": "Mensagem como trafega no REST e no WS (campo `from` é alias).",
+        "description": "A message as it travels over REST and WS (the `from` field is an alias).",
         "properties": {
           "body": {
             "title": "Body",
@@ -1704,7 +1704,7 @@
     },
     "/api/messages": {
       "post": {
-        "description": "Painel: humano envia em nome do próprio agente. Entrega em tempo real\nespelha o fluxo do WS (delivered + espelho para observers).",
+        "description": "Panel: a human sends on behalf of their own agent. Real-time delivery\nmirrors the WS flow (delivered + mirror to observers).",
         "operationId": "send_message_api_messages_post",
         "requestBody": {
           "content": {
@@ -1751,7 +1751,7 @@
     },
     "/api/messages/broadcast": {
       "post": {
-        "description": "Painel: fan-out para @grupo ou @all em nome do próprio agente.",
+        "description": "Panel: fan-out to @group or @all on behalf of the agent's own owner.",
         "operationId": "broadcast_api_messages_broadcast_post",
         "requestBody": {
           "content": {

@@ -26,7 +26,7 @@ class GroupRepository:
         await self._session.delete(group)
         await self._session.commit()
 
-    # ---- membros ----
+    # ---- members ----
 
     async def members_of(self, group_slug: str) -> list[str]:
         result = await self._session.execute(

@@ -1,6 +1,6 @@
-"""Injeção de dependências: sessão → repositories → services.
+"""Dependency injection: session → repositories → services.
 
-Rotas só conhecem services (docs/ARCHITECTURE.md · Regras de camadas).
+Routes only know services (docs/ARCHITECTURE.md · layer rules).
 """
 
 from collections.abc import AsyncIterator
@@ -29,8 +29,8 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
-# ---- fábricas puras (únicas que montam service+repositories) ----
-# Usadas pelas dependencies REST abaixo E pela rota WS (sessão por operação).
+# ---- pure factories (the only place that wires service+repositories) ----
+# Used by the REST dependencies below AND by the WS route (one session per operation).
 
 
 def build_auth_service(session: AsyncSession, settings) -> AuthService:
@@ -98,7 +98,7 @@ async def get_current_user(
 
 
 def auth_rate_limit(request: Request) -> None:
-    """Rate limit por IP nas rotas de autenticação (Ameaça 2)."""
+    """Per-IP rate limit on the authentication routes (Threat 2)."""
     client_ip = request.client.host if request.client else "unknown"
     if not request.app.state.auth_limiter.allow(client_ip):
         raise HTTPException(

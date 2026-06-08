@@ -1,4 +1,4 @@
-"""Setup do admin, registro por convite, login com lockout incremental."""
+"""Admin setup, invite-based registration, login with incremental lockout."""
 
 from datetime import timedelta
 
@@ -33,7 +33,7 @@ class AuthService:
         self._audit = audit
         self._settings = settings
 
-    # ---- setup (primeiro usuário = admin) ----
+    # ---- setup (first user = admin) ----
 
     async def needs_setup(self) -> bool:
         return await self._users.count() == 0
@@ -52,7 +52,7 @@ class AuthService:
         await self._audit.record("setup", actor=user.email)
         return user, self._issue_token(user)
 
-    # ---- registro por convite ----
+    # ---- invite-based registration ----
 
     async def register(
         self, invite_code: str, email: str, name: str, password: str
@@ -79,7 +79,7 @@ class AuthService:
         await self._audit.record("register", actor=user.email, detail={"invite": invite.code})
         return user, self._issue_token(user)
 
-    # ---- convites ----
+    # ---- invites ----
 
     async def create_invite(self, actor: User) -> Invite:
         if actor.role != "admin":
@@ -99,7 +99,7 @@ class AuthService:
             raise PermissionDeniedError("Apenas administradores listam convites.")
         return await self._invites.list_all()
 
-    # ---- gestão de usuários (admin) ----
+    # ---- user management (admin) ----
 
     async def list_users(self, actor: User) -> list[User]:
         if actor.role != "admin":
@@ -107,15 +107,15 @@ class AuthService:
         return await self._users.list_all()
 
     async def set_role(self, actor: User, target_id: int, role: str) -> User:
-        """Promove/rebaixa um usuário. Admin-only. Trava: nunca rebaixar o
-        último admin (senão a instância fica órfã, sem ninguém para administrar)."""
+        """Promotes/demotes a user. Admin-only. Guardrail: never demote the
+        last admin (otherwise the instance is orphaned, with no one to administer it)."""
         if actor.role != "admin":
             raise PermissionDeniedError("Apenas administradores alteram papéis.")
         target = await self._users.get_by_id(target_id)
         if target is None:
             raise NotFoundError("Usuário não encontrado.")
         if target.role == role:
-            return target  # idempotente
+            return target  # idempotent
         if role == "member" and target.role == "admin" and await self._users.count_admins() <= 1:
             raise ConflictError("Não é possível rebaixar o último administrador.")
         target.role = role
@@ -125,15 +125,15 @@ class AuthService:
         )
         return target
 
-    # ---- login com lockout incremental (Ameaça 2) ----
+    # ---- login with incremental lockout (Threat 2) ----
 
     async def login(self, email: str, password: str) -> tuple[User, str]:
         user = await self._users.get_by_email(email.lower())
         if user is None:
-            # Compara contra um hash bcrypt CONSTANTE pré-computado: uma única
-            # verificação, igualando o tempo do caminho real (que também faz
-            # uma verificação). Gerar hash novo aqui custava ~2x e criava um
-            # oráculo de enumeração invertido (Ameaça 2).
+            # Compares against a precomputed CONSTANT bcrypt hash: a single
+            # verification, matching the timing of the real path (which also does
+            # one verification). Generating a fresh hash here cost ~2x and created
+            # an inverted enumeration oracle (Threat 2).
             security.verify_password(password, security.DUMMY_PASSWORD_HASH)
             await self._audit.record("login_fail", actor=email.lower())
             raise AuthError(GENERIC_LOGIN_ERROR)
@@ -160,7 +160,7 @@ class AuthService:
         await self._audit.record("login_ok", actor=user.email)
         return user, self._issue_token(user)
 
-    # ---- resolução de token (usada pelo middleware/deps) ----
+    # ---- token resolution (used by the middleware/deps) ----
 
     async def get_user_by_token(self, token: str) -> User | None:
         user_id = security.decode_jwt(token, self._settings.jwt_secret)

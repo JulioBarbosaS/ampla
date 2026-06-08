@@ -1,4 +1,4 @@
-"""POST /api/messages — humano envia em nome do próprio agente (painel)."""
+"""POST /api/messages — a human sends on behalf of their own agent (panel)."""
 
 from tests.helpers import (
     auth,
@@ -12,7 +12,7 @@ from tests.helpers import (
 
 
 class TestSendAsUser:
-    def test_dono_envia_pelo_proprio_agente(self, client):
+    def test_owner_sends_through_their_own_agent(self, client):
         admin_token = do_setup(client)
         member_token = register_member(client, admin_token)
         create_agent(client, member_token, "mobile-eduardo")
@@ -26,7 +26,7 @@ class TestSendAsUser:
         assert response.status_code == 201
         body = response.json()
         assert body["from"] == "mobile-eduardo"
-        assert body["delivered_at"] is None  # destinatário offline
+        assert body["delivered_at"] is None  # recipient offline
 
         history = client.get(
             "/api/messages/conversation",
@@ -35,7 +35,7 @@ class TestSendAsUser:
         ).json()
         assert [m["body"] for m in history] == ["via painel"]
 
-    def test_nao_envia_por_agente_de_terceiro(self, client):
+    def test_does_not_send_through_a_third_partys_agent(self, client):
         admin_token = do_setup(client)
         member_token = register_member(client, admin_token)
         create_agent(client, admin_token, "backend-julio")
@@ -48,7 +48,7 @@ class TestSendAsUser:
         )
         assert response.status_code == 403
 
-    def test_entrega_em_tempo_real_para_daemon_online(self, client):
+    def test_real_time_delivery_to_an_online_daemon(self, client):
         token = do_setup(client)
         create_agent(client, token, "backend-julio")
         create_agent(client, token, "mobile-eduardo")
@@ -67,7 +67,7 @@ class TestSendAsUser:
             frame = recv_until(ws, "message")
             assert frame["message"]["body"] == "olá!"
 
-    def test_allowlist_tambem_vale_para_envio_via_painel(self, client):
+    def test_allowlist_also_applies_to_panel_sends(self, client):
         token = do_setup(client)
         create_agent(client, token, "backend-julio")
         create_agent(client, token, "mobile-eduardo")
