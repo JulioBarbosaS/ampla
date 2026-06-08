@@ -84,11 +84,17 @@
       }
     ],
     "settings": {
+      "allow_write": false,
       "allowed_senders": null,
       "auto_timeout_secs": 120,
+      "block_hidden_files": true,
+      "block_sensitive_paths": true,
+      "confine_to_dir": true,
+      "denied_paths": [],
       "instructions": "",
       "max_auto_per_hour": 10,
-      "mode": "inbox"
+      "mode": "inbox",
+      "trusted_senders": []
     },
     "type": "hello_ack"
   },
@@ -119,11 +125,17 @@
   },
   "server.settings_update": {
     "settings": {
+      "allow_write": false,
       "allowed_senders": null,
       "auto_timeout_secs": 120,
+      "block_hidden_files": true,
+      "block_sensitive_paths": true,
+      "confine_to_dir": true,
+      "denied_paths": [],
       "instructions": "",
       "max_auto_per_hour": 10,
-      "mode": "inbox"
+      "mode": "inbox",
+      "trusted_senders": []
     },
     "type": "settings_update"
   }

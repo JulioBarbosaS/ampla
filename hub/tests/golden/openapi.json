@@ -98,6 +98,10 @@
       },
       "AgentOut": {
         "properties": {
+          "allow_write": {
+            "title": "Allow Write",
+            "type": "boolean"
+          },
           "allowed_senders": {
             "anyOf": [
               {
@@ -116,10 +120,29 @@
             "title": "Auto Timeout Secs",
             "type": "integer"
           },
+          "block_hidden_files": {
+            "title": "Block Hidden Files",
+            "type": "boolean"
+          },
+          "block_sensitive_paths": {
+            "title": "Block Sensitive Paths",
+            "type": "boolean"
+          },
+          "confine_to_dir": {
+            "title": "Confine To Dir",
+            "type": "boolean"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "denied_paths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Denied Paths",
+            "type": "array"
           },
           "display_name": {
             "title": "Display Name",
@@ -141,6 +164,13 @@
             "title": "Slug",
             "type": "string"
           },
+          "trusted_senders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Trusted Senders",
+            "type": "array"
+          },
           "user_id": {
             "title": "User Id",
             "type": "integer"
@@ -155,7 +185,13 @@
           "allowed_senders",
           "max_auto_per_hour",
           "auto_timeout_secs",
-          "instructions"
+          "instructions",
+          "allow_write",
+          "block_hidden_files",
+          "block_sensitive_paths",
+          "confine_to_dir",
+          "denied_paths",
+          "trusted_senders"
         ],
         "title": "AgentOut",
         "type": "object"
@@ -163,6 +199,17 @@
       "AgentSettingsUpdate": {
         "description": "Partial PATCH — only fields that are present get changed.",
         "properties": {
+          "allow_write": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Write"
+          },
           "allowed_senders": {
             "anyOf": [
               {
@@ -190,10 +237,57 @@
             ],
             "title": "Auto Timeout Secs"
           },
+          "block_hidden_files": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Hidden Files"
+          },
+          "block_sensitive_paths": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Sensitive Paths"
+          },
           "clear_allowed_senders": {
             "default": false,
             "title": "Clear Allowed Senders",
             "type": "boolean"
+          },
+          "confine_to_dir": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confine To Dir"
+          },
+          "denied_paths": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Denied Paths"
           },
           "instructions": {
             "anyOf": [
@@ -231,6 +325,20 @@
               }
             ],
             "title": "Mode"
+          },
+          "trusted_senders": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trusted Senders"
           }
         },
         "title": "AgentSettingsUpdate",

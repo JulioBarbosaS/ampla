@@ -70,6 +70,59 @@ class TestSettings:
         assert body["mode"] == "auto"
         assert body["allowed_senders"] == ["mobile-eduardo"]
 
+    def test_guardrail_defaults_are_safe(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")
+        body = client.get("/api/agents/backend-julio", headers=auth(token)).json()
+        assert body["allow_write"] is False  # read-only until explicitly enabled
+        assert body["block_hidden_files"] is True
+        assert body["block_sensitive_paths"] is True
+        assert body["confine_to_dir"] is True
+        assert body["denied_paths"] == []
+        assert body["trusted_senders"] == []
+
+    def test_updates_guardrails(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")
+        response = client.patch(
+            "/api/agents/backend-julio/settings",
+            json={
+                "allow_write": True,
+                "block_hidden_files": False,
+                "confine_to_dir": False,
+                "denied_paths": ["secrets.txt", "*.pem"],
+                "trusted_senders": ["mobile-eduardo"],
+            },
+            headers=auth(token),
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["allow_write"] is True
+        assert body["block_hidden_files"] is False
+        assert body["confine_to_dir"] is False
+        assert body["denied_paths"] == ["secrets.txt", "*.pem"]
+        assert body["trusted_senders"] == ["mobile-eduardo"]
+
+    def test_denied_paths_over_limit_422(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")
+        response = client.patch(
+            "/api/agents/backend-julio/settings",
+            json={"denied_paths": [f"f{i}.txt" for i in range(51)]},
+            headers=auth(token),
+        )
+        assert response.status_code == 422
+
+    def test_trusted_sender_invalid_slug_422(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")
+        response = client.patch(
+            "/api/agents/backend-julio/settings",
+            json={"trusted_senders": ["Not A Slug"]},
+            headers=auth(token),
+        )
+        assert response.status_code == 422
+
     def test_third_party_does_not_update_403(self, client):
         admin_token = do_setup(client)
         member_token = register_member(client, admin_token)

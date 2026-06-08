@@ -1,6 +1,19 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+MAX_DENIED_PATHS = 50
+MAX_DENIED_PATH_LEN = 200
+
+
+def _clean_denied_paths(value: list[str]) -> list[str]:
+    cleaned = [p.strip() for p in value if p.strip()]
+    if len(cleaned) > MAX_DENIED_PATHS:
+        raise ValueError(f"No máximo {MAX_DENIED_PATHS} caminhos negados.")
+    if any(len(p) > MAX_DENIED_PATH_LEN for p in cleaned):
+        raise ValueError(f"Cada caminho negado deve ter até {MAX_DENIED_PATH_LEN} caracteres.")
+    return cleaned
+
 
 # Public agent slug (docs/ARCHITECTURE.md · Security · Cross-cutting)
 SLUG_PATTERN = r"^[a-z][a-z0-9-]{1,48}[a-z0-9]$"
@@ -21,6 +34,22 @@ class AgentSettings(BaseModel):
     auto_timeout_secs: int = Field(default=120, ge=10, le=600)
     instructions: str = Field(default="", max_length=4000)
 
+    # Auto-respond filesystem guardrails. The daemon turns these into claude -p
+    # deny-rules/flags before answering an untrusted sender (Threat 1).
+    allow_write: bool = False  # read-only (Read/Grep/Glob) unless enabled (then Edit/Write)
+    block_hidden_files: bool = True  # deny dotfiles (.env, .gitignore, ...)
+    block_sensitive_paths: bool = True  # deny ~/.ssh, ~/.aws, /etc, ... (danger zone to disable)
+    confine_to_dir: bool = True  # no access outside the project dir
+    denied_paths: list[str] = Field(default_factory=list)  # extra custom globs to deny
+    # Trusted senders bypass ALL of the above — their messages run with full
+    # access (write still gated by allow_write).
+    trusted_senders: list[str] = Field(default_factory=list)
+
+    @field_validator("denied_paths")
+    @classmethod
+    def _check_denied_paths(cls, v: list[str]) -> list[str]:
+        return _clean_denied_paths(v)
+
 
 class AgentSettingsUpdate(BaseModel):
     """Partial PATCH — only fields that are present get changed."""
@@ -31,6 +60,17 @@ class AgentSettingsUpdate(BaseModel):
     max_auto_per_hour: int | None = Field(default=None, ge=1, le=120)
     auto_timeout_secs: int | None = Field(default=None, ge=10, le=600)
     instructions: str | None = Field(default=None, max_length=4000)
+    allow_write: bool | None = None
+    block_hidden_files: bool | None = None
+    block_sensitive_paths: bool | None = None
+    confine_to_dir: bool | None = None
+    denied_paths: list[str] | None = None
+    trusted_senders: list[str] | None = None
+
+    @field_validator("denied_paths")
+    @classmethod
+    def _check_denied_paths(cls, v: list[str] | None) -> list[str] | None:
+        return None if v is None else _clean_denied_paths(v)
 
 
 class AgentCreate(BaseModel):
@@ -50,6 +90,12 @@ class AgentOut(BaseModel):
     max_auto_per_hour: int
     auto_timeout_secs: int
     instructions: str
+    allow_write: bool
+    block_hidden_files: bool
+    block_sensitive_paths: bool
+    confine_to_dir: bool
+    denied_paths: list[str]
+    trusted_senders: list[str]
 
 
 class DirectoryEntry(BaseModel):

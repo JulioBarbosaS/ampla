@@ -13,6 +13,14 @@ export const agentSettingsSchema = z.object({
   max_auto_per_hour: z.number().int(),
   auto_timeout_secs: z.number().int(),
   instructions: z.string(),
+  // Auto-respond filesystem guardrails (the daemon turns these into claude -p
+  // deny-rules/flags). trusted_senders bypass them with full access.
+  allow_write: z.boolean(),
+  block_hidden_files: z.boolean(),
+  block_sensitive_paths: z.boolean(),
+  confine_to_dir: z.boolean(),
+  denied_paths: z.array(z.string()),
+  trusted_senders: z.array(z.string()),
 });
 export type AgentSettings = z.infer<typeof agentSettingsSchema>;
 

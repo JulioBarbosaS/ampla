@@ -18,6 +18,12 @@ export class FakeHub {
     max_auto_per_hour: 10,
     auto_timeout_secs: 120,
     instructions: "",
+    allow_write: false,
+    block_hidden_files: true,
+    block_sensitive_paths: true,
+    confine_to_dir: true,
+    denied_paths: [],
+    trusted_senders: [],
   };
   pending: WireMessage[] = [];
   validKeys = new Map<string, string>(); // agent_id -> key

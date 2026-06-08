@@ -92,6 +92,27 @@ class AgentService:
         if patch.instructions is not None:
             agent.instructions = patch.instructions
             changed["instructions"] = True  # content does not go to the audit
+        if patch.allow_write is not None:
+            agent.allow_write = patch.allow_write
+            changed["allow_write"] = patch.allow_write
+        if patch.block_hidden_files is not None:
+            agent.block_hidden_files = patch.block_hidden_files
+            changed["block_hidden_files"] = patch.block_hidden_files
+        if patch.block_sensitive_paths is not None:
+            agent.block_sensitive_paths = patch.block_sensitive_paths
+            changed["block_sensitive_paths"] = patch.block_sensitive_paths
+        if patch.confine_to_dir is not None:
+            agent.confine_to_dir = patch.confine_to_dir
+            changed["confine_to_dir"] = patch.confine_to_dir
+        if patch.denied_paths is not None:
+            agent.denied_paths = patch.denied_paths
+            changed["denied_paths"] = patch.denied_paths
+        if patch.trusted_senders is not None:
+            for sender in patch.trusted_senders:
+                if not _SLUG_RE.fullmatch(sender):
+                    raise InvalidInputError(f"Slug inválido em trusted_senders: {sender!r}")
+            agent.trusted_senders = patch.trusted_senders
+            changed["trusted_senders"] = patch.trusted_senders
         await self._agents.save(agent)
         await self._audit.record(
             "settings_changed", actor=actor.email, detail={"slug": slug, "fields": list(changed)}

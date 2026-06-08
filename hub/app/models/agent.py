@@ -28,6 +28,15 @@ class Agent(Base):
     auto_timeout_secs: Mapped[int] = mapped_column(default=120)
     instructions: Mapped[str] = mapped_column(Text, default="")
 
+    # Auto-respond filesystem guardrails (safe defaults; the daemon enforces them
+    # as claude -p deny-rules). trusted_senders bypass them entirely.
+    allow_write: Mapped[bool] = mapped_column(default=False)
+    block_hidden_files: Mapped[bool] = mapped_column(default=True)
+    block_sensitive_paths: Mapped[bool] = mapped_column(default=True)
+    confine_to_dir: Mapped[bool] = mapped_column(default=True)
+    denied_paths: Mapped[list[str]] = mapped_column(JSON, default=list)
+    trusted_senders: Mapped[list[str]] = mapped_column(JSON, default=list)
+
 
 class AgentKey(Base):
     __tablename__ = "agent_keys"
