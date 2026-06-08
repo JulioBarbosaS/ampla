@@ -16,6 +16,14 @@ from app.core.db import build_engine, build_session_factory, create_tables
 from app.core.ratelimit import SlidingWindowLimiter
 from app.ws.connection_manager import ConnectionManager
 
+# CSP for the bundled SPA: external JS/CSS from same origin, same-origin
+# fetch + WebSocket (ws/wss), no framing, no plugins.
+_CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws: wss:; "
+    "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+)
+
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
@@ -54,6 +62,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Content-Security-Policy"] = _CSP
+        # Ignored by browsers over plain HTTP; takes effect behind a TLS proxy.
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
     register_error_handlers(app)

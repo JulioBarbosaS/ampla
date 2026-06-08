@@ -34,3 +34,13 @@ def test_no_panel_when_web_dist_unset(tmp_path):
         assert client.get("/api/health").json() == {"status": "ok"}
         # sem painel montado, a raiz não vira index.html
         assert client.get("/").status_code == 404
+
+
+def test_security_headers_present():
+    app = create_app(make_settings())
+    with TestClient(app) as client:
+        h = client.get("/api/health").headers
+        assert "default-src 'self'" in h["content-security-policy"]
+        assert "frame-ancestors 'none'" in h["content-security-policy"]
+        assert h["strict-transport-security"].startswith("max-age=")
+        assert h["x-content-type-options"] == "nosniff"
