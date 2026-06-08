@@ -4,6 +4,7 @@ import { agentsApi } from "../../lib/api/agents";
 import { wsUrl } from "../../lib/api/client";
 import { groupsApi } from "../../lib/api/groups";
 import type { Agent, AgentKey, Group } from "../../lib/api/types";
+import { connectToken } from "../../lib/connect";
 import { PresenceDot } from "../chat/Sidebar";
 
 export function AgentCard({
@@ -202,11 +203,39 @@ pnpm daemon   # deixe rodando`;
           </button>
         </div>
         {newKey && (
-          <div className="mb-2 rounded-md bg-amber-950/40 px-3 py-2">
-            <p className="text-xs text-amber-300">
-              Copie agora — esta chave não será exibida novamente:
-            </p>
-            <p className="break-all font-mono text-xs text-amber-200">{newKey}</p>
+          <div className="mb-2 space-y-2 rounded-md bg-amber-950/40 px-3 py-2">
+            <div>
+              <p className="text-xs text-amber-300">
+                Copie agora — esta chave não será exibida novamente:
+              </p>
+              <p className="break-all font-mono text-xs text-amber-200">{newKey}</p>
+            </div>
+            <div>
+              <p className="text-xs text-amber-300">
+                Ou conecte em um comando (escreve config, registra o MCP e instala os hooks):
+              </p>
+              {(() => {
+                const cmd = `amp connect ${connectToken(wsUrl(), agent.slug, newKey)}`;
+                return (
+                  <div className="mt-1 flex items-center gap-2">
+                    <code className="min-w-0 flex-1 break-all rounded bg-zinc-900 px-2 py-1 font-mono text-[11px] text-emerald-300">
+                      {cmd}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard?.writeText(cmd)}
+                      className="shrink-0 rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-700"
+                    >
+                      copiar
+                    </button>
+                  </div>
+                );
+              })()}
+              <p className="mt-1 text-[10px] text-zinc-500">
+                <span className="font-mono">amp</span> ={" "}
+                <span className="font-mono">pnpm --dir /caminho/para/amp/bridge connect</span>
+              </p>
+            </div>
           </div>
         )}
         <ul className="space-y-1">

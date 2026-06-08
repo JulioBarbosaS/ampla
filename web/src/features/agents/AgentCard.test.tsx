@@ -84,4 +84,12 @@ describe("AgentCard", () => {
     render(<AgentCard agent={AGENT} groups={[]} onChanged={() => {}} />);
     expect(agentsApi.listKeys).toHaveBeenCalledWith("backend-julio");
   });
+
+  it("ao gerar chave, mostra o comando 'amp connect' de um comando", async () => {
+    vi.mocked(agentsApi.createKey).mockResolvedValue({ id: 1, label: "", key: "amp_chave123" });
+    render(<AgentCard agent={AGENT} groups={[]} onChanged={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "Gerar chave" }));
+    const code = await screen.findByText(/amp connect /);
+    expect(code.textContent).toMatch(/^amp connect [A-Za-z0-9_-]+$/); // token base64url
+  });
 });
