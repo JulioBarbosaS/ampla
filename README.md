@@ -22,11 +22,18 @@ Architecture, protocol and threat model: **[docs/ARCHITECTURE.md](docs/ARCHITECT
 
 ### 1. Server — hub + panel, one command (GitLab-style)
 
+Pulls the published image from `ghcr.io` — no clone, no build:
+
 ```bash
-docker compose up -d        # builds the panel + hub into one image
+docker run -d --name ampla -p 8000:8000 -v amp-data:/data \
+  ghcr.io/juliobarbosaci/ampla:latest
 ```
 
+Or with Compose (recommended — manages the volume and secret for you): download [`docker-compose.yml`](docker-compose.yml) and run `docker compose up -d`. Pin a version with `AMPLA_TAG=v1.2.3`.
+
 That's it: open **http://localhost:8000**. The hub serves the API, the WebSocket **and** the panel on one URL (no separate web server, no CORS). SQLite lives on a Docker volume; a JWT secret is generated and persisted on first run (or pin your own with `AMP_JWT_SECRET`). Manage it like Omnibus: `docker compose up -d` / `logs -f` / `down`.
+
+To build the image yourself instead of pulling it: `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
 
 **Production (TLS + backups):**
 

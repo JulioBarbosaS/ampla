@@ -1,13 +1,16 @@
 # One-command Ampla server (hub + panel). GitLab-style:
 #   docker compose up -d   →   open http://localhost:8000   →   create the admin
 #
+# Pulls the published image from ghcr.io — no clone, no build. Pin a version
+# with AMPLA_TAG=v1.2.3. To build locally instead, add the override:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
 # SQLite lives on the named volume; the JWT secret is generated on first run
 # (or pin your own below). Devs connect their daemons with `amp connect` —
 # like registering a GitLab Runner.
 services:
   hub:
-    build: .
-    image: ampla/hub:latest
+    image: ghcr.io/juliobarbosaci/ampla:${AMPLA_TAG:-latest}
     ports:
       - "8000:8000"
     volumes:

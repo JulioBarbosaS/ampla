@@ -1,0 +1,6 @@
+# Build the image locally instead of pulling it from ghcr.io. For contributors
+# and anyone running an unreleased version:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+services:
+  hub:
+    build: .
