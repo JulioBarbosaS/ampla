@@ -6,7 +6,7 @@ import { authErrorMessage } from "../../lib/api/errors";
 import { useAuthStore } from "../../stores/auth";
 
 export function LoginPage() {
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const setUser = useAuthStore((s) => s.setUser);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -20,7 +20,7 @@ export function LoginPage() {
         email: String(data.get("email")),
         password: String(data.get("password")),
       });
-      setAuth(result.token, result.user);
+      setUser(result.user); // session set via HttpOnly cookie by the hub
     } catch (err) {
       setError(authErrorMessage(err, { unauthorized: "E-mail ou senha incorretos." }));
     } finally {

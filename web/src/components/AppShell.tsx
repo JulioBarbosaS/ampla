@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { authApi } from "../lib/api/auth";
 import { useAuthStore } from "../stores/auth";
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -8,7 +9,13 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function AppShell() {
   const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
+  const clear = useAuthStore((s) => s.clear);
+
+  // Ask the hub to expire the cookie, then drop the in-memory user either way.
+  async function handleLogout() {
+    await authApi.logout().catch(() => {});
+    clear();
+  }
 
   return (
     <div className="flex h-screen flex-col">
@@ -43,7 +50,7 @@ export function AppShell() {
           </span>
           <button
             type="button"
-            onClick={logout}
+            onClick={handleLogout}
             className="rounded-md px-2 py-1 text-zinc-500 hover:bg-zinc-800 hover:text-white"
           >
             Sair

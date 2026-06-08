@@ -22,7 +22,7 @@ function mockFetch(status: number, payload: unknown) {
 }
 
 beforeEach(() => {
-  useAuthStore.setState({ token: null, user: null });
+  useAuthStore.setState({ user: null });
 });
 
 afterEach(() => {
@@ -30,16 +30,14 @@ afterEach(() => {
 });
 
 describe("api client", () => {
-  it("sends Authorization when a token is present", async () => {
-    useAuthStore.setState({ token: "jwt-token", user: USER });
+  it("sends the session cookie (credentials: include) and no Authorization header", async () => {
     const fetchMock = mockFetch(200, { ok: true });
 
     await api.get("/api/auth/me");
 
     const [, init] = fetchMock.mock.calls[0]!;
-    expect((init as RequestInit).headers).toMatchObject({
-      Authorization: "Bearer jwt-token",
-    });
+    expect((init as RequestInit).credentials).toBe("include");
+    expect((init as RequestInit).headers).not.toHaveProperty("Authorization");
   });
 
   it("hub error becomes an ApiError with the detail", async () => {
@@ -49,11 +47,11 @@ describe("api client", () => {
     );
   });
 
-  it("401 with a token tears down the session (automatic logout)", async () => {
-    useAuthStore.setState({ token: "expirado", user: USER });
+  it("401 tears down the local session (the cookie is gone or expired)", async () => {
+    useAuthStore.setState({ user: USER });
     mockFetch(401, { detail: "Sessão inválida ou expirada." });
 
     await expect(api.get("/api/auth/me")).rejects.toThrow();
-    expect(useAuthStore.getState().token).toBeNull();
+    expect(useAuthStore.getState().user).toBeNull();
   });
 });

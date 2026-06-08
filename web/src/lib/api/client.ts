@@ -5,9 +5,10 @@
 
 import { useAuthStore } from "../../stores/auth";
 
-// Default to the same origin the panel is served from — correct when the hub
-// serves the built panel (Docker/one-URL install). In dev (panel on :5173,
-// hub on :8000) set VITE_HUB_URL=http://localhost:8000.
+// Always same origin: in prod the hub serves the built panel; in dev the Vite
+// server proxies /api and /ws to the hub (see vite.config.ts). Same origin is
+// required for the HttpOnly SameSite=Strict session cookie to travel at all.
+// VITE_HUB_URL stays as an escape hatch but is not the cookie-auth path.
 const BASE = import.meta.env.VITE_HUB_URL ?? window.location.origin;
 
 export class ApiError extends Error {
@@ -24,18 +25,17 @@ async function request<T>(
   path: string,
   body?: unknown,
 ): Promise<T> {
-  const token = useAuthStore.getState().token;
   const response = await fetch(`${BASE}${path}`, {
     method,
+    credentials: "include", // send the HttpOnly session cookie
     headers: {
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
 
-  if (response.status === 401 && token) {
-    useAuthStore.getState().logout(); // session expired → back to login
+  if (response.status === 401) {
+    useAuthStore.getState().clear(); // session expired → back to login
   }
   const text = await response.text();
   const payload = text ? JSON.parse(text) : null;

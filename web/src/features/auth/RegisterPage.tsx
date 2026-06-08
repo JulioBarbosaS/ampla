@@ -6,7 +6,7 @@ import { authErrorMessage } from "../../lib/api/errors";
 import { useAuthStore } from "../../stores/auth";
 
 export function RegisterPage() {
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const setUser = useAuthStore((s) => s.setUser);
   const [params] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -23,7 +23,7 @@ export function RegisterPage() {
         name: String(data.get("name")),
         password: String(data.get("password")),
       });
-      setAuth(result.token, result.user);
+      setUser(result.user); // session set via HttpOnly cookie by the hub
     } catch (err) {
       setError(authErrorMessage(err));
     } finally {

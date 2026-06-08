@@ -9,6 +9,7 @@ export const authApi = {
     api.post<TokenResponse>("/api/auth/register", data),
   login: (data: { email: string; password: string }) =>
     api.post<TokenResponse>("/api/auth/login", data),
+  logout: () => api.post<null>("/api/auth/logout"),
   me: () => api.get<User>("/api/auth/me"),
   createInvite: () => api.post<Invite>("/api/invites"),
   listInvites: () => api.get<Invite[]>("/api/invites"),

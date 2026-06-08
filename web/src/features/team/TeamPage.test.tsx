@@ -30,7 +30,7 @@ const MEMBER = {
 };
 
 beforeEach(() => {
-  useAuthStore.setState({ token: "jwt", user: ADMIN });
+  useAuthStore.setState({ user: ADMIN });
   vi.mocked(usersApi.list).mockResolvedValue([ADMIN, MEMBER]);
   vi.mocked(authApi.listInvites).mockResolvedValue([]);
 });

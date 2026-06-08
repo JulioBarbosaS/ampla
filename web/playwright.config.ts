@@ -2,7 +2,9 @@ import { defineConfig } from "@playwright/test";
 
 /**
  * E2E contra hub REAL: sobe o uvicorn (porta 8021, banco descartável)
- * e o vite dev (porta 5273) antes dos testes.
+ * e o vite dev (porta 5273) antes dos testes. O Vite faz proxy de /api e /ws
+ * para o hub (VITE_HUB_PROXY), então o navegador fala só com :5273 — mesma
+ * origem, exigência do cookie de sessão HttpOnly+SameSite=Strict.
  */
 export default defineConfig({
   testDir: "e2e",
@@ -20,7 +22,6 @@ export default defineConfig({
       env: {
         AMP_DATABASE_URL: "sqlite+aiosqlite:////tmp/amp-e2e.db",
         AMP_JWT_SECRET: "e2e-secret-com-no-minimo-32-bytes!!",
-        AMP_CORS_ORIGINS: '["http://localhost:5273"]',
       },
     },
     {
@@ -28,7 +29,8 @@ export default defineConfig({
       url: "http://localhost:5273",
       reuseExistingServer: false,
       env: {
-        VITE_HUB_URL: "http://localhost:8021",
+        // same-origin: the browser hits :5273; Vite proxies /api and /ws here
+        VITE_HUB_PROXY: "http://localhost:8021",
       },
     },
   ],

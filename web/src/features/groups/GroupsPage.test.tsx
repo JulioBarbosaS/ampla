@@ -40,7 +40,6 @@ vi.mock("../../lib/api/agents", () => ({
 
 beforeEach(() => {
   useAuthStore.setState({
-    token: "jwt",
     user: { id: 1, email: "j@example.com", name: "Julio", role: "member", created_at: "" },
   });
   vi.mocked(groupsApi.list).mockResolvedValue([

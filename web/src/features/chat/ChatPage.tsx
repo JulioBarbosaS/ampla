@@ -8,7 +8,7 @@ import { ChatWindow } from "./ChatWindow";
 import { Sidebar } from "./Sidebar";
 
 export function ChatPage() {
-  const token = useAuthStore((s) => s.token);
+  const authed = useAuthStore((s) => s.user !== null);
   const { perspective, partner, wsConnected } = useChatStore();
   const {
     setDirectory,
@@ -38,15 +38,15 @@ export function ChatPage() {
 
   // real time (WS observer)
   useEffect(() => {
-    if (!token) return;
-    return connectObserver(token, {
+    if (!authed) return;
+    return connectObserver({
       onMessage: addMessage,
       onPresence: setPresence,
       onOnlineList: setOnlineList,
       onStatus: setWsConnected,
       onDelivered: markDelivered,
     });
-  }, [token, addMessage, setPresence, setOnlineList, setWsConnected, markDelivered]);
+  }, [authed, addMessage, setPresence, setOnlineList, setWsConnected, markDelivered]);
 
   // history of the selected conversation
   useEffect(() => {

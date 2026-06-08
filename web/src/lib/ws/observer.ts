@@ -19,15 +19,16 @@ export interface ObserverHandlers {
 
 const RECONNECT_MS = 3000;
 
-/** Connects as observer; returns a cleanup function. */
-export function connectObserver(token: string, handlers: ObserverHandlers): () => void {
+/** Connects as observer; returns a cleanup function. The session rides on the
+ * HttpOnly cookie carried with the WS upgrade (same origin) — no token in JS. */
+export function connectObserver(handlers: ObserverHandlers): () => void {
   let ws: WebSocket | null = null;
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   function open(): void {
     ws = new WebSocket(wsUrl());
-    ws.onopen = () => ws?.send(JSON.stringify({ type: "hello", jwt: token }));
+    ws.onopen = () => ws?.send(JSON.stringify({ type: "hello" }));
     ws.onmessage = (event) => {
       let frame: { type?: string; [k: string]: unknown };
       try {

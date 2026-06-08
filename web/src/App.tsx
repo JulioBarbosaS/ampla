@@ -12,15 +12,25 @@ import { authApi } from "./lib/api/auth";
 import { useAuthStore } from "./stores/auth";
 
 export default function App() {
-  const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
 
+  // Boot: ask whether setup is pending and whether the session cookie is still
+  // valid (/me). The JWT lives only in the HttpOnly cookie, so the server is
+  // the source of truth — there is nothing to rehydrate from storage.
   useEffect(() => {
-    authApi
-      .setupStatus()
-      .then(({ needs_setup }) => setNeedsSetup(needs_setup))
-      .catch(() => setNeedsSetup(false)); // hub down → login screen shows the error
-  }, []);
+    Promise.all([
+      authApi
+        .setupStatus()
+        .then(({ needs_setup }) => needs_setup)
+        .catch(() => false), // hub down → login screen shows the error
+      authApi
+        .me()
+        .then(setUser)
+        .catch(() => {}), // 401 → not logged in, stays on login
+    ]).then(([needs]) => setNeedsSetup(needs));
+  }, [setUser]);
 
   if (needsSetup === null) {
     return (
@@ -30,7 +40,7 @@ export default function App() {
     );
   }
 
-  if (needsSetup && !token) {
+  if (needsSetup && !user) {
     return (
       <Routes>
         <Route path="*" element={<SetupPage onDone={() => setNeedsSetup(false)} />} />
@@ -38,7 +48,7 @@ export default function App() {
     );
   }
 
-  if (!token) {
+  if (!user) {
     return (
       <Routes>
         <Route path="/register" element={<RegisterPage />} />
