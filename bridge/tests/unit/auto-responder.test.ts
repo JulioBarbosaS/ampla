@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { AutoResponder, buildPrompt, type ClaudeRunner } from "../../src/daemon/auto-responder.js";
+import {
+  AutoResponder,
+  buildGuardrails,
+  buildPrompt,
+  type ClaudeRunner,
+} from "../../src/daemon/auto-responder.js";
 import type { AgentSettings, WireMessage } from "../../src/shared/protocol.js";
 
 const MESSAGE: WireMessage = {
@@ -90,6 +95,53 @@ describe("AutoResponder", () => {
       expect.any(String),
       expect.objectContaining({ timeoutMs: 45_000 }),
     );
+  });
+});
+
+describe("buildGuardrails (per-agent claude -p restrictions)", () => {
+  const DENY = (g: ReturnType<typeof buildGuardrails>): string[] =>
+    JSON.parse(g.settingsJson ?? '{"permissions":{"deny":[]}}').permissions.deny;
+
+  it("read-only by default — write tools disallowed", () => {
+    const g = buildGuardrails(settings(), "mobile-eduardo");
+    expect(g.allowedTools).toBe("Read,Grep,Glob");
+    expect(g.disallowedTools).toBe("Bash,NotebookEdit,WebFetch,WebSearch,Edit,Write");
+  });
+
+  it("denies dotfiles, sensitive stores and out-of-project roots", () => {
+    const deny = DENY(buildGuardrails(settings(), "mobile-eduardo"));
+    expect(deny).toContain("Read(**/.*)");
+    expect(deny).toContain("Read(~/.ssh/**)");
+    expect(deny).toContain("Read(//etc/**)");
+    expect(deny.some((r) => r.startsWith("Edit("))).toBe(false); // read-only
+  });
+
+  it("includes custom denied_paths", () => {
+    const deny = DENY(buildGuardrails(settings({ denied_paths: ["secrets.txt", "*.pem"] }), "x"));
+    expect(deny).toContain("Read(secrets.txt)");
+    expect(deny).toContain("Read(*.pem)");
+  });
+
+  it("a trusted sender bypasses every restriction", () => {
+    const g = buildGuardrails(settings({ trusted_senders: ["mobile-eduardo"] }), "mobile-eduardo");
+    expect(g.settingsJson).toBeNull();
+  });
+
+  it("allow_write enables write tools and extends deny to Edit/Write", () => {
+    const g = buildGuardrails(settings({ allow_write: true }), "x");
+    expect(g.allowedTools).toBe("Read,Grep,Glob,Edit,Write");
+    expect(g.disallowedTools).toBe("Bash,NotebookEdit,WebFetch,WebSearch");
+    const deny = DENY(g);
+    expect(deny).toContain("Edit(~/.ssh/**)");
+    expect(deny).toContain("Write(~/.ssh/**)");
+  });
+
+  it("toggles off → no path deny rules", () => {
+    const g = buildGuardrails(
+      settings({ block_sensitive_paths: false, confine_to_dir: false, block_hidden_files: false }),
+      "x",
+    );
+    expect(g.settingsJson).toBeNull();
   });
 });
 

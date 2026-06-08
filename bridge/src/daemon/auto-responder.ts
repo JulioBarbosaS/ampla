@@ -13,11 +13,101 @@ import type { AgentSettings, WireMessage } from "../shared/protocol.js";
 import { scanForSecrets } from "./secret-filter.js";
 
 export const READ_ONLY_TOOLS = "Read,Grep,Glob";
+const WRITE_TOOLS = "Edit,Write";
+const BASE_DISALLOWED = "Bash,NotebookEdit,WebFetch,WebSearch";
 
-export type ClaudeRunner = (
-  prompt: string,
-  opts: { bin: string; cwd?: string; timeoutMs: number },
-) => Promise<string>;
+// OS secret stores — denied when block_sensitive_paths is on. Never readable by
+// an auto-respond unless the owner turns the toggle off in the danger zone.
+const SENSITIVE_SPECS = [
+  "~/.ssh/**",
+  "~/.aws/**",
+  "~/.gnupg/**",
+  "~/.config/**",
+  "~/.kube/**",
+  "~/.docker/**",
+  "~/.netrc",
+  "~/.npmrc",
+  "~/.git-credentials",
+  "~/.pgpass",
+  "//etc/**",
+  "//root/**",
+];
+// Out-of-project roots denied by confine_to_dir. Best effort without an OS
+// sandbox: a sibling project under $HOME is NOT covered (deny-rules can't
+// express "allow only the cwd" — docs/ARCHITECTURE.md · Threat 1).
+const OUTSIDE_SPECS = [
+  "//etc/**",
+  "//root/**",
+  "//var/**",
+  "//usr/**",
+  "//bin/**",
+  "//sbin/**",
+  "//boot/**",
+  "//proc/**",
+  "//sys/**",
+  "//opt/**",
+  "//srv/**",
+  "//tmp/**",
+  "//mnt/**",
+  "//media/**",
+  "//dev/**",
+];
+
+export interface ClaudeRunOptions {
+  bin: string;
+  cwd?: string;
+  timeoutMs: number;
+  allowedTools: string;
+  disallowedTools: string;
+  /** Inline JSON for --settings (permission deny rules); null = no extra rules. */
+  settingsJson: string | null;
+}
+
+export type ClaudeRunner = (prompt: string, opts: ClaudeRunOptions) => Promise<string>;
+
+export interface Guardrails {
+  allowedTools: string;
+  disallowedTools: string;
+  settingsJson: string | null;
+}
+
+/**
+ * Translates per-agent settings into claude -p tool flags + permission deny
+ * rules. A trusted sender bypasses every path restriction (full access); write
+ * is gated by allow_write either way.
+ */
+export function buildGuardrails(settings: AgentSettings, sender: string): Guardrails {
+  const write = settings.allow_write;
+  const allowedTools = write ? `${READ_ONLY_TOOLS},${WRITE_TOOLS}` : READ_ONLY_TOOLS;
+  const disallowedTools = write ? BASE_DISALLOWED : `${BASE_DISALLOWED},${WRITE_TOOLS}`;
+
+  if (settings.trusted_senders.includes(sender)) {
+    return { allowedTools, disallowedTools, settingsJson: null };
+  }
+
+  const specs = new Set<string>();
+  if (settings.block_hidden_files) {
+    specs.add("**/.*"); // dotfiles at any depth (.env, .gitignore, ...)
+    specs.add("**/.*/**"); // and anything inside hidden dirs
+  }
+  for (const glob of settings.denied_paths) specs.add(glob);
+  if (settings.block_sensitive_paths) for (const s of SENSITIVE_SPECS) specs.add(s);
+  if (settings.confine_to_dir) for (const s of OUTSIDE_SPECS) specs.add(s);
+
+  const deny: string[] = [];
+  for (const spec of specs) {
+    deny.push(`Read(${spec})`);
+    if (write) {
+      deny.push(`Edit(${spec})`);
+      deny.push(`Write(${spec})`);
+    }
+  }
+  return {
+    allowedTools,
+    disallowedTools,
+    settingsJson: deny.length ? JSON.stringify({ permissions: { deny } }) : null,
+  };
+}
 
 export type AutoRespondResult =
   | { kind: "replied"; reply: string }
@@ -83,23 +173,29 @@ ${neutralizeDelimiters(message.body)}
 
 const MAX_OUTPUT_BYTES = 1024 * 1024;
 
-export const defaultClaudeRunner: ClaudeRunner = (prompt, { bin, cwd, timeoutMs }) =>
+export const defaultClaudeRunner: ClaudeRunner = (
+  prompt,
+  { bin, cwd, timeoutMs, allowedTools, disallowedTools, settingsJson },
+) =>
   new Promise((resolve, reject) => {
+    const args = [
+      "-p",
+      prompt,
+      // Do NOT inherit the operator's MCP servers (e.g. the `ampla` MCP the
+      // panel registers) — an auto-respond driven by an untrusted message must
+      // not be able to send messages or read the inbox. (--bare would also drop
+      // the login, so this targets MCP only; docs/ARCHITECTURE.md · Threat 1.)
+      "--strict-mcp-config",
+      "--allowedTools",
+      allowedTools,
+      "--disallowedTools",
+      disallowedTools,
+    ];
+    if (settingsJson) args.push("--settings", settingsJson);
     // detached: creates its own process group, so on timeout we kill
     // `claude` AND all of its subprocesses (grandchildren) — execFile only kills
     // the direct child, leaving grandchildren orphaned (docs/ARCHITECTURE.md · Threat 1).
-    const child = spawn(
-      bin,
-      [
-        "-p",
-        prompt,
-        "--allowedTools",
-        READ_ONLY_TOOLS,
-        "--disallowedTools",
-        "Bash,Write,Edit,NotebookEdit,WebFetch,WebSearch",
-      ],
-      { ...(cwd ? { cwd } : {}), env: process.env, detached: true },
-    );
+    const child = spawn(bin, args, { ...(cwd ? { cwd } : {}), env: process.env, detached: true });
 
     let stdout = "";
     let overflow = false;
@@ -163,13 +259,24 @@ export class AutoResponder {
       return { kind: "skipped", reason: "rate_limited" };
     }
 
+    const guardrails = buildGuardrails(settings, message.from);
+    const cwd = this.opts.projectDir;
+    const trusted = settings.trusted_senders.includes(message.from);
+    console.error(
+      `[amp] auto-respond → claude -p em ${cwd ?? process.cwd()}` +
+        (trusted ? ` (remetente confiável "${message.from}": acesso total)` : " (restrito)"),
+    );
+
     const prompt = buildPrompt(this.agentId, message, settings.instructions, history);
     let reply: string;
     try {
       reply = await this.runner(prompt, {
         bin: this.opts.bin,
-        ...(this.opts.projectDir ? { cwd: this.opts.projectDir } : {}),
+        ...(cwd ? { cwd } : {}),
         timeoutMs: settings.auto_timeout_secs * 1000,
+        allowedTools: guardrails.allowedTools,
+        disallowedTools: guardrails.disallowedTools,
+        settingsJson: guardrails.settingsJson,
       });
     } catch (error) {
       return { kind: "failed", reason: error instanceof Error ? error.message : String(error) };
