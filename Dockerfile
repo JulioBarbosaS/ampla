@@ -20,10 +20,17 @@ COPY --from=web /web/dist /app/web-dist
 COPY docker-entrypoint.sh /usr/local/bin/amp-entrypoint
 RUN chmod +x /usr/local/bin/amp-entrypoint
 
+# Run as non-root (defense in depth). The named volume inherits /data's
+# ownership from the image on first mount, so the unprivileged user can write.
+RUN useradd --system --uid 10001 amp && mkdir -p /data && chown -R amp:amp /data
+USER amp
+
 ENV AMP_ENVIRONMENT=production \
     AMP_WEB_DIST=/app/web-dist \
     AMP_DATABASE_URL=sqlite+aiosqlite:////data/amp.db
 EXPOSE 8000
 VOLUME /data
+HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
+    CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health',timeout=2).status==200 else 1)"]
 ENTRYPOINT ["amp-entrypoint"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
