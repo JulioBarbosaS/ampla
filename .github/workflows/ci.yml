@@ -23,6 +23,9 @@ jobs:
       - run: ruff format --check app tests
       # coverage gate (fail_under) vem do pyproject.toml
       - run: pytest --cov=app -q
+      # supply-chain: fail on known CVEs in the resolved dependency tree
+      - run: pip install pip-audit
+      - run: pip-audit --skip-editable
 
   bridge:
     name: bridge · lint + testes + coverage
@@ -45,6 +48,10 @@ jobs:
       - run: pnpm exec tsc --noEmit
       # full-stack é pulado aqui (sem hub/.venv) e coberto no job e2e
       - run: pnpm test:cov
+      # supply-chain: fail on high/critical advisories in the *shipped* deps.
+      # --prod excludes dev-only tooling (e.g. vitest), whose advisories never
+      # reach the published daemon; Dependabot still opens PRs to bump those.
+      - run: pnpm audit --prod --audit-level=high
 
   web:
     name: web · lint + testes + coverage
@@ -66,6 +73,10 @@ jobs:
       - run: pnpm exec biome ci .
       - run: pnpm exec tsc -b
       - run: pnpm test:cov
+      # supply-chain: fail on high/critical advisories in the *shipped* deps.
+      # --prod excludes dev-only tooling (e.g. vitest), whose advisories never
+      # reach the built panel bundle; Dependabot still opens PRs to bump those.
+      - run: pnpm audit --prod --audit-level=high
 
   e2e-fullstack:
     name: e2e · hub real ↔ daemons reais

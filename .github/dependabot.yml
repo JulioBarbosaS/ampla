@@ -1,0 +1,47 @@
+# Dependabot keeps the three packages, the CI actions, and the Docker base
+# images patched. Security updates always open a PR immediately; the weekly
+# schedule batches the routine version bumps so the queue stays reviewable.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /hub
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      hub-dependencies:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /bridge
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      bridge-dependencies:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      web-dependencies:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
