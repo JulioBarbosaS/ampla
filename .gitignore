@@ -13,8 +13,11 @@ dist/
 coverage/
 *.tsbuildinfo
 
-# Dados locais
+# Dados locais (inclui WAL/SHM/journal do SQLite — contêm dados não consolidados)
 *.db
+*.db-wal
+*.db-shm
+*.db-journal
 *.sqlite3
 .amp/
 
