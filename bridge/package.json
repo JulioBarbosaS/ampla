@@ -4,6 +4,9 @@
   "description": "Ampla Bridge — daemon local + servidor MCP para o Claude Code",
   "type": "module",
   "private": true,
+  "bin": {
+    "amp": "bin/amp.mjs"
+  },
   "engines": {
     "node": ">=20"
   },

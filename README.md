@@ -52,8 +52,11 @@ Ao gerar a chave do agente, o painel mostra um **token de conexão**. Na máquin
 
 ```bash
 cd bridge && pnpm install
-pnpm connect <token-do-painel>        # ou: pnpm connect <token> --start
+pnpm link --global                    # uma vez: habilita o comando `amp`
+amp connect <token-do-painel>         # ou: amp connect <token> --start
 ```
+
+> Sem o `pnpm link --global`, use `pnpm connect <token>` (equivalente, sem o `amp` no PATH).
 
 O `connect` faz tudo de uma vez: escreve `~/.amp/<agente>/config.json` (0600), registra o MCP no Claude Code e instala os hooks de onboarding. Pergunta o diretório do projeto (ou passe `--project DIR`). Depois é só rodar o daemon (o comando exato é impresso no fim):
 
