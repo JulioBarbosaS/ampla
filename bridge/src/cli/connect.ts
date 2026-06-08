@@ -139,7 +139,7 @@ async function promptProject(): Promise<string | undefined> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
     const answer = (
-      await rl.question("Diretório do projeto deste agente (enter p/ pular): ")
+      await rl.question(`Diretório do projeto deste agente (enter = atual ${process.cwd()}): `)
     ).trim();
     return answer || undefined;
   } finally {
@@ -151,7 +151,10 @@ export async function run(argv: string[]): Promise<void> {
   const { token, flags } = parseArgs(argv);
   const decoded = decodeToken(token);
 
-  const project = flags.project ?? (await promptProject());
+  // Empty (or non-interactive) defaults to the current directory — that is the
+  // cwd the auto-responder's claude -p runs in, so it must be explicit, not a
+  // surprise inherited from the daemon's launch dir.
+  const project = flags.project ?? (await promptProject()) ?? process.cwd();
   const home = writeAgentConfig(decoded, project);
   console.error(`✓ config  → ${join(home, "config.json")} (0600)`);
 
@@ -161,7 +164,7 @@ export async function run(argv: string[]): Promise<void> {
       console.error("⚠ não consegui registrar o MCP (claude no PATH?). Pulei — registre depois.");
   }
   if (!flags.noHooks) {
-    const where = installHooks(project ?? process.cwd());
+    const where = installHooks(project);
     console.error(`✓ hooks de onboarding instalados → ${where}`);
   }
 

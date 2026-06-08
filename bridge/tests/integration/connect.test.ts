@@ -95,6 +95,13 @@ describe("run (integration: writes config + hooks)", () => {
     expect(statSync(path).mode & 0o777).toBe(0o600);
   });
 
+  it("defaults project_dir to the current directory when none is given", async () => {
+    await run([encode(VALID), "--no-mcp", "--no-hooks"]); // non-interactive: no prompt
+    const path = join(fakeHome, ".amp", "backend-julio", "config.json");
+    const config = JSON.parse(readFileSync(path, "utf-8"));
+    expect(config.project_dir).toBe(process.cwd());
+  });
+
   it("installs both hooks in the project's settings.json (.claude created if missing)", async () => {
     await run([encode(VALID), "--project", project, "--no-mcp"]);
     const settings = JSON.parse(readFileSync(join(project, ".claude", "settings.json"), "utf-8"));
