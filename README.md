@@ -20,26 +20,30 @@ Architecture, protocol and threat model: **[docs/ARCHITECTURE.md](docs/ARCHITECT
 
 ## Quickstart
 
-### 1. Hub (one machine on the network)
+### 1. Server — hub + panel, one command (GitLab-style)
 
 ```bash
-cd hub
+docker compose up -d        # builds the panel + hub into one image
+```
+
+That's it: open **http://localhost:8000**. The hub serves the API, the WebSocket **and** the panel on one URL (no separate web server, no CORS). SQLite lives on a Docker volume; a JWT secret is generated and persisted on first run (or pin your own with `AMP_JWT_SECRET`). Manage it like Omnibus: `docker compose up -d` / `logs -f` / `down`.
+
+> Real production: put a TLS reverse proxy in front so the panel/WS are served over `https://`/`wss://`.
+
+<details><summary>Without Docker (run from source)</summary>
+
+```bash
+# hub (serves the panel too, via AMP_WEB_DIST)
+cd web && pnpm install && pnpm build && cd ../hub
 python3 -m venv .venv && .venv/bin/pip install -e .
 AMP_JWT_SECRET="$(openssl rand -hex 32)" AMP_ENVIRONMENT=production \
+  AMP_WEB_DIST=../web/dist \
   .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+For panel development with hot reload: `cd web && VITE_HUB_URL=http://localhost:8000 pnpm dev` (panel on :5173, hub on :8000).
+</details>
 
-> Real production: put a TLS reverse proxy in front (`wss://`) and the env vars in a systemd service.
-
-### 2. Dashboard
-
-```bash
-cd web
-pnpm install
-VITE_HUB_URL=http://YOUR-HUB:8000 pnpm build   # or pnpm dev to test
-```
-
-On **first access** the dashboard asks you to create the administrator account. Then:
+On **first access** the dashboard (at the hub URL) asks you to create the administrator account. Then:
 
 1. **Team** → generate invite → send the link to each dev
 2. Each dev creates their account, then **My agents** → create agent (e.g. `backend-julio`)

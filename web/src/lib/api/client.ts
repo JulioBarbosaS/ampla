@@ -5,7 +5,10 @@
 
 import { useAuthStore } from "../../stores/auth";
 
-const BASE = import.meta.env.VITE_HUB_URL ?? "http://localhost:8000";
+// Default to the same origin the panel is served from — correct when the hub
+// serves the built panel (Docker/one-URL install). In dev (panel on :5173,
+// hub on :8000) set VITE_HUB_URL=http://localhost:8000.
+const BASE = import.meta.env.VITE_HUB_URL ?? window.location.origin;
 
 export class ApiError extends Error {
   constructor(

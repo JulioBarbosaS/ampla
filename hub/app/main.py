@@ -2,9 +2,12 @@
 ConnectionManager and the auth rate limiter."""
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.errors import register_error_handlers
 from app.api.routes import agents, auth, groups, invites, messages, users, ws
@@ -66,7 +69,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def health() -> dict:
         return {"status": "ok"}
 
+    _mount_web_panel(app, settings)
     return app
+
+
+def _mount_web_panel(app: FastAPI, settings: Settings) -> None:
+    """Serve the built React panel (web/dist) at the same origin as the API —
+    one URL, no CORS, GitLab-style. No-op when AMP_WEB_DIST is unset/absent
+    (dev runs the panel via vite). Registered AFTER the API routers so /api
+    and /ws win; everything else falls back to index.html for SPA routing."""
+    if not settings.web_dist:
+        return
+    dist = Path(settings.web_dist)
+    index = dist / "index.html"
+    if not index.is_file():
+        return
+    if (dist / "assets").is_dir():
+        app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa(full_path: str) -> FileResponse:
+        if full_path.startswith("api") or full_path == "ws":
+            raise HTTPException(status_code=404)
+        candidate = dist / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)  # favicon e afins
+        return FileResponse(index)  # rota do React Router → SPA
 
 
 app = create_app()

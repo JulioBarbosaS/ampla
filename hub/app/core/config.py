@@ -12,6 +12,9 @@ class Settings(BaseSettings):
 
     environment: str = "dev"  # dev | production
     database_url: str = "sqlite+aiosqlite:///./amp.db"
+    # Built web panel (web/dist). When set and present, the hub serves the UI
+    # at the same origin as the API — one URL, no CORS (GitLab-style install).
+    web_dist: str | None = None
 
     jwt_secret: str = DEV_JWT_SECRET
     jwt_expires_days: int = 7

@@ -1,0 +1,22 @@
+# One-command Ampla server (hub + panel). GitLab-style:
+#   docker compose up -d   →   open http://localhost:8000   →   create the admin
+#
+# SQLite lives on the named volume; the JWT secret is generated on first run
+# (or pin your own below). Devs connect their daemons with `amp connect` —
+# like registering a GitLab Runner.
+services:
+  hub:
+    build: .
+    image: ampla/hub:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - amp-data:/data
+    environment:
+      # Pin your own secret to keep sessions across redeploys; otherwise one is
+      # generated and persisted on the volume on first start.
+      AMP_JWT_SECRET: ${AMP_JWT_SECRET:-}
+    restart: unless-stopped
+
+volumes:
+  amp-data:
