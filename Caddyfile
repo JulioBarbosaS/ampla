@@ -1,0 +1,6 @@
+# Automatic HTTPS/wss in front of the hub. Caddy provisions a Let's Encrypt
+# cert for $AMP_DOMAIN and proxies everything (incl. the WebSocket upgrade)
+# to the hub. Used by docker-compose.tls.yml.
+{$AMP_DOMAIN} {
+	reverse_proxy hub:8000
+}

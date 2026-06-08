@@ -28,7 +28,18 @@ docker compose up -d        # builds the panel + hub into one image
 
 That's it: open **http://localhost:8000**. The hub serves the API, the WebSocket **and** the panel on one URL (no separate web server, no CORS). SQLite lives on a Docker volume; a JWT secret is generated and persisted on first run (or pin your own with `AMP_JWT_SECRET`). Manage it like Omnibus: `docker compose up -d` / `logs -f` / `down`.
 
-> Real production: put a TLS reverse proxy in front so the panel/WS are served over `https://`/`wss://`.
+**Production (TLS + backups):**
+
+```bash
+# HTTPS + wss automatically (Let's Encrypt), via the Caddy overlay:
+AMP_DOMAIN=amp.example.com \
+  docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
+
+# Back up the database (SQLite on the amp-data volume) — copy all amp.db* files:
+docker compose cp hub:/data/. ./backup-$(date +%F)/   # or snapshot the volume
+```
+
+Without TLS, JWT tokens, agent keys and messages travel in plaintext — always run the proxy (or your own) in front in production. Run a single hub process (presence/ACK state is in-memory; do not use `--workers >1`).
 
 <details><summary>Without Docker (run from source)</summary>
 

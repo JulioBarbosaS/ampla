@@ -1,0 +1,30 @@
+# TLS overlay — puts Caddy (automatic HTTPS + wss) in front of the hub.
+#
+#   AMP_DOMAIN=amp.example.com \
+#     docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
+#
+# Caddy obtains/renews a Let's Encrypt certificate for $AMP_DOMAIN and proxies
+# to the hub over the internal network. Point ports 80/443 of that domain here.
+services:
+  hub:
+    # No longer published directly — only Caddy reaches the hub internally.
+    ports: !reset []
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - hub
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      AMP_DOMAIN: ${AMP_DOMAIN:?set AMP_DOMAIN to your hub's public hostname}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:
