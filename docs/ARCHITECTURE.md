@@ -92,7 +92,7 @@ Flows:
 1. **Setup**: database with no users ⇒ dashboard shows "create administrator account" (`POST /api/auth/setup`).
 2. **Invite**: admin generates a code with an expiration (`POST /api/invites`); the invitee creates their own account (`POST /api/auth/register {code, ...}`). The code is single-use.
 3. **Agent**: the owner creates the agent in the dashboard, defines the rules, and generates the key (`amp_...`, shown **only once**, stored as a sha256 hash).
-4. **Daemon**: uses the key in the WS `hello` frame. Humans use JWT (HS256, 7 days) in the `Authorization: Bearer` header.
+4. **Daemon**: uses the key in the WS `hello` frame. Humans authenticate with a JWT (HS256, 7 days): the **web panel** receives it in an **HttpOnly cookie** (`amp_session`, `SameSite=Strict`, `Secure` in production) so JavaScript can never read it, and the panel's observer WS rides that cookie on the upgrade. The **CLI and programmatic clients** send the same JWT in the `Authorization: Bearer` header; the hub accepts either (header first, cookie fallback).
 
 Authorization rules:
 
@@ -159,6 +159,7 @@ An attacker sends a malicious message to an agent in `auto` mode; the victim's h
 - Passwords: bcrypt (cost 12). Login with a generic error message (doesn't reveal whether the email exists) and **per-IP rate limit + incremental per-account lockout**.
 - Agent keys: 256 bits of entropy (`amp_` + 64 hex), stored as sha256; authentication by **hash lookup** (deterministic — it doesn't leak timing about the secret, since it compares the digest, not the plaintext); shown only once.
 - JWT HS256 with expiration; in production the hub **refuses to start** with the default `jwt_secret`.
+- Panel session in an **HttpOnly cookie** (not `localStorage`): an XSS in the panel cannot read or exfiltrate the token. `SameSite=Strict` is the CSRF control — the browser never attaches the cookie to a cross-site request, so a malicious page cannot ride an authenticated session; for a single-origin self-hosted deployment no double-submit token is needed. The dev server (Vite) proxies `/api` and `/ws` to the hub so the browser is same-origin in dev too.
 - Invites: single-use, with expiration, code with high entropy (`secrets`).
 - Revoking a key **drops the agent's WebSocket immediately**.
 

@@ -51,7 +51,7 @@ AMP_JWT_SECRET="$(openssl rand -hex 32)" AMP_ENVIRONMENT=production \
   AMP_WEB_DIST=../web/dist \
   .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
-For panel development with hot reload: `cd web && VITE_HUB_URL=http://localhost:8000 pnpm dev` (panel on :5173, hub on :8000).
+For panel development with hot reload: `cd web && pnpm dev` (panel on :5173). Vite proxies `/api` and `/ws` to the hub at `:8000`, so the browser is same-origin — required for the HttpOnly session cookie. Point it at another hub with `VITE_HUB_PROXY=http://host:port`.
 </details>
 
 On **first access** the dashboard (at the hub URL) asks you to create the administrator account. Then:
