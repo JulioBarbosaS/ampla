@@ -69,7 +69,11 @@ export function mergeHookSettings(existing: Settings, entries: HookEntry[]): Set
   return next;
 }
 
-function writeAgentConfig(decoded: ConnectToken, projectDir: string | undefined): string {
+function writeAgentConfig(
+  decoded: ConnectToken,
+  projectDir: string | undefined,
+  sandbox: boolean,
+): string {
   const home = join(homedir(), ".amp", decoded.agent_id);
   mkdirSync(home, { recursive: true, mode: 0o700 });
   chmodSync(home, 0o700);
@@ -79,6 +83,7 @@ function writeAgentConfig(decoded: ConnectToken, projectDir: string | undefined)
     agent_key: decoded.key,
     ...(projectDir ? { project_dir: resolve(projectDir) } : {}),
     claude_bin: "claude",
+    ...(sandbox ? { sandbox: "docker" } : {}),
   });
   const path = join(home, "config.json");
   writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
@@ -114,23 +119,27 @@ interface Flags {
   noMcp: boolean;
   noHooks: boolean;
   start: boolean;
+  sandbox: boolean;
 }
 
 function parseArgs(argv: string[]): { token: string; flags: Flags } {
   let token = "";
-  const flags: Flags = { noMcp: false, noHooks: false, start: false };
+  const flags: Flags = { noMcp: false, noHooks: false, start: false, sandbox: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--no-mcp") flags.noMcp = true;
     else if (arg === "--no-hooks") flags.noHooks = true;
     else if (arg === "--start") flags.start = true;
+    else if (arg === "--sandbox") flags.sandbox = true;
     else if (arg === "--project") {
       const value = argv[++i];
       if (value) flags.project = value;
     } else if (!arg?.startsWith("--")) token = arg ?? "";
   }
   if (!token)
-    throw new Error("Uso: amp connect <token> [--project DIR] [--no-mcp] [--no-hooks] [--start]");
+    throw new Error(
+      "Uso: amp connect <token> [--project DIR] [--no-mcp] [--no-hooks] [--start] [--sandbox]",
+    );
   return { token, flags };
 }
 
@@ -155,7 +164,7 @@ export async function run(argv: string[]): Promise<void> {
   // cwd the auto-responder's claude -p runs in, so it must be explicit, not a
   // surprise inherited from the daemon's launch dir.
   const project = flags.project ?? (await promptProject()) ?? process.cwd();
-  const home = writeAgentConfig(decoded, project);
+  const home = writeAgentConfig(decoded, project, flags.sandbox);
   console.error(`✓ config  → ${join(home, "config.json")} (0600)`);
 
   if (!flags.noMcp) {

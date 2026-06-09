@@ -102,6 +102,14 @@ describe("run (integration: writes config + hooks)", () => {
     expect(config.project_dir).toBe(process.cwd());
   });
 
+  it("--sandbox records docker sandbox mode in the config", async () => {
+    await run([encode(VALID), "--project", project, "--no-mcp", "--no-hooks", "--sandbox"]);
+    const config = JSON.parse(
+      readFileSync(join(fakeHome, ".amp", "backend-julio", "config.json"), "utf-8"),
+    );
+    expect(config.sandbox).toBe("docker");
+  });
+
   it("installs both hooks in the project's settings.json (.claude created if missing)", async () => {
     await run([encode(VALID), "--project", project, "--no-mcp"]);
     const settings = JSON.parse(readFileSync(join(project, ".claude", "settings.json"), "utf-8"));

@@ -4,6 +4,8 @@
  */
 
 import { chmodSync, existsSync, unlinkSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { FastifyInstance } from "fastify";
 import {
@@ -14,7 +16,12 @@ import {
   storePath,
 } from "../shared/config.js";
 import type { WireMessage } from "../shared/protocol.js";
-import { AutoResponder, type ClaudeRunner } from "./auto-responder.js";
+import {
+  AutoResponder,
+  type ClaudeRunner,
+  defaultClaudeRunner,
+  makeDockerRunner,
+} from "./auto-responder.js";
 import { buildLocalApi } from "./local-api.js";
 import { MessageStore } from "./message-store.js";
 import { HubClient } from "./ws-client.js";
@@ -213,10 +220,25 @@ export function createDaemon(
   };
 }
 
+/** Picks the auto-respond runner from config: the host runner, or the
+ * containerized one (claude -p confined to the project dir). */
+function selectRunner(config: DaemonConfig): ClaudeRunner {
+  if (config.sandbox !== "docker") return defaultClaudeRunner;
+  return makeDockerRunner({
+    image: config.sandbox_image,
+    claudeConfigDir: join(homedir(), ".claude"),
+    uid: process.getuid?.() ?? 0,
+    gid: process.getgid?.() ?? 0,
+  });
+}
+
 async function main(): Promise<void> {
   ensureAmpDir();
   const config = loadConfig();
-  const daemon = createDaemon(config, { store: storePath() });
+  const daemon = createDaemon(config, { store: storePath() }, selectRunner(config));
+  if (config.sandbox === "docker") {
+    console.error(`[amp] auto-respond em sandbox docker (imagem ${config.sandbox_image})`);
+  }
 
   const sock = socketPath();
   if (existsSync(sock)) unlinkSync(sock); // orphaned socket from a previous run

@@ -29,6 +29,10 @@ const SENSITIVE_SPECS = [
   "~/.npmrc",
   "~/.git-credentials",
   "~/.pgpass",
+  // The Claude credential itself — in the sandbox HOME=/cfg, so ~/.claude is the
+  // mounted config dir; this stops the model from reading/leaking its own token.
+  "~/.claude/**",
+  "~/.claude.json",
   "//etc/**",
   "//root/**",
 ];
@@ -61,6 +65,8 @@ export interface ClaudeRunOptions {
   disallowedTools: string;
   /** Inline JSON for --settings (permission deny rules); null = no extra rules. */
   settingsJson: string | null;
+  /** allow_write — the docker runner mounts the project rw instead of ro. */
+  writable?: boolean;
 }
 
 export type ClaudeRunner = (prompt: string, opts: ClaudeRunOptions) => Promise<string>;
@@ -173,29 +179,34 @@ ${neutralizeDelimiters(message.body)}
 
 const MAX_OUTPUT_BYTES = 1024 * 1024;
 
-export const defaultClaudeRunner: ClaudeRunner = (
-  prompt,
-  { bin, cwd, timeoutMs, allowedTools, disallowedTools, settingsJson },
-) =>
-  new Promise((resolve, reject) => {
-    const args = [
-      "-p",
-      prompt,
-      // Do NOT inherit the operator's MCP servers (e.g. the `ampla` MCP the
-      // panel registers) — an auto-respond driven by an untrusted message must
-      // not be able to send messages or read the inbox. (--bare would also drop
-      // the login, so this targets MCP only; docs/ARCHITECTURE.md · Threat 1.)
-      "--strict-mcp-config",
-      "--allowedTools",
-      allowedTools,
-      "--disallowedTools",
-      disallowedTools,
-    ];
-    if (settingsJson) args.push("--settings", settingsJson);
-    // detached: creates its own process group, so on timeout we kill
-    // `claude` AND all of its subprocesses (grandchildren) — execFile only kills
-    // the direct child, leaving grandchildren orphaned (docs/ARCHITECTURE.md · Threat 1).
-    const child = spawn(bin, args, { ...(cwd ? { cwd } : {}), env: process.env, detached: true });
+/** claude -p flags shared by both runners. --strict-mcp-config: do NOT inherit
+ * the operator's MCP servers (e.g. the panel-registered `ampla` MCP) — an
+ * auto-respond driven by an untrusted message must not be able to send messages
+ * or read the inbox (docs/ARCHITECTURE.md · Threat 1). */
+function claudeArgs(
+  prompt: string,
+  allowedTools: string,
+  disallowedTools: string,
+  settingsJson: string | null,
+): string[] {
+  const args = [
+    "-p",
+    prompt,
+    "--strict-mcp-config",
+    "--allowedTools",
+    allowedTools,
+    "--disallowedTools",
+    disallowedTools,
+  ];
+  if (settingsJson) args.push("--settings", settingsJson);
+  return args;
+}
+
+/** Spawn a process in its own group (so the timeout kill reaches grandchildren),
+ * collect stdout, and enforce a timeout + output-size cap. */
+function runProcess(cmd: string, args: string[], timeoutMs: number, cwd?: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { ...(cwd ? { cwd } : {}), env: process.env, detached: true });
 
     let stdout = "";
     let overflow = false;
@@ -236,6 +247,69 @@ export const defaultClaudeRunner: ClaudeRunner = (
       ),
     );
   });
+}
+
+/** Host runner: spawns `claude -p` directly. Filesystem limits rest on the
+ * in-process deny-rules (the model policing itself). */
+export const defaultClaudeRunner: ClaudeRunner = (prompt, opts) =>
+  runProcess(
+    opts.bin,
+    claudeArgs(prompt, opts.allowedTools, opts.disallowedTools, opts.settingsJson),
+    opts.timeoutMs,
+    opts.cwd,
+  );
+
+export interface DockerSandboxConfig {
+  image: string;
+  /** Host ~/.claude, bind-mounted so the containerized claude authenticates. */
+  claudeConfigDir: string;
+  /** Run as the host user so the 0600 credential (and rw config) is readable. */
+  uid: number;
+  gid: number;
+}
+
+/** Builds the `docker run` argv for a confined, ephemeral auto-respond. The
+ * container only sees the project dir (kernel-enforced — unlike deny-rules) and
+ * the claude config; the rest of the host filesystem does not exist inside.
+ * Network stays up because claude needs the Anthropic API, but no Bash/WebFetch
+ * tool means the model has no way to reach anywhere else. */
+export function buildDockerArgs(
+  sandbox: DockerSandboxConfig,
+  opts: ClaudeRunOptions & { prompt: string },
+): string[] {
+  if (!opts.cwd) {
+    throw new Error("sandbox docker requer project_dir (cwd) para montar");
+  }
+  return [
+    "run",
+    "--rm",
+    "--user",
+    `${sandbox.uid}:${sandbox.gid}`,
+    "--memory",
+    "2g",
+    "--cpus",
+    "2",
+    "--pids-limit",
+    "512",
+    "-e",
+    "HOME=/cfg",
+    "-v",
+    `${sandbox.claudeConfigDir}:/cfg/.claude`, // rw: claude refreshes its token
+    "-v",
+    `${opts.cwd}:/work${opts.writable ? "" : ":ro"}`,
+    "-w",
+    "/work",
+    sandbox.image,
+    "claude",
+    ...claudeArgs(opts.prompt, opts.allowedTools, opts.disallowedTools, opts.settingsJson),
+  ];
+}
+
+/** Sandboxed runner: runs `claude -p` inside an ephemeral container. */
+export function makeDockerRunner(sandbox: DockerSandboxConfig): ClaudeRunner {
+  return (prompt, opts) =>
+    runProcess("docker", buildDockerArgs(sandbox, { ...opts, prompt }), opts.timeoutMs);
+}
 
 export class AutoResponder {
   private repliesThisHour: number[] = []; // timestamps (ms)
@@ -277,6 +351,7 @@ export class AutoResponder {
         allowedTools: guardrails.allowedTools,
         disallowedTools: guardrails.disallowedTools,
         settingsJson: guardrails.settingsJson,
+        writable: settings.allow_write,
       });
     } catch (error) {
       return { kind: "failed", reason: error instanceof Error ? error.message : String(error) };

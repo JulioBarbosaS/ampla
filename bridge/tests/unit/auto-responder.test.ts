@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   AutoResponder,
+  buildDockerArgs,
   buildGuardrails,
   buildPrompt,
   type ClaudeRunner,
@@ -142,6 +143,47 @@ describe("buildGuardrails (per-agent claude -p restrictions)", () => {
       "x",
     );
     expect(g.settingsJson).toBeNull();
+  });
+});
+
+describe("buildDockerArgs (sandboxed runner — Tier 2)", () => {
+  const SANDBOX = {
+    image: "ampla/claude-runner:latest",
+    claudeConfigDir: "/home/u/.claude",
+    uid: 1000,
+    gid: 1000,
+  };
+  const opts = {
+    bin: "claude",
+    cwd: "/home/u/proj",
+    timeoutMs: 120_000,
+    allowedTools: "Read,Grep,Glob",
+    disallowedTools: "Bash,NotebookEdit,WebFetch,WebSearch,Edit,Write",
+    settingsJson: '{"permissions":{"deny":["Read(**/.*)"]}}',
+    prompt: "qual o endpoint de login?",
+  };
+
+  it("runs ephemeral, as the host user, mounting only the project (ro) + config", () => {
+    const args = buildDockerArgs(SANDBOX, opts);
+    expect(args.slice(0, 2)).toEqual(["run", "--rm"]);
+    expect(args).toContain("--user");
+    expect(args).toContain("1000:1000");
+    expect(args).toContain("/home/u/proj:/work:ro"); // read-only by default
+    expect(args).toContain("/home/u/.claude:/cfg/.claude"); // auth
+    expect(args).toContain("ampla/claude-runner:latest");
+    // the same claude guardrail flags ride inside the container
+    expect(args).toContain("--strict-mcp-config");
+    expect(args).toContain('{"permissions":{"deny":["Read(**/.*)"]}}');
+  });
+
+  it("mounts the project read-write when allow_write is on", () => {
+    const args = buildDockerArgs(SANDBOX, { ...opts, writable: true });
+    expect(args).toContain("/home/u/proj:/work");
+    expect(args).not.toContain("/home/u/proj:/work:ro");
+  });
+
+  it("refuses to run without a project dir to mount", () => {
+    expect(() => buildDockerArgs(SANDBOX, { ...opts, cwd: undefined })).toThrow(/project_dir/);
   });
 });
 

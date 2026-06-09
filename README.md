@@ -97,9 +97,18 @@ amp connect <dashboard-token>         # or: amp connect <token> --start
 AMP_HOME=~/.amp/backend-julio pnpm daemon   # leave it running (tmux/systemd --user)
 ```
 
-Flags: `--no-mcp`, `--no-hooks`, `--project DIR`, `--start` (starts the daemon right away).
+Flags: `--no-mcp`, `--no-hooks`, `--project DIR`, `--start` (starts the daemon right away), `--sandbox` (run auto-respond inside a container — see below).
 
 Tools available to Claude: `amp_send`, `amp_inbox`, `amp_history`, `amp_presence`, `amp_groups`, `amp_status`.
+
+**Sandboxed auto-respond (`--sandbox`).** For `auto` mode, the safest setup runs each `claude -p` in an **ephemeral container** that only mounts the project directory — the rest of the host filesystem (`~/.ssh`, other repos, system files) literally does not exist inside, kernel-enforced. Build the image once and connect with `--sandbox`:
+
+```bash
+cd bridge && docker build -t ampla/claude-runner:latest -f sandbox/Dockerfile sandbox
+amp connect <token> --sandbox          # or set "sandbox": "docker" in ~/.amp/<agent>/config.json
+```
+
+Requires Docker on the dev's machine. Without it, the daemon runs `claude -p` on the host with the in-process deny-rules only (still read-only, still blocks `~/.ssh`/dotfiles, but self-policed rather than kernel-enforced). Details and threat model in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Threat 1.
 
 The two installed hooks (`amp-session-start.sh` and `amp-inbox.sh`) make Claude "wake up" aware that it is an agent on the network and see unread messages on each prompt — they fail silently if the daemon is not running.
 

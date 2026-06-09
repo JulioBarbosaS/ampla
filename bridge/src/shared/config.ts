@@ -18,6 +18,13 @@ export const daemonConfigSchema = z.object({
   project_dir: z.string().optional(),
   /** Claude Code binary (default: "claude" on PATH). */
   claude_bin: z.string().default("claude"),
+  /** Where the auto-respond's claude -p runs:
+   * - "host": directly (filesystem limited by in-process deny-rules only)
+   * - "docker": in an ephemeral container that only mounts the project dir —
+   *   the host filesystem is invisible (kernel-enforced). Needs Docker + the
+   *   sandbox_image built (bridge/sandbox/Dockerfile). */
+  sandbox: z.enum(["host", "docker"]).default("host"),
+  sandbox_image: z.string().default("ampla/claude-runner:latest"),
 });
 export type DaemonConfig = z.infer<typeof daemonConfigSchema>;
 
