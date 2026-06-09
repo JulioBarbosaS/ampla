@@ -61,7 +61,7 @@ exports[`snapshots > Sidebar with team and presence 1`] = `
       Conversando como
     </label>
     <select
-      class="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm outline-none focus:border-emerald-500"
+      class="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm outline-none focus:border-amber-500"
       id="perspective-select"
     >
       <option

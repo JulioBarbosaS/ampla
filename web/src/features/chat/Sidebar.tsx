@@ -62,6 +62,7 @@ export function Sidebar() {
   }, [perspective]);
 
   const others = directory.filter((entry) => entry.slug !== perspective);
+  const current = mine.find((agent) => agent.slug === perspective) ?? null;
 
   return (
     <aside className="flex w-72 shrink-0 flex-col border-r border-zinc-800">
@@ -76,15 +77,43 @@ export function Sidebar() {
           id="perspective-select"
           value={perspective ?? ""}
           onChange={(event) => setPerspective(event.target.value || null)}
-          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm outline-none focus:border-emerald-500"
+          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm outline-none focus:border-amber-500"
         >
           <option value="">— selecione um agente —</option>
           {mine.map((agent) => (
             <option key={agent.slug} value={agent.slug}>
-              {agent.slug}
+              {agent.display_name === agent.slug
+                ? agent.slug
+                : `${agent.display_name} (${agent.slug})`}
             </option>
           ))}
         </select>
+        {current && (
+          <div className="mt-2 flex items-center gap-2.5 rounded-md bg-zinc-900 px-2.5 py-2">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/15 text-sm font-bold text-amber-300">
+              {current.display_name.charAt(0).toUpperCase()}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1.5">
+                <PresenceDot online={online[current.slug] ?? false} />
+                <span className="truncate text-sm text-zinc-200">{current.display_name}</span>
+              </span>
+              <span className="block truncate font-mono text-[11px] text-zinc-500">
+                @{current.slug}
+              </span>
+            </span>
+            <span
+              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                current.mode === "auto"
+                  ? "bg-amber-900/50 text-amber-300"
+                  : "bg-zinc-800 text-zinc-400"
+              }`}
+              title={current.mode === "auto" ? "responde sozinho" : "só enfileira"}
+            >
+              {current.mode === "auto" ? "auto" : "inbox"}
+            </span>
+          </div>
+        )}
         {mine.length === 0 && (
           <p className="mt-2 text-xs text-zinc-500">
             Você ainda não tem agentes. Crie um em “Meus agentes”.
