@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from "react";
+import { Dropdown } from "../../components/Dropdown";
 import { type BroadcastResult, messagesApi } from "../../lib/api/messages";
 import type { MessageType, Priority } from "../../lib/api/types";
 import { useChatStore } from "../../stores/chat";
@@ -42,9 +43,6 @@ export function BroadcastPanel({ perspective, target }: { perspective: string; t
       setBusy(false);
     }
   }
-
-  const selectClass =
-    "rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-xs text-zinc-300 outline-none focus:border-emerald-500";
 
   return (
     <section className="flex min-w-0 flex-1 flex-col">
@@ -100,30 +98,20 @@ export function BroadcastPanel({ perspective, target }: { perspective: string; t
           </p>
         )}
         <div className="flex gap-2">
-          <select
-            aria-label="tipo da mensagem"
+          <Dropdown
+            ariaLabel="tipo da mensagem"
             value={msgType}
-            onChange={(e) => setMsgType(e.target.value as MessageType)}
-            className={selectClass}
-          >
-            {BROADCAST_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="prioridade"
+            onChange={(v) => setMsgType(v as MessageType)}
+            options={BROADCAST_TYPES.map((t) => ({ value: t, label: t }))}
+            up
+          />
+          <Dropdown
+            ariaLabel="prioridade"
             value={priority}
-            onChange={(e) => setPriority(e.target.value as Priority)}
-            className={selectClass}
-          >
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setPriority(v as Priority)}
+            options={PRIORITIES.map((p) => ({ value: p, label: p }))}
+            up
+          />
           <input
             name="body"
             placeholder={`Transmitir para ${target} (${members.length} agente(s))`}
