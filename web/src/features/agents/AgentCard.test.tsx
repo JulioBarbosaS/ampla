@@ -114,6 +114,22 @@ describe("AgentCard", () => {
     );
   });
 
+  it("renders without crashing when the agent lacks guardrail fields (older hub)", () => {
+    const legacy = {
+      slug: "legacy",
+      user_id: 1,
+      display_name: "Legacy",
+      created_at: "",
+      mode: "inbox",
+      allowed_senders: null,
+      max_auto_per_hour: 10,
+      auto_timeout_secs: 120,
+      instructions: "",
+    } as unknown as Agent;
+    render(<AgentCard agent={legacy} groups={[]} onChanged={() => {}} />);
+    expect(screen.getByText("⚠ Zona de perigo")).toBeInTheDocument();
+  });
+
   it("danger zone: disabling the sensitive-path block needs 3 confirmations + the slug", async () => {
     vi.mocked(agentsApi.updateSettings).mockResolvedValue(AGENT);
     render(<AgentCard agent={AGENT} groups={[]} onChanged={() => {}} />);

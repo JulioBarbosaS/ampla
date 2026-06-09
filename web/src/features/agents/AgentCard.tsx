@@ -221,6 +221,12 @@ pnpm daemon   # deixe rodando`;
   const inputClass =
     "w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-sm outline-none focus:border-emerald-500";
 
+  // Defensive defaults: an agent payload from an older hub (pre-guardrails) may
+  // lack these fields — render with safe defaults instead of crashing the page.
+  const deniedPaths = agent.denied_paths ?? [];
+  const trustedSenders = agent.trusted_senders ?? [];
+  const sensitiveBlocked = agent.block_sensitive_paths ?? true;
+
   return (
     <section className="rounded-lg border border-zinc-800 p-4">
       <header className="mb-3 flex items-center justify-between">
@@ -303,7 +309,7 @@ pnpm daemon   # deixe rodando`;
             <input
               type="checkbox"
               name="block_hidden_files"
-              defaultChecked={agent.block_hidden_files}
+              defaultChecked={agent.block_hidden_files ?? true}
               className="accent-emerald-500"
             />
             Bloquear arquivos ocultos (.env, .gitignore, dotfiles)
@@ -312,7 +318,7 @@ pnpm daemon   # deixe rodando`;
             <input
               type="checkbox"
               name="confine_to_dir"
-              defaultChecked={agent.confine_to_dir}
+              defaultChecked={agent.confine_to_dir ?? true}
               className="accent-emerald-500"
             />
             Confinar ao diretório do projeto (bloqueia /etc, /var, /tmp…)
@@ -321,7 +327,7 @@ pnpm daemon   # deixe rodando`;
             <input
               type="checkbox"
               name="allow_write"
-              defaultChecked={agent.allow_write}
+              defaultChecked={agent.allow_write ?? false}
               className="accent-emerald-500"
             />
             Permitir escrita (Edit/Write) — o padrão é só leitura
@@ -332,7 +338,7 @@ pnpm daemon   # deixe rodando`;
             </span>
             <input
               name="denied_paths"
-              defaultValue={agent.denied_paths.join(", ")}
+              defaultValue={deniedPaths.join(", ")}
               placeholder="secrets.txt, *.pem, config/prod.json"
               className={inputClass}
             />
@@ -463,13 +469,13 @@ pnpm daemon   # deixe rodando`;
         <div className="mb-3">
           <p className="text-xs text-zinc-400">
             Bloqueio de segredos do SO (<span className="font-mono">~/.ssh, ~/.aws, /etc…</span>):{" "}
-            {agent.block_sensitive_paths ? (
+            {sensitiveBlocked ? (
               <span className="text-emerald-400">ativo</span>
             ) : (
               <span className="font-semibold text-red-400">DESATIVADO</span>
             )}
           </p>
-          {agent.block_sensitive_paths ? (
+          {sensitiveBlocked ? (
             <div className="mt-1.5">
               <DangerAction
                 trigger="Desativar bloqueio de segredos"
@@ -494,10 +500,8 @@ pnpm daemon   # deixe rodando`;
             Agentes confiáveis (acesso TOTAL, sem restrições de arquivo):
           </p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {agent.trusted_senders.length === 0 && (
-              <span className="text-xs text-zinc-500">nenhum</span>
-            )}
-            {agent.trusted_senders.map((s) => (
+            {trustedSenders.length === 0 && <span className="text-xs text-zinc-500">nenhum</span>}
+            {trustedSenders.map((s) => (
               <span
                 key={s}
                 className="flex items-center gap-1 rounded-full border border-red-700 bg-red-950/40 px-2 py-0.5 font-mono text-xs text-red-300"
@@ -508,7 +512,7 @@ pnpm daemon   # deixe rodando`;
                   title="remover"
                   onClick={() =>
                     patchDanger({
-                      trusted_senders: agent.trusted_senders.filter((t) => t !== s),
+                      trusted_senders: trustedSenders.filter((t) => t !== s),
                     })
                   }
                   className="text-red-400 hover:text-red-200"
@@ -532,7 +536,7 @@ pnpm daemon   # deixe rodando`;
                 confirmWord={agent.slug}
                 onConfirm={() => {
                   patchDanger({
-                    trusted_senders: [...agent.trusted_senders, trustInput.trim()],
+                    trusted_senders: [...trustedSenders, trustInput.trim()],
                   });
                   setTrustInput("");
                 }}
