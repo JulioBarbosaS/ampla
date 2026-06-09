@@ -16,9 +16,9 @@ test("administrator setup on first access", async ({ page }) => {
   await page.getByLabel(/Senha/).fill("senha-muito-segura-1");
   await page.getByRole("button", { name: "Criar conta admin" }).click();
 
-  // logged in: app shell with navigation
+  // logged in: app shell with navigation and the account (avatar) entry point
   await expect(page.getByRole("link", { name: "Conversas" })).toBeVisible();
-  await expect(page.getByText("admin")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Configurações" })).toBeVisible();
 });
 
 test("login, agent creation and daemon key", async ({ page }) => {
