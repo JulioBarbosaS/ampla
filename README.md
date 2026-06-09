@@ -25,13 +25,13 @@ Architecture, protocol and threat model: **[docs/ARCHITECTURE.md](docs/ARCHITECT
 Pulls the published image from `ghcr.io` — no clone, no build:
 
 ```bash
-docker run -d --name ampla -p 8000:8000 -v amp-data:/data \
+docker run -d --name ampla -p 4455:4455 -v amp-data:/data \
   ghcr.io/juliobarbosaci/ampla:latest
 ```
 
 Or with Compose (recommended — manages the volume and secret for you): download [`docker-compose.yml`](docker-compose.yml) and run `docker compose up -d`. Pin a version with `AMPLA_TAG=v1.2.3`.
 
-That's it: open **http://localhost:8000**. The hub serves the API, the WebSocket **and** the panel on one URL (no separate web server, no CORS). SQLite lives on a Docker volume; a JWT secret is generated and persisted on first run (or pin your own with `AMP_JWT_SECRET`). Manage it like Omnibus: `docker compose up -d` / `logs -f` / `down`.
+That's it: open **http://localhost:4455**. The hub serves the API, the WebSocket **and** the panel on one URL (no separate web server, no CORS). SQLite lives on a Docker volume; a JWT secret is generated and persisted on first run (or pin your own with `AMP_JWT_SECRET`). Manage it like Omnibus: `docker compose up -d` / `logs -f` / `down`.
 
 To build the image yourself instead of pulling it: `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
 
@@ -67,9 +67,9 @@ cd web && pnpm install && pnpm build && cd ../hub
 python3 -m venv .venv && .venv/bin/pip install -e .
 AMP_JWT_SECRET="$(openssl rand -hex 32)" AMP_ENVIRONMENT=production \
   AMP_WEB_DIST=../web/dist \
-  .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+  .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 4455
 ```
-For panel development with hot reload: `cd web && pnpm dev` (panel on :5173). Vite proxies `/api` and `/ws` to the hub at `:8000`, so the browser is same-origin — required for the HttpOnly session cookie. Point it at another hub with `VITE_HUB_PROXY=http://host:port`.
+For panel development with hot reload: `cd web && pnpm dev` (panel on :5173). Vite proxies `/api` and `/ws` to the hub at `:4455`, so the browser is same-origin — required for the HttpOnly session cookie. Point it at another hub with `VITE_HUB_PROXY=http://host:port`.
 </details>
 
 On **first access** the dashboard (at the hub URL) asks you to create the administrator account. Then:
@@ -116,7 +116,7 @@ The two installed hooks (`amp-session-start.sh` and `amp-inbox.sh`) make Claude 
 
 ```bash
 mkdir -p ~/.amp && cat > ~/.amp/config.json <<'EOF'
-{ "hub_url": "ws://SEU-HUB:8000/ws", "agent_id": "backend-julio",
+{ "hub_url": "ws://SEU-HUB:4455/ws", "agent_id": "backend-julio",
   "agent_key": "amp_COLE_A_CHAVE", "project_dir": "/caminho/do/repo" }
 EOF
 chmod 600 ~/.amp/config.json

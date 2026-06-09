@@ -11,7 +11,7 @@ Everything is green in the tests, but: (1) the real `claude -p`, the real MCP se
 Goal: prove (or break) the `@backend` → real auto-respond → reply flow.
 
 Steps:
-1. Bring up the real hub: `cd hub && .venv/bin/uvicorn app.main:app --port 8000` (with AMP_JWT_SECRET set).
+1. Bring up the real hub: `cd hub && .venv/bin/uvicorn app.main:app --port 4455` (with AMP_JWT_SECRET set).
 2. Create an admin + 2 agents (`backend-julio`, `mobile-eduardo`) + keys via REST/dashboard.
 3. Bring up 2 real daemons with separate `AMP_HOME`, `project_dir` pointing at real repos, `claude_bin` = path to `claude`.
 4. Put `backend-julio` in `auto` mode (dashboard/PATCH).

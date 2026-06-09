@@ -35,9 +35,9 @@ USER amp
 ENV AMP_ENVIRONMENT=production \
     AMP_WEB_DIST=/app/web-dist \
     AMP_DATABASE_URL=sqlite+aiosqlite:////data/amp.db
-EXPOSE 8000
+EXPOSE 4455
 VOLUME /data
 HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
-    CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health/ready',timeout=2).status==200 else 1)"]
+    CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:4455/api/health/ready',timeout=2).status==200 else 1)"]
 ENTRYPOINT ["amp-entrypoint"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "4455"]

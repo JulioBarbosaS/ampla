@@ -1,5 +1,5 @@
 # One-command Ampla server (hub + panel). GitLab-style:
-#   docker compose up -d   →   open http://localhost:8000   →   create the admin
+#   docker compose up -d   →   open http://localhost:4455   →   create the admin
 #
 # Pulls the published image from ghcr.io — no clone, no build. Pin a version
 # with AMPLA_TAG=v1.2.3. To build locally instead, add the override:
@@ -12,7 +12,7 @@ services:
   hub:
     image: ghcr.io/juliobarbosaci/ampla:${AMPLA_TAG:-latest}
     ports:
-      - "8000:8000"
+      - "${AMPLA_PORT:-4455}:4455"
     volumes:
       - amp-data:/data
     environment:

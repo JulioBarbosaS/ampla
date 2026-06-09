@@ -7,7 +7,7 @@ import { defineConfig } from "vite";
 // server's origin. Same origin is what lets the HttpOnly SameSite=Strict
 // session cookie travel in dev (and is how prod works, hub-served). Point it
 // at another hub with VITE_HUB_PROXY (the e2e run targets its throwaway hub).
-const HUB = process.env.VITE_HUB_PROXY ?? "http://localhost:8000";
+const HUB = process.env.VITE_HUB_PROXY ?? "http://localhost:4455";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],

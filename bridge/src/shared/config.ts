@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 export const daemonConfigSchema = z.object({
-  hub_url: z.string().url(), // e.g. ws://localhost:8000/ws
+  hub_url: z.string().url(), // e.g. ws://localhost:4455/ws
   agent_id: z.string().regex(/^[a-z][a-z0-9-]{1,48}[a-z0-9]$/),
   agent_key: z.string().startsWith("amp_"),
   /** Repository directory used by auto-respond (cwd of claude -p). */

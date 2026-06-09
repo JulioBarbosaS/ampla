@@ -2,5 +2,5 @@
 # cert for $AMP_DOMAIN and proxies everything (incl. the WebSocket upgrade)
 # to the hub. Used by docker-compose.tls.yml.
 {$AMP_DOMAIN} {
-	reverse_proxy hub:8000
+	reverse_proxy hub:4455
 }
