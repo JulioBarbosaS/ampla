@@ -7,6 +7,7 @@ import { RegisterPage } from "./features/auth/RegisterPage";
 import { SetupPage } from "./features/auth/SetupPage";
 import { ChatPage } from "./features/chat/ChatPage";
 import { GroupsPage } from "./features/groups/GroupsPage";
+import { SettingsPage } from "./features/settings/SettingsPage";
 import { TeamPage } from "./features/team/TeamPage";
 import { authApi } from "./lib/api/auth";
 import { useAuthStore } from "./stores/auth";
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/team" element={<TeamPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
