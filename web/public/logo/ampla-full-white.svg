@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 64" role="img" aria-label="Ampla">
+  <!-- PLACEHOLDER — substitua pelo logo COMPLETO (ícone + nome) da Ampla, versão CLARA (branco, p/ fundo escuro). -->
+  <polygon points="32,6 53,18 53,42 32,54 11,42 11,18" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linejoin="round"/>
+  <polygon points="32,19 42,25 42,37 32,43 22,37 22,25" fill="#ffffff"/>
+  <text x="72" y="41" font-family="ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="700" letter-spacing="0.5" fill="#ffffff">Ampla</text>
+</svg>

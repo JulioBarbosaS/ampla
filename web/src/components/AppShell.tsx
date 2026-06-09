@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { authApi } from "../lib/api/auth";
 import { useAuthStore } from "../stores/auth";
+import { Logo } from "./Logo";
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
@@ -21,7 +22,7 @@ export function AppShell() {
     <div className="flex h-screen flex-col">
       <header className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
         <div className="flex items-center gap-4">
-          <span className="text-sm font-bold tracking-wide text-emerald-400">Ampla</span>
+          <Logo variant="icon" className="h-6 w-6" />
           <nav className="flex gap-1">
             <NavLink to="/" className={linkClass} end>
               Conversas

@@ -1,6 +1,7 @@
 /** Shared form primitives used by the auth and agents screens. */
 
 import type { InputHTMLAttributes, ReactNode } from "react";
+import { Logo } from "./Logo";
 
 export function Field({
   label,
@@ -11,7 +12,7 @@ export function Field({
       <span className="mb-1 block text-sm text-zinc-400">{label}</span>
       <input
         {...props}
-        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none transition-colors focus:border-emerald-500"
+        className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none transition-colors focus:border-amber-500"
       />
     </label>
   );
@@ -22,7 +23,7 @@ export function PrimaryButton({ children, disabled }: { children: ReactNode; dis
     <button
       type="submit"
       disabled={disabled}
-      className="w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+      className="w-full rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
     >
       {children}
     </button>
@@ -40,11 +41,11 @@ export function FormError({ message }: { message: string | null }) {
 
 export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="flex h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm space-y-4">
-        <div className="text-center">
-          <span className="text-2xl font-bold text-emerald-400">Ampla</span>
-          <h1 className="mt-1 text-lg font-medium text-zinc-200">{title}</h1>
+    <div className="flex h-screen items-center justify-center bg-zinc-950 px-4">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="flex flex-col items-center gap-2">
+          <Logo variant="full" className="h-11" />
+          <h1 className="text-sm font-medium text-zinc-400">{title}</h1>
         </div>
         {children}
       </div>
