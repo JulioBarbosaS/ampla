@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Dropdown } from "../../components/Dropdown";
 import { messagesApi } from "../../lib/api/messages";
 import type { Message, MessageType, Priority } from "../../lib/api/types";
 import { conversationKey, useChatStore } from "../../stores/chat";
@@ -220,9 +221,6 @@ export function ChatWindow() {
     return <BroadcastPanel perspective={perspective} target={partner} />;
   }
 
-  const selectClass =
-    "rounded-md border border-zinc-700 bg-zinc-900 px-2 py-2 text-xs text-zinc-300 outline-none focus:border-emerald-500";
-
   return (
     <section className="flex min-w-0 flex-1 flex-col">
       <header className="flex items-center gap-2.5 border-b border-zinc-800 px-4 py-3">
@@ -275,30 +273,20 @@ export function ChatWindow() {
           </div>
         )}
         <div className="flex gap-2">
-          <select
-            aria-label="tipo da mensagem"
+          <Dropdown
+            ariaLabel="tipo da mensagem"
             value={msgType}
-            onChange={(e) => setMsgType(e.target.value as MessageType)}
-            className={selectClass}
-          >
-            {MESSAGE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="prioridade"
+            onChange={(v) => setMsgType(v as MessageType)}
+            options={MESSAGE_TYPES.map((t) => ({ value: t, label: t }))}
+            up
+          />
+          <Dropdown
+            ariaLabel="prioridade"
             value={priority}
-            onChange={(e) => setPriority(e.target.value as Priority)}
-            className={selectClass}
-          >
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setPriority(v as Priority)}
+            options={PRIORITIES.map((p) => ({ value: p, label: p }))}
+            up
+          />
           <input
             name="body"
             placeholder={`Mensagem para ${partner} (enviada como ${perspective})`}

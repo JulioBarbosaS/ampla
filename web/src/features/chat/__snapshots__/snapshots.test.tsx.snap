@@ -54,22 +54,34 @@ exports[`snapshots > Sidebar with team and presence 1`] = `
   <div
     class="border-b border-zinc-800 p-3"
   >
-    <label
-      class="mb-1 block text-xs uppercase tracking-wide text-zinc-500"
-      for="perspective-select"
+    <p
+      class="mb-1 text-xs uppercase tracking-wide text-zinc-500"
     >
       Conversando como
-    </label>
-    <select
-      class="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm outline-none focus:border-amber-500"
-      id="perspective-select"
+    </p>
+    <div
+      class="relative w-full"
     >
-      <option
-        value=""
+      <button
+        aria-expanded="false"
+        aria-haspopup="listbox"
+        aria-label="Conversando como"
+        class="flex w-full items-center justify-between gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-left text-sm text-zinc-200 outline-none transition-colors hover:border-zinc-600 focus:border-amber-500"
+        type="button"
       >
-        — selecione um agente —
-      </option>
-    </select>
+        <span
+          class="truncate"
+        >
+          — selecione um agente —
+        </span>
+        <span
+          aria-hidden="true"
+          class="shrink-0 text-xs text-zinc-500"
+        >
+          ▾
+        </span>
+      </button>
+    </div>
     <p
       class="mt-2 text-xs text-zinc-500"
     >

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Dropdown } from "../../components/Dropdown";
 import { agentsApi } from "../../lib/api/agents";
 import { groupsApi } from "../../lib/api/groups";
 import { messagesApi } from "../../lib/api/messages";
@@ -67,51 +68,31 @@ export function Sidebar() {
   return (
     <aside className="flex w-72 shrink-0 flex-col border-r border-zinc-800">
       <div className="border-b border-zinc-800 p-3">
-        <label
-          htmlFor="perspective-select"
-          className="mb-1 block text-xs uppercase tracking-wide text-zinc-500"
-        >
-          Conversando como
-        </label>
-        <select
-          id="perspective-select"
+        <p className="mb-1 text-xs uppercase tracking-wide text-zinc-500">Conversando como</p>
+        <Dropdown
+          ariaLabel="Conversando como"
           value={perspective ?? ""}
-          onChange={(event) => setPerspective(event.target.value || null)}
-          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm outline-none focus:border-amber-500"
-        >
-          <option value="">— selecione um agente —</option>
-          {mine.map((agent) => (
-            <option key={agent.slug} value={agent.slug}>
-              {agent.display_name === agent.slug
+          onChange={(v) => setPerspective(v || null)}
+          placeholder="— selecione um agente —"
+          className="w-full"
+          options={mine.map((agent) => ({
+            value: agent.slug,
+            label:
+              agent.display_name === agent.slug
                 ? agent.slug
-                : `${agent.display_name} (${agent.slug})`}
-            </option>
-          ))}
-        </select>
+                : `${agent.display_name} (${agent.slug})`,
+          }))}
+        />
         {current && (
-          <div className="mt-2 flex items-center gap-2.5 rounded-md bg-zinc-900 px-2.5 py-2">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/15 text-sm font-bold text-amber-300">
-              {current.display_name.charAt(0).toUpperCase()}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-1.5">
-                <PresenceDot online={online[current.slug] ?? false} />
-                <span className="truncate text-sm text-zinc-200">{current.display_name}</span>
-              </span>
-              <span className="block truncate font-mono text-[11px] text-zinc-500">
-                @{current.slug}
-              </span>
-            </span>
-            <span
-              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                current.mode === "auto"
-                  ? "bg-amber-900/50 text-amber-300"
-                  : "bg-zinc-800 text-zinc-400"
-              }`}
-              title={current.mode === "auto" ? "responde sozinho" : "só enfileira"}
-            >
-              {current.mode === "auto" ? "auto" : "inbox"}
-            </span>
+          <div className="mt-2 rounded-md bg-zinc-900 px-2.5 py-2">
+            <div className="truncate text-sm text-zinc-200">{current.display_name}</div>
+            <div className="truncate font-mono text-[11px] text-zinc-500">@{current.slug}</div>
+            <div className="mt-1.5 text-xs text-zinc-400">
+              {current.mode === "auto" ? "auto-respond" : "inbox"}
+            </div>
+            <div className="text-xs text-zinc-500">
+              {online[current.slug] ? "online" : "offline"}
+            </div>
           </div>
         )}
         {mine.length === 0 && (
