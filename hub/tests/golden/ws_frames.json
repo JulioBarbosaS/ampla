@@ -3,6 +3,10 @@
     "message_id": 1,
     "type": "ack"
   },
+  "client.activity": {
+    "state": "responding",
+    "type": "activity"
+  },
   "client.broadcast": {
     "body": "deploy às 18h",
     "to": "@frontend-team",
@@ -28,6 +32,11 @@
   },
   "client.pong": {
     "type": "pong"
+  },
+  "server.agent_activity": {
+    "agent_id": "backend-julio",
+    "state": "responding",
+    "type": "agent_activity"
   },
   "server.broadcast_result": {
     "group": "@frontend-team",

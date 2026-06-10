@@ -28,7 +28,7 @@ export function PresenceDot({ online }: { online: boolean }) {
 }
 
 export function Sidebar() {
-  const { perspective, partner, directory, groups, online } = useChatStore();
+  const { perspective, partner, directory, groups, online, activity } = useChatStore();
   const setPerspective = useChatStore((s) => s.setPerspective);
   const setPartner = useChatStore((s) => s.setPartner);
   const setGroups = useChatStore((s) => s.setGroups);
@@ -121,9 +121,13 @@ export function Sidebar() {
                 <PresenceDot online={online[entry.slug] ?? false} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-zinc-200">{entry.slug}</span>
-                  <span className="block truncate text-xs text-zinc-500">
-                    {previews[entry.slug] ?? entry.display_name}
-                  </span>
+                  {activity[entry.slug] ? (
+                    <span className="block truncate text-xs text-amber-400">respondendo…</span>
+                  ) : (
+                    <span className="block truncate text-xs text-zinc-500">
+                      {previews[entry.slug] ?? entry.display_name}
+                    </span>
+                  )}
                 </span>
               </button>
             </li>

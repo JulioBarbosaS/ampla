@@ -18,6 +18,7 @@ from pathlib import Path
 from app.schemas.agent import AgentSettings
 from app.schemas.message import MessageOut
 from app.schemas.ws import (
+    AgentActivityFrame,
     BroadcastResultFrame,
     DeliveredFrame,
     ErrorFrame,
@@ -102,6 +103,8 @@ def test_ws_frames_contract() -> None:
         "client.ack": _accepted_client_frame({"type": "ack", "message_id": 1}),
         # heartbeat: the hub pings, the daemon replies pong
         "client.pong": _accepted_client_frame({"type": "pong"}),
+        # auto-respond 'responding…' signal for the panel indicator
+        "client.activity": _accepted_client_frame({"type": "activity", "state": "responding"}),
         "server.hello_ack": HelloAckFrame(
             agent_id="backend-julio",
             online=["backend-julio", "mobile-eduardo"],
@@ -130,6 +133,9 @@ def test_ws_frames_contract() -> None:
         "server.presence": PresenceFrame(agent_id="infra-maria", status="offline").model_dump(
             mode="json"
         ),
+        "server.agent_activity": AgentActivityFrame(
+            agent_id="backend-julio", state="responding"
+        ).model_dump(mode="json"),
         "server.settings_update": SettingsUpdateFrame(settings=settings).model_dump(mode="json"),
         "server.error": ErrorFrame(
             code="rate_limited", detail="Limite de mensagens excedido."

@@ -27,6 +27,8 @@ from app.schemas.agent import AgentSettings
 from app.schemas.message import MessageOut
 from app.schemas.ws import (
     AckFrame,
+    ActivityFrame,
+    AgentActivityFrame,
     BroadcastResultFrame,
     DeliveredFrame,
     ErrorFrame,
@@ -196,6 +198,15 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
                 await _handle_ack(ws, slug, frame.message_id)
                 continue
 
+            # activity: transient 'responding…' signal, fanned out to panel
+            # observers. Not persisted; bounded by the per-connection token bucket
+            # only indirectly (it does not send messages).
+            if isinstance(frame, ActivityFrame):
+                await manager.broadcast_activity(
+                    AgentActivityFrame(agent_id=slug, state=frame.state).model_dump(mode="json")
+                )
+                continue
+
             if not isinstance(frame, SendMessageFrame):
                 await _send_error(ws, "bad_frame", "Frame inesperado.")
                 continue
@@ -217,6 +228,10 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
         if removed:
             await manager.broadcast_presence(
                 {"type": "presence", "agent_id": slug, "status": "offline"}
+            )
+            # clear any lingering 'responding…' indicator for this agent
+            await manager.broadcast_activity(
+                AgentActivityFrame(agent_id=slug, state="idle").model_dump(mode="json")
             )
 
 

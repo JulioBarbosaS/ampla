@@ -107,6 +107,11 @@ export class FakeHub {
     return this.received.filter((f) => f.type === "ack").map((f) => Number(f.message_id));
   }
 
+  /** `activity` states (responding…/idle) the daemon signaled, in order. */
+  activities(): string[] {
+    return this.received.filter((f) => f.type === "activity").map((f) => String(f.state));
+  }
+
   async stop(): Promise<void> {
     for (const ws of this.sockets.values()) ws.terminate();
     await new Promise<void>((resolve) => this.wss?.close(() => resolve()));

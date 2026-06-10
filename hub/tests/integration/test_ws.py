@@ -349,6 +349,24 @@ class TestObserver:
             observer.send_json({"type": "hello", "jwt": "forjado"})
             assert observer.receive_json()["code"] == "auth_failed"
 
+    def test_agent_activity_is_fanned_out_to_observers(self, client):
+        token, key_a, _ = setup_two_agents(client)
+        with client.websocket_connect("/ws") as observer:
+            observer.send_json({"type": "hello", "jwt": token})
+            recv_until(observer, "hello_ack")
+            with connect_agent_ws(client, "backend-julio", key_a) as ws_a:
+                recv_until(ws_a, "hello_ack")
+                recv_until(observer, "presence")
+                ws_a.send_json({"type": "activity", "state": "responding"})
+                frame = recv_until(observer, "agent_activity")
+                assert frame == {
+                    "type": "agent_activity",
+                    "agent_id": "backend-julio",
+                    "state": "responding",
+                }
+            # leaving the agent context disconnects it → the indicator is cleared
+            assert recv_until(observer, "agent_activity")["state"] == "idle"
+
 
 class TestAbuse:
     def test_rate_limit_per_connection(self):

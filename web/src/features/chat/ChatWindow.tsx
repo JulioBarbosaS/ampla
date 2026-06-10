@@ -210,7 +210,7 @@ function ThreadView({
 }
 
 export function ChatWindow() {
-  const { perspective, partner, conversations, online } = useChatStore();
+  const { perspective, partner, conversations, online, activity } = useChatStore();
   const addMessage = useChatStore((s) => s.addMessage);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -301,9 +301,13 @@ export function ChatWindow() {
       <header className="flex items-center gap-2.5 border-b border-zinc-800 px-4 py-3">
         <PresenceDot online={online[partner] ?? false} />
         <h2 className="text-sm font-semibold text-zinc-100">{partner}</h2>
-        <span className="text-xs text-zinc-500">
-          conversando como <span className="text-zinc-300">{perspective}</span>
-        </span>
+        {activity[partner] ? (
+          <span className="text-xs text-amber-400">respondendo…</span>
+        ) : (
+          <span className="text-xs text-zinc-500">
+            conversando como <span className="text-zinc-300">{perspective}</span>
+          </span>
+        )}
       </header>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3">

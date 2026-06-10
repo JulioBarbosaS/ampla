@@ -48,8 +48,17 @@ class PongFrame(BaseModel):
     type: Literal["pong"] = "pong"
 
 
+class ActivityFrame(BaseModel):
+    """The daemon signals that it started (or finished) generating an auto-reply,
+    so the panel can show a 'responding…' indicator. Transient — never persisted."""
+
+    type: Literal["activity"] = "activity"
+    state: Literal["responding", "idle"]
+
+
 ClientFrame = Annotated[
-    HelloFrame | SendMessageFrame | AckFrame | PongFrame, Field(discriminator="type")
+    HelloFrame | SendMessageFrame | AckFrame | PongFrame | ActivityFrame,
+    Field(discriminator="type"),
 ]
 client_frame_adapter: TypeAdapter[ClientFrame] = TypeAdapter(ClientFrame)
 
@@ -88,6 +97,15 @@ class PresenceFrame(BaseModel):
     status: Literal["online", "offline"]
 
 
+class AgentActivityFrame(BaseModel):
+    """Fan-out to panel observers: an agent started/stopped generating an
+    auto-reply (the 'responding…' indicator). Not sent to daemons."""
+
+    type: Literal["agent_activity"] = "agent_activity"
+    agent_id: str
+    state: Literal["responding", "idle"]
+
+
 class SettingsUpdateFrame(BaseModel):
     type: Literal["settings_update"] = "settings_update"
     settings: AgentSettings
@@ -120,6 +138,7 @@ ServerFrame = (
     | MessageDeliveryFrame
     | DeliveredFrame
     | PresenceFrame
+    | AgentActivityFrame
     | SettingsUpdateFrame
     | BroadcastResultFrame
     | ErrorFrame

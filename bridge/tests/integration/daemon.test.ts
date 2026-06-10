@@ -91,6 +91,25 @@ describe("daemon ↔ hub", () => {
     expect(d.store.conversation("mobile-eduardo").some((m) => m.direction === "out")).toBe(true);
   });
 
+  it("signals 'responding' then 'idle' around an auto-respond run", async () => {
+    const runner = vi.fn().mockResolvedValue("resposta");
+    hub.settings = { ...hub.settings, mode: "auto" };
+    await startDaemon(runner);
+
+    hub.pushMessage(AGENT, wireMessage(20, "mobile-eduardo", AGENT, "pergunta?"));
+    await waitFor(() => hub.activities().includes("idle"), 5000, "sinal idle");
+    expect(hub.activities()).toEqual(["responding", "idle"]);
+  });
+
+  it("does not signal activity in inbox mode", async () => {
+    const runner = vi.fn();
+    const d = await startDaemon(runner); // inbox by default
+    hub.pushMessage(AGENT, wireMessage(21, "mobile-eduardo", AGENT, "oi"));
+    await waitFor(() => d.store.unreadCount() === 1, 5000, "mensagem na inbox");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(hub.activities()).toEqual([]);
+  });
+
   it("does not auto-respond to [auto] messages (anti-loop)", async () => {
     const runner = vi.fn().mockResolvedValue("nunca deveria rodar");
     hub.settings = { ...hub.settings, mode: "auto" };

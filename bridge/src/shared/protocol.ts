@@ -92,7 +92,14 @@ export interface PongFrame {
   type: "pong";
 }
 
-export type ClientFrame = HelloFrame | SendMessageFrame | AckFrame | PongFrame;
+/** Auto-reply generation signal for the panel's "responding…" indicator.
+ * Mirrors ActivityFrame. */
+export interface ActivityFrame {
+  type: "activity";
+  state: "responding" | "idle";
+}
+
+export type ClientFrame = HelloFrame | SendMessageFrame | AckFrame | PongFrame | ActivityFrame;
 
 // ---------- hub → daemon ----------
 
@@ -120,6 +127,12 @@ export const presenceFrameSchema = z.object({
   type: z.literal("presence"),
   agent_id: z.string(),
   status: z.enum(["online", "offline"]),
+});
+
+export const agentActivityFrameSchema = z.object({
+  type: z.literal("agent_activity"),
+  agent_id: z.string(),
+  state: z.enum(["responding", "idle"]),
 });
 
 export const settingsUpdateFrameSchema = z.object({
@@ -150,6 +163,7 @@ export const serverFrameSchema = z.discriminatedUnion("type", [
   messageDeliveryFrameSchema,
   deliveredFrameSchema,
   presenceFrameSchema,
+  agentActivityFrameSchema,
   settingsUpdateFrameSchema,
   broadcastResultFrameSchema,
   errorFrameSchema,

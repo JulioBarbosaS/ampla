@@ -42,6 +42,8 @@ interface ChatState {
   directory: DirectoryEntry[];
   groups: Group[];
   online: Record<string, boolean>;
+  /** Agents currently generating an auto-reply ("respondendo…"). */
+  activity: Record<string, boolean>;
   conversations: Record<string, Message[]>;
   /** Panel WS connection (for the "reconectando…" indicator). */
   wsConnected: boolean;
@@ -53,6 +55,7 @@ interface ChatState {
   setWsConnected: (connected: boolean) => void;
   setOnlineList: (slugs: string[]) => void;
   setPresence: (slug: string, online: boolean) => void;
+  setActivity: (slug: string, responding: boolean) => void;
   setConversation: (a: string, b: string, messages: Message[]) => void;
   addMessage: (message: Message) => void;
   markDelivered: (messageId: number) => void;
@@ -64,6 +67,7 @@ export const useChatStore = create<ChatState>((set) => ({
   directory: [],
   groups: [],
   online: {},
+  activity: {},
   conversations: {},
   wsConnected: true,
 
@@ -87,6 +91,8 @@ export const useChatStore = create<ChatState>((set) => ({
       },
     })),
   setPresence: (slug, online) => set((state) => ({ online: { ...state.online, [slug]: online } })),
+  setActivity: (slug, responding) =>
+    set((state) => ({ activity: { ...state.activity, [slug]: responding } })),
   setConversation: (a, b, messages) =>
     set((state) => ({
       conversations: {

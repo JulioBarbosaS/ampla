@@ -140,7 +140,17 @@ export function createDaemon(
       .slice(-HISTORY_LIMIT)
       .map((m) => ({ from: m.from, body: m.body, ts: m.ts }));
 
-    const result = await responder.handle(message, settings, history);
+    // "responding…" indicator: only in auto mode (inbox returns skipped without
+    // running the model). A rate-limited run flickers responding→idle briefly,
+    // which is harmless.
+    const signalsActivity = settings.mode === "auto";
+    if (signalsActivity) hub.sendActivity("responding");
+    let result: Awaited<ReturnType<typeof responder.handle>>;
+    try {
+      result = await responder.handle(message, settings, history);
+    } finally {
+      if (signalsActivity) hub.sendActivity("idle");
+    }
     const replyOpts = {
       msgType: "response" as const,
       priority: message.priority, // reply inherits the request's priority

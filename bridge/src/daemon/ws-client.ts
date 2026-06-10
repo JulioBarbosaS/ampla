@@ -88,6 +88,17 @@ export class HubClient extends EventEmitter<HubClientEvents> {
     return true;
   }
 
+  /** Signals to the hub (and thus the panel) that this agent started or finished
+   * generating an auto-reply — drives the "responding…" indicator. Best-effort:
+   * a dropped signal only affects a transient UI hint. */
+  sendActivity(state: "responding" | "idle"): boolean {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const frame: ClientFrame = { type: "activity", state };
+    ws.send(JSON.stringify(frame));
+    return true;
+  }
+
   /** Confirms receipt of a message (at-least-once): the hub only marks it
    * `delivered` and notifies the sender after this ack. Always ack — even a
    * deduplicated message — otherwise the hub resends it on every reconnect. */

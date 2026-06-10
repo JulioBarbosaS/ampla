@@ -19,6 +19,7 @@ export function ChatPage() {
     setPerspective,
     setWsConnected,
     markDelivered,
+    setActivity,
   } = useChatStore();
 
   // directory + initial perspective (the user's first agent)
@@ -45,8 +46,9 @@ export function ChatPage() {
       onOnlineList: setOnlineList,
       onStatus: setWsConnected,
       onDelivered: markDelivered,
+      onActivity: setActivity,
     });
-  }, [authed, addMessage, setPresence, setOnlineList, setWsConnected, markDelivered]);
+  }, [authed, addMessage, setPresence, setOnlineList, setWsConnected, markDelivered, setActivity]);
 
   // history of the selected conversation
   useEffect(() => {

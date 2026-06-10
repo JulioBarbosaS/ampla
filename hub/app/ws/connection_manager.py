@@ -98,6 +98,12 @@ class ConnectionManager:
             if obs.can_see(from_slug, to_slug):
                 await self._send_quietly(obs.ws, payload)
 
+    async def broadcast_activity(self, payload: dict) -> None:
+        """Transient 'responding…' indicator, fanned out to panel observers only
+        (daemons don't render UI). Low-sensitivity, like presence — unfiltered."""
+        for obs in list(self._observers):
+            await self._send_quietly(obs.ws, payload)
+
     async def send_settings_update(self, slug: str, payload: dict) -> bool:
         return await self.send_to_agent(slug, payload)
 

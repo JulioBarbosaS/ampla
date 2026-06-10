@@ -229,6 +229,20 @@ describe("ChatWindow", () => {
     expect(screen.queryByText("minha resposta")).not.toBeInTheDocument();
   });
 
+  it("shows a 'respondendo…' indicator when the partner is generating an auto-reply", () => {
+    useChatStore.setState({
+      perspective: "backend-julio",
+      partner: "mobile-eduardo",
+      online: { "mobile-eduardo": true },
+      activity: { "mobile-eduardo": true },
+      conversations: {},
+      directory: [],
+    });
+    render(<ChatWindow />);
+    expect(screen.getByText("respondendo…")).toBeInTheDocument();
+    expect(screen.queryByText(/conversando como/)).not.toBeInTheDocument();
+  });
+
   it("exposes type and priority selectors in the composer", () => {
     useChatStore.setState({
       perspective: "backend-julio",

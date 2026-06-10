@@ -15,6 +15,8 @@ export interface ObserverHandlers {
   /** Delivery confirmation for a message (at-least-once): the recipient
    * acked and the hub re-mirrored — updates the "delivered" mark on the bubble. */
   onDelivered?: (messageId: number) => void;
+  /** An agent started/stopped generating an auto-reply ("responding…"). */
+  onActivity?: (agentId: string, responding: boolean) => void;
 }
 
 const RECONNECT_MS = 3000;
@@ -45,6 +47,8 @@ export function connectObserver(handlers: ObserverHandlers): () => void {
         handlers.onDelivered?.(Number(frame.message_id));
       } else if (frame.type === "presence") {
         handlers.onPresence(String(frame.agent_id), frame.status === "online");
+      } else if (frame.type === "agent_activity") {
+        handlers.onActivity?.(String(frame.agent_id), frame.state === "responding");
       }
     };
     ws.onclose = () => {
