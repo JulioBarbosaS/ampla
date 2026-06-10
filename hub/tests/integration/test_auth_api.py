@@ -48,6 +48,42 @@ class TestProfile:
         response = client.patch("/api/auth/me", json={"name": ""}, headers=auth(token))
         assert response.status_code == 422
 
+    def test_change_password_flow(self, client):
+        token = do_setup(client)
+        response = client.post(
+            "/api/auth/me/password",
+            json={"current_password": ADMIN["password"], "new_password": "outra-senha-segura-9"},
+            headers=auth(token),
+        )
+        assert response.status_code == 204
+        # the old password no longer logs in; the new one does
+        old = client.post(
+            "/api/auth/login", json={"email": ADMIN["email"], "password": ADMIN["password"]}
+        )
+        assert old.status_code == 401
+        new = client.post(
+            "/api/auth/login",
+            json={"email": ADMIN["email"], "password": "outra-senha-segura-9"},
+        )
+        assert new.status_code == 200
+
+    def test_change_password_wrong_current_is_422_not_401(self, client):
+        token = do_setup(client)
+        response = client.post(
+            "/api/auth/me/password",
+            json={"current_password": "senha-errada-9", "new_password": "outra-senha-segura-9"},
+            headers=auth(token),
+        )
+        # 422, not 401 — a wrong current password must not look like a dead session
+        assert response.status_code == 422
+
+    def test_change_password_requires_auth(self, client):
+        response = client.post(
+            "/api/auth/me/password",
+            json={"current_password": "x", "new_password": "y" * 12},
+        )
+        assert response.status_code == 401
+
 
 class TestRegister:
     def test_registration_by_invite(self, client):

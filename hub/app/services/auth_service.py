@@ -12,6 +12,7 @@ from app.services.errors import (
     AccountLockedError,
     AuthError,
     ConflictError,
+    InvalidInputError,
     NotFoundError,
     PermissionDeniedError,
 )
@@ -167,6 +168,19 @@ class AuthService:
         await self._users.save(user)
         await self._audit.record("profile_updated", actor=user.email)
         return user
+
+    async def change_password(self, user: User, current: str, new: str) -> None:
+        """Self-service password change. The user is already authenticated, so a
+        wrong current password is a 422 (InvalidInputError) — not a 401, which the
+        panel treats as a dead session and would log the user out."""
+        if not security.verify_password(current, user.password_hash):
+            await self._audit.record("password_change_fail", actor=user.email)
+            raise InvalidInputError("Senha atual incorreta.")
+        user.password_hash = security.hash_password(new)
+        user.failed_logins = 0
+        user.locked_until = None
+        await self._users.save(user)
+        await self._audit.record("password_changed", actor=user.email)
 
     async def list_audit(self, actor: User, limit: int = 100):
         """Admin-only view of the audit trail (events are recorded across the

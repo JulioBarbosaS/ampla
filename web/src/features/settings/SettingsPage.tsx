@@ -27,6 +27,12 @@ export function SettingsPage() {
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameSaved, setNameSaved] = useState(false);
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwBusy, setPwBusy] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSaved, setPwSaved] = useState(false);
 
   const trimmedName = name.trim();
   const nameDirty = trimmedName !== (user?.name ?? "") && trimmedName.length > 0;
@@ -45,6 +51,32 @@ export function SettingsPage() {
       setNameError(authErrorMessage(err));
     } finally {
       setSavingName(false);
+    }
+  }
+
+  async function handleChangePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPwError(null);
+    setPwSaved(false);
+    if (newPw.length < 10) {
+      setPwError("A nova senha precisa de pelo menos 10 caracteres.");
+      return;
+    }
+    if (newPw !== confirmPw) {
+      setPwError("A confirmação não confere com a nova senha.");
+      return;
+    }
+    setPwBusy(true);
+    try {
+      await authApi.changePassword({ current_password: currentPw, new_password: newPw });
+      setPwSaved(true);
+      setCurrentPw("");
+      setNewPw("");
+      setConfirmPw("");
+    } catch (err) {
+      setPwError(authErrorMessage(err));
+    } finally {
+      setPwBusy(false);
     }
   }
 
@@ -150,6 +182,60 @@ export function SettingsPage() {
           {nameSaved && <span className="text-xs text-emerald-400">Salvo.</span>}
         </div>
         <p className="mt-2 text-xs text-zinc-600">A edição de email chega em breve.</p>
+      </form>
+
+      <form onSubmit={handleChangePassword} className="mt-4 rounded-lg border border-zinc-800 p-4">
+        <h2 className="mb-3 text-sm font-medium text-zinc-300">Senha</h2>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs text-zinc-500">Senha atual</span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={currentPw}
+              onChange={(e) => setCurrentPw(e.target.value)}
+              aria-label="Senha atual"
+              className={inputClass}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-zinc-500">Nova senha (mínimo 10)</span>
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={newPw}
+              onChange={(e) => setNewPw(e.target.value)}
+              aria-label="Nova senha"
+              className={inputClass}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-zinc-500">Confirmar nova senha</span>
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={confirmPw}
+              onChange={(e) => setConfirmPw(e.target.value)}
+              aria-label="Confirmar nova senha"
+              className={inputClass}
+            />
+          </label>
+        </div>
+        {pwError && (
+          <p role="alert" className="mt-2 text-xs text-red-400">
+            {pwError}
+          </p>
+        )}
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={pwBusy || !currentPw || !newPw || !confirmPw}
+            className="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:opacity-50"
+          >
+            Alterar senha
+          </button>
+          {pwSaved && <span className="text-xs text-emerald-400">Senha alterada.</span>}
+        </div>
       </form>
 
       {cropping && user && (

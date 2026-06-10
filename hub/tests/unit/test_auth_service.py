@@ -189,6 +189,25 @@ class TestProfile:
         assert updated.name == "Julio Barbosa"
         assert audit.has("profile_updated")
 
+    async def test_change_password_with_correct_current(self, service, audit):
+        from app.core import security
+
+        user, _ = await make_admin(service)
+        await service.change_password(user, PASSWORD, "nova-senha-segura-1")
+        assert security.verify_password("nova-senha-segura-1", user.password_hash)
+        assert not security.verify_password(PASSWORD, user.password_hash)
+        assert audit.has("password_changed")
+
+    async def test_change_password_wrong_current_rejected(self, service, audit):
+        from app.services.errors import InvalidInputError
+
+        user, _ = await make_admin(service)
+        old_hash = user.password_hash
+        with pytest.raises(InvalidInputError):
+            await service.change_password(user, "senha-errada-9", "nova-senha-segura-1")
+        assert user.password_hash == old_hash  # unchanged
+        assert audit.has("password_change_fail")
+
 
 class TestToken:
     async def test_invalid_token_returns_none(self, service):

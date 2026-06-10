@@ -5,7 +5,9 @@ import { useAuthStore } from "../../stores/auth";
 import { useAvatarStore } from "../../stores/avatar";
 import { SettingsPage } from "./SettingsPage";
 
-vi.mock("../../lib/api/auth", () => ({ authApi: { updateProfile: vi.fn() } }));
+vi.mock("../../lib/api/auth", () => ({
+  authApi: { updateProfile: vi.fn(), changePassword: vi.fn() },
+}));
 
 import { authApi } from "../../lib/api/auth";
 
@@ -100,4 +102,37 @@ describe("SettingsPage profile", () => {
   });
 });
 
-beforeEach(() => vi.mocked(authApi.updateProfile).mockReset());
+beforeEach(() => {
+  vi.mocked(authApi.updateProfile).mockReset();
+  vi.mocked(authApi.changePassword).mockReset();
+});
+
+describe("SettingsPage password", () => {
+  it("validates and submits a password change", async () => {
+    vi.mocked(authApi.changePassword).mockResolvedValue(null);
+    render(<SettingsPage />);
+    await userEvent.type(screen.getByLabelText("Senha atual"), "senha-atual-1");
+    await userEvent.type(screen.getByLabelText("Nova senha"), "nova-senha-segura-9");
+    await userEvent.type(screen.getByLabelText("Confirmar nova senha"), "nova-senha-segura-9");
+    await userEvent.click(screen.getByRole("button", { name: "Alterar senha" }));
+
+    await waitFor(() =>
+      expect(authApi.changePassword).toHaveBeenCalledWith({
+        current_password: "senha-atual-1",
+        new_password: "nova-senha-segura-9",
+      }),
+    );
+    expect(await screen.findByText("Senha alterada.")).toBeInTheDocument();
+  });
+
+  it("rejects a mismatched confirmation without calling the API", async () => {
+    render(<SettingsPage />);
+    await userEvent.type(screen.getByLabelText("Senha atual"), "senha-atual-1");
+    await userEvent.type(screen.getByLabelText("Nova senha"), "nova-senha-segura-9");
+    await userEvent.type(screen.getByLabelText("Confirmar nova senha"), "diferente-99999");
+    await userEvent.click(screen.getByRole("button", { name: "Alterar senha" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/não confere/);
+    expect(authApi.changePassword).not.toHaveBeenCalled();
+  });
+});

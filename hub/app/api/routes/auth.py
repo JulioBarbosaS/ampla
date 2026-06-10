@@ -6,6 +6,7 @@ from app.core.cookies import clear_session_cookie, set_session_cookie
 from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
+    PasswordChange,
     ProfileUpdate,
     RegisterRequest,
     SetupRequest,
@@ -85,3 +86,18 @@ async def update_me(
     auth: AuthService = Depends(get_auth_service),
 ) -> UserOut:
     return UserOut.model_validate(await auth.update_profile(user, body.name))
+
+
+@router.post(
+    "/me/password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(auth_rate_limit)],
+)
+async def change_password(
+    body: PasswordChange,
+    user: User = Depends(get_current_user),
+    auth: AuthService = Depends(get_auth_service),
+) -> None:
+    # Rate-limited (same limiter as login) to blunt online guessing of the
+    # current password.
+    await auth.change_password(user, body.current_password, body.new_password)

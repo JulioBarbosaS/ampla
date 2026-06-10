@@ -12,6 +12,8 @@ export const authApi = {
   logout: () => api.post<null>("/api/auth/logout"),
   me: () => api.get<User>("/api/auth/me"),
   updateProfile: (data: { name: string }) => api.patch<User>("/api/auth/me", data),
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    api.post<null>("/api/auth/me/password", data),
   createInvite: () => api.post<Invite>("/api/invites"),
   listInvites: () => api.get<Invite[]>("/api/invites"),
 };
