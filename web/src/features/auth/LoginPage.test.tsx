@@ -23,16 +23,16 @@ beforeEach(() => {
 });
 
 describe("LoginPage", () => {
-  it("renders the welcome header, fields and the social/forgot footer", () => {
+  it("renders the welcome header, fields and the forgot/register footer", () => {
     renderLogin();
     expect(screen.getByRole("heading", { name: "Bem-vindo de volta" })).toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toHaveAttribute("placeholder", "voce@exemplo.com");
     expect(screen.getByLabelText("Senha")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Entrar" })).toBeEnabled();
 
-    // social sign-in + password recovery are present but not wired yet
-    expect(screen.getByRole("button", { name: /Google/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /GitHub/ })).toBeDisabled();
+    // no social sign-in (OAuth doesn't fit a local instance); recovery is a
+    // placeholder until the reset flow exists
+    expect(screen.queryByRole("button", { name: /Google|GitHub/ })).toBeNull();
     expect(screen.getByRole("button", { name: "Esqueci minha senha" })).toBeDisabled();
     expect(screen.getByRole("link", { name: "Criar conta" })).toHaveAttribute("href", "/register");
   });
