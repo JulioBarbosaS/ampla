@@ -6,6 +6,34 @@ export function conversationKey(a: string, b: string): string {
   return [a, b].sort().join("|");
 }
 
+export interface MessageThread {
+  root: Message;
+  replies: Message[];
+}
+
+/**
+ * Group a flat conversation into threads by `thread_id`. The root is the message
+ * whose `id === thread_id`; everything else in the thread is an ordered reply.
+ * Threads and replies are ordered by id (the store keeps messages in id order,
+ * which is chronological).
+ */
+export function groupThreads(messages: Message[]): MessageThread[] {
+  const byThread = new Map<number, Message[]>();
+  for (const m of messages) {
+    const tid = m.thread_id ?? m.id;
+    const arr = byThread.get(tid);
+    if (arr) arr.push(m);
+    else byThread.set(tid, [m]);
+  }
+  const threads: MessageThread[] = [];
+  for (const [tid, msgs] of byThread) {
+    const sorted = [...msgs].sort((a, b) => a.id - b.id);
+    const root = sorted.find((m) => m.id === tid) ?? sorted[0];
+    threads.push({ root, replies: sorted.filter((m) => m.id !== root.id) });
+  }
+  return threads.sort((a, b) => a.root.id - b.root.id);
+}
+
 interface ChatState {
   /** The user's "own" agent through which they chat and view the sidebar. */
   perspective: string | null;

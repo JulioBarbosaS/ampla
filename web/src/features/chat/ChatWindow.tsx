@@ -3,7 +3,7 @@ import { Dropdown } from "../../components/Dropdown";
 import { Markdown, stripMarkdown } from "../../components/Markdown";
 import { messagesApi } from "../../lib/api/messages";
 import type { Message, MessageType, Priority } from "../../lib/api/types";
-import { conversationKey, useChatStore } from "../../stores/chat";
+import { conversationKey, groupThreads, useChatStore } from "../../stores/chat";
 import { BroadcastPanel } from "./BroadcastPanel";
 import { PresenceDot } from "./Sidebar";
 
@@ -163,6 +163,52 @@ export function MessageBubble({
   );
 }
 
+/** A thread root plus its replies, nested under a collapsible toggle. */
+function ThreadView({
+  root,
+  replies,
+  perspective,
+  byId,
+  answeredBy,
+  onReply,
+}: {
+  root: Message;
+  replies: Message[];
+  perspective: string;
+  byId: Map<number, Message>;
+  answeredBy: Map<number, string>;
+  onReply: (message: Message) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const bubble = (m: Message) => (
+    <MessageBubble
+      key={m.id}
+      message={m}
+      mine={m.from === perspective}
+      repliedTo={m.in_reply_to != null ? (byId.get(m.in_reply_to) ?? null) : null}
+      answeredBy={answeredBy.get(m.id) ?? null}
+      onReply={onReply}
+    />
+  );
+  return (
+    <div className="space-y-2">
+      {bubble(root)}
+      {replies.length > 0 && (
+        <div className="ml-4 space-y-2 border-l border-zinc-800 pl-3">
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            className="text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+          >
+            {collapsed ? "▸" : "▾"} {replies.length} resposta{replies.length > 1 ? "s" : ""}
+          </button>
+          {!collapsed && replies.map(bubble)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ChatWindow() {
   const { perspective, partner, conversations, online } = useChatStore();
   const addMessage = useChatStore((s) => s.addMessage);
@@ -191,6 +237,8 @@ export function ChatWindow() {
     }
     return { byId, answeredBy };
   }, [messages]);
+
+  const threads = useMemo(() => groupThreads(messages), [messages]);
 
   useEffect(() => {
     if (messages.length > 0) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -264,13 +312,14 @@ export function ChatWindow() {
             Nenhuma mensagem ainda. Os agentes (ou você, abaixo) podem começar.
           </p>
         )}
-        {messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            mine={message.from === perspective}
-            repliedTo={message.in_reply_to != null ? (byId.get(message.in_reply_to) ?? null) : null}
-            answeredBy={answeredBy.get(message.id) ?? null}
+        {threads.map((thread) => (
+          <ThreadView
+            key={thread.root.id}
+            root={thread.root}
+            replies={thread.replies}
+            perspective={perspective}
+            byId={byId}
+            answeredBy={answeredBy}
             onReply={startReply}
           />
         ))}

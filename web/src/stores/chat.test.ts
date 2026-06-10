@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Message } from "../lib/api/types";
-import { conversationKey, useChatStore } from "./chat";
+import { conversationKey, groupThreads, useChatStore } from "./chat";
 
 function msg(id: number, from: string, to: string, body = `m${id}`): Message {
   return {
@@ -18,6 +18,28 @@ function msg(id: number, from: string, to: string, body = `m${id}`): Message {
     expires_at: null,
   };
 }
+
+describe("groupThreads", () => {
+  it("groups replies under the root identified by id === thread_id", () => {
+    const root = { ...msg(1, "a", "b"), thread_id: 1 };
+    const reply = { ...msg(3, "b", "a"), thread_id: 1, in_reply_to: 1 };
+    const other = { ...msg(2, "a", "b"), thread_id: 2 };
+    const threads = groupThreads([reply, other, root]);
+    expect(threads).toHaveLength(2);
+    // ordered by root id
+    expect(threads[0].root.id).toBe(1);
+    expect(threads[0].replies.map((m) => m.id)).toEqual([3]);
+    expect(threads[1].root.id).toBe(2);
+    expect(threads[1].replies).toHaveLength(0);
+  });
+
+  it("treats a message with no matching root as its own thread", () => {
+    const orphan = { ...msg(5, "a", "b"), thread_id: 99, in_reply_to: 99 };
+    const threads = groupThreads([orphan]);
+    expect(threads).toHaveLength(1);
+    expect(threads[0].root.id).toBe(5);
+  });
+});
 
 beforeEach(() => {
   useChatStore.setState({

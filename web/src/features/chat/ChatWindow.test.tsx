@@ -204,6 +204,31 @@ describe("ChatWindow", () => {
     expect(screen.getByText(/🤖 auto/)).toBeInTheDocument();
   });
 
+  it("nests replies under their thread root with a collapsible toggle", () => {
+    useChatStore.setState({
+      perspective: "backend-julio",
+      partner: "mobile-eduardo",
+      online: {},
+      conversations: {
+        "backend-julio|mobile-eduardo": [
+          msg(1, "mobile-eduardo", "backend-julio", "raiz da thread", { thread_id: 1 }),
+          msg(2, "backend-julio", "mobile-eduardo", "minha resposta", {
+            thread_id: 1,
+            in_reply_to: 1,
+            type: "response",
+          }),
+        ],
+      },
+      directory: [],
+    });
+    render(<ChatWindow />);
+    expect(screen.getByText("raiz da thread")).toBeInTheDocument();
+    expect(screen.getByText("minha resposta")).toBeInTheDocument();
+    // the reply is nested under a collapsible toggle
+    fireEvent.click(screen.getByRole("button", { name: /1 resposta/ }));
+    expect(screen.queryByText("minha resposta")).not.toBeInTheDocument();
+  });
+
   it("exposes type and priority selectors in the composer", () => {
     useChatStore.setState({
       perspective: "backend-julio",
