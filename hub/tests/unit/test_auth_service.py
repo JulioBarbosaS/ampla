@@ -182,6 +182,14 @@ class TestRole:
             await service.set_role(admin, 999, "admin")
 
 
+class TestProfile:
+    async def test_update_profile_changes_name_and_audits(self, service, audit):
+        user, _ = await make_admin(service)
+        updated = await service.update_profile(user, "Julio Barbosa")
+        assert updated.name == "Julio Barbosa"
+        assert audit.has("profile_updated")
+
+
 class TestToken:
     async def test_invalid_token_returns_none(self, service):
         await make_admin(service)

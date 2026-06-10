@@ -1,24 +1,52 @@
-import { type ChangeEvent, useRef, useState } from "react";
+import { type ChangeEvent, type FormEvent, useRef, useState } from "react";
 import { Avatar } from "../../components/Avatar";
 import { AvatarCropper } from "../../components/AvatarCropper";
+import { authApi } from "../../lib/api/auth";
+import { authErrorMessage } from "../../lib/api/errors";
 import { readFileAsDataUrl, validateImageFile } from "../../lib/crop";
 import { useAuthStore } from "../../stores/auth";
 import { useAvatarStore } from "../../stores/avatar";
 
 const fieldClass =
   "w-full rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-300 disabled:cursor-not-allowed";
+const inputClass =
+  "w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-amber-500";
 
-/** Profile page (reached from the account drawer → "Perfil"). The photo is
- * editable now (cropped, kept client-side); name/email/role stay read-only
- * until the profile-update endpoints land. */
+/** Profile page (reached from the account drawer → "Perfil"). Name and photo are
+ * editable; email/role stay read-only. */
 export function SettingsPage() {
   const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
   const photo = useAvatarStore((s) => (user ? (s.photos[user.id] ?? null) : null));
   const setPhoto = useAvatarStore((s) => s.setPhoto);
   const removePhoto = useAvatarStore((s) => s.removePhoto);
   const inputRef = useRef<HTMLInputElement>(null);
   const [cropping, setCropping] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState(user?.name ?? "");
+  const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [nameSaved, setNameSaved] = useState(false);
+
+  const trimmedName = name.trim();
+  const nameDirty = trimmedName !== (user?.name ?? "") && trimmedName.length > 0;
+
+  async function handleSaveName(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!nameDirty) return;
+    setSavingName(true);
+    setNameError(null);
+    setNameSaved(false);
+    try {
+      const updated = await authApi.updateProfile({ name: trimmedName });
+      setUser(updated);
+      setNameSaved(true);
+    } catch (err) {
+      setNameError(authErrorMessage(err));
+    } finally {
+      setSavingName(false);
+    }
+  }
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -79,12 +107,21 @@ export function SettingsPage() {
         )}
       </section>
 
-      <section className="mt-4 rounded-lg border border-zinc-800 p-4">
+      <form onSubmit={handleSaveName} className="mt-4 rounded-lg border border-zinc-800 p-4">
         <h2 className="mb-3 text-sm font-medium text-zinc-300">Dados</h2>
         <div className="space-y-3">
           <label className="block">
             <span className="mb-1 block text-xs text-zinc-500">Nome</span>
-            <input value={user?.name ?? ""} disabled className={fieldClass} />
+            <input
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setNameSaved(false);
+              }}
+              maxLength={120}
+              aria-label="Nome"
+              className={inputClass}
+            />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs text-zinc-500">Email</span>
@@ -97,8 +134,23 @@ export function SettingsPage() {
             </span>
           </div>
         </div>
-        <p className="mt-3 text-xs text-zinc-600">A edição de nome e email chega em breve.</p>
-      </section>
+        {nameError && (
+          <p role="alert" className="mt-2 text-xs text-red-400">
+            {nameError}
+          </p>
+        )}
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={!nameDirty || savingName}
+            className="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:opacity-50"
+          >
+            Salvar
+          </button>
+          {nameSaved && <span className="text-xs text-emerald-400">Salvo.</span>}
+        </div>
+        <p className="mt-2 text-xs text-zinc-600">A edição de email chega em breve.</p>
+      </form>
 
       {cropping && user && (
         <AvatarCropper

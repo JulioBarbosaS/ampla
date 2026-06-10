@@ -160,6 +160,14 @@ class AuthService:
         await self._audit.record("login_ok", actor=user.email)
         return user, self._issue_token(user)
 
+    # ---- self-service profile ----
+
+    async def update_profile(self, user: User, name: str) -> User:
+        user.name = name
+        await self._users.save(user)
+        await self._audit.record("profile_updated", actor=user.email)
+        return user
+
     async def list_audit(self, actor: User, limit: int = 100):
         """Admin-only view of the audit trail (events are recorded across the
         services; this is the only way to review them)."""

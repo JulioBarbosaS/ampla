@@ -11,6 +11,7 @@ export const authApi = {
     api.post<TokenResponse>("/api/auth/login", data),
   logout: () => api.post<null>("/api/auth/logout"),
   me: () => api.get<User>("/api/auth/me"),
+  updateProfile: (data: { name: string }) => api.patch<User>("/api/auth/me", data),
   createInvite: () => api.post<Invite>("/api/invites"),
   listInvites: () => api.get<Invite[]>("/api/invites"),
 };

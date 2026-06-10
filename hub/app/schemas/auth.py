@@ -41,6 +41,17 @@ class RoleUpdate(BaseModel):
     role: str = Field(pattern=r"^(admin|member)$")
 
 
+class ProfileUpdate(BaseModel):
+    """Self-service profile edit. Email is the login identity — not editable here."""
+
+    name: str = Field(min_length=1, max_length=120)
+
+
+class PasswordChange(BaseModel):
+    current_password: str = Field(max_length=128)
+    new_password: str = Field(min_length=10, max_length=128)
+
+
 class AuditOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

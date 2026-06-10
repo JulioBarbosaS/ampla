@@ -1,9 +1,13 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "../../stores/auth";
 import { useAvatarStore } from "../../stores/avatar";
 import { SettingsPage } from "./SettingsPage";
+
+vi.mock("../../lib/api/auth", () => ({ authApi: { updateProfile: vi.fn() } }));
+
+import { authApi } from "../../lib/api/auth";
 
 // Stub the cropper UI: fire onCropComplete on mount so "Salvar" is enabled, and
 // resolve the crop to a fixed data URL — the real canvas/cropper need a browser.
@@ -53,8 +57,8 @@ describe("SettingsPage photo", () => {
     const file = new File(["PNG"], "me.png", { type: "image/png" });
     fireEvent.change(input, { target: { files: [file] } });
 
-    await screen.findByRole("dialog", { name: "Recortar foto" });
-    await userEvent.click(screen.getByRole("button", { name: "Salvar" }));
+    const dialog = await screen.findByRole("dialog", { name: "Recortar foto" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
 
     await waitFor(() =>
       expect(useAvatarStore.getState().photos[7]).toBe("data:image/jpeg;base64,CROPPED"),
@@ -69,3 +73,31 @@ describe("SettingsPage photo", () => {
     expect(useAvatarStore.getState().photos[7]).toBeUndefined();
   });
 });
+
+describe("SettingsPage profile", () => {
+  it("disables Salvar until the name changes", () => {
+    render(<SettingsPage />);
+    expect(screen.getByRole("button", { name: "Salvar" })).toBeDisabled();
+  });
+
+  it("saves an edited name and updates the auth store", async () => {
+    vi.mocked(authApi.updateProfile).mockResolvedValue({
+      id: 7,
+      email: "julio@example.com",
+      name: "Julio B",
+      role: "admin",
+      created_at: "",
+    });
+    render(<SettingsPage />);
+    const nameInput = screen.getByLabelText("Nome");
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Julio B");
+    await userEvent.click(screen.getByRole("button", { name: "Salvar" }));
+
+    await waitFor(() => expect(authApi.updateProfile).toHaveBeenCalledWith({ name: "Julio B" }));
+    expect(useAuthStore.getState().user?.name).toBe("Julio B");
+    expect(await screen.findByText("Salvo.")).toBeInTheDocument();
+  });
+});
+
+beforeEach(() => vi.mocked(authApi.updateProfile).mockReset());

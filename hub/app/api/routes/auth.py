@@ -6,6 +6,7 @@ from app.core.cookies import clear_session_cookie, set_session_cookie
 from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
+    ProfileUpdate,
     RegisterRequest,
     SetupRequest,
     SetupStatus,
@@ -75,3 +76,12 @@ async def logout(
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user)) -> UserOut:
     return UserOut.model_validate(user)
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(
+    body: ProfileUpdate,
+    user: User = Depends(get_current_user),
+    auth: AuthService = Depends(get_auth_service),
+) -> UserOut:
+    return UserOut.model_validate(await auth.update_profile(user, body.name))

@@ -30,6 +30,25 @@ class TestSetupFlow:
         assert response.status_code == 422
 
 
+class TestProfile:
+    def test_patch_me_updates_name(self, client):
+        token = do_setup(client)
+        response = client.patch("/api/auth/me", json={"name": "Novo Nome"}, headers=auth(token))
+        assert response.status_code == 200
+        assert response.json()["name"] == "Novo Nome"
+        # persisted across requests
+        assert client.get("/api/auth/me", headers=auth(token)).json()["name"] == "Novo Nome"
+
+    def test_patch_me_requires_auth(self, client):
+        # no setup → no session cookie/token; the dependency must reject it
+        assert client.patch("/api/auth/me", json={"name": "x"}).status_code == 401
+
+    def test_patch_me_rejects_empty_name(self, client):
+        token = do_setup(client)
+        response = client.patch("/api/auth/me", json={"name": ""}, headers=auth(token))
+        assert response.status_code == 422
+
+
 class TestRegister:
     def test_registration_by_invite(self, client):
         admin_token = do_setup(client)
