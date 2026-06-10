@@ -1,47 +1,79 @@
 import { create } from "zustand";
 
-export type Theme = "dark" | "light";
+/** What the user picked. "system" follows the OS via prefers-color-scheme. */
+export type ThemePreference = "light" | "dark" | "system";
+/** The theme actually applied to the document. */
+type Resolved = "light" | "dark";
 
 const STORAGE_KEY = "ampla-theme";
+const DARK_QUERY = "(prefers-color-scheme: dark)";
 
-function readStored(): Theme {
+function readStored(): ThemePreference {
   try {
-    return localStorage.getItem(STORAGE_KEY) === "light" ? "light" : "dark";
+    const value = localStorage.getItem(STORAGE_KEY);
+    return value === "light" || value === "dark" || value === "system" ? value : "system";
   } catch {
-    return "dark";
+    return "system";
   }
 }
 
+function systemPrefersDark(): boolean {
+  // jsdom (and very old browsers) lack matchMedia — default to dark, the only
+  // palette that renders today.
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return true;
+  return window.matchMedia(DARK_QUERY).matches;
+}
+
+function resolve(preference: ThemePreference): Resolved {
+  if (preference === "system") return systemPrefersDark() ? "dark" : "light";
+  return preference;
+}
+
 /**
- * Reflect the chosen theme on <html> so CSS can target it. Only the dark
+ * Reflect the resolved theme on <html> so CSS can target it. Only the dark
  * palette is actually implemented today; "light" is persisted and applied here
  * so it starts rendering for real once the components move to theme tokens (the
  * deferred UI pass) — no further wiring needed then.
  */
-function apply(theme: Theme): void {
+function apply(resolved: Resolved): void {
   const root = document.documentElement;
-  root.dataset.theme = theme;
-  root.classList.toggle("dark", theme === "dark");
+  root.dataset.theme = resolved;
+  root.classList.toggle("dark", resolved === "dark");
 }
 
 interface ThemeState {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
+  preference: ThemePreference;
+  resolved: Resolved;
+  setTheme: (preference: ThemePreference) => void;
 }
 
-export const useThemeStore = create<ThemeState>()((set) => {
-  const initial = readStored();
-  apply(initial);
+export const useThemeStore = create<ThemeState>()((set, get) => {
+  // Follow the OS while the preference is "system": re-resolve when it flips.
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    window.matchMedia(DARK_QUERY).addEventListener?.("change", () => {
+      if (get().preference !== "system") return;
+      const resolved = systemPrefersDark() ? "dark" : "light";
+      apply(resolved);
+      set({ resolved });
+    });
+  }
+
+  const preference = readStored();
+  const resolved = resolve(preference);
+  apply(resolved);
+
   return {
-    theme: initial,
-    setTheme: (theme) => {
-      apply(theme);
+    preference,
+    resolved,
+    setTheme: (preference) => {
+      const resolved = resolve(preference);
+      apply(resolved);
       try {
-        localStorage.setItem(STORAGE_KEY, theme);
+        localStorage.setItem(STORAGE_KEY, preference);
       } catch {
         // storage disabled (private mode) — keep the in-memory choice anyway
       }
-      set({ theme });
+      set({ preference, resolved });
     },
   };
 });
