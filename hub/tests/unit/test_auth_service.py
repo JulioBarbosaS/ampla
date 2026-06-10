@@ -209,6 +209,45 @@ class TestProfile:
         assert audit.has("password_change_fail")
 
 
+class TestPasswordReset:
+    async def test_admin_issues_and_user_resets(self, service, audit):
+        from app.core import security
+
+        admin, _ = await make_admin(service)
+        invite = await service.create_invite(admin)
+        member, _ = await service.register(invite.code, "dev@amp.local", "Dev", PASSWORD)
+
+        token, _expires = await service.issue_password_reset(admin, member.id)
+        assert audit.has("password_reset_issued")
+
+        await service.reset_password(token, "senha-redefinida-1")
+        assert security.verify_password("senha-redefinida-1", member.password_hash)
+        assert audit.has("password_reset")
+
+    async def test_member_cannot_issue_reset(self, service):
+        admin, _ = await make_admin(service)
+        invite = await service.create_invite(admin)
+        member, _ = await service.register(invite.code, "dev@amp.local", "Dev", PASSWORD)
+        with pytest.raises(PermissionDeniedError):
+            await service.issue_password_reset(member, admin.id)
+
+    async def test_token_is_single_use(self, service):
+        from app.services.errors import InvalidInputError
+
+        admin, _ = await make_admin(service)
+        token, _ = await service.issue_password_reset(admin, admin.id)
+        await service.reset_password(token, "senha-redefinida-1")
+        with pytest.raises(InvalidInputError):
+            await service.reset_password(token, "outra-senha-9999")
+
+    async def test_unknown_token_rejected(self, service):
+        from app.services.errors import InvalidInputError
+
+        await make_admin(service)
+        with pytest.raises(InvalidInputError):
+            await service.reset_password("token-que-nao-existe", "senha-redefinida-1")
+
+
 class TestToken:
     async def test_invalid_token_returns_none(self, service):
         await make_admin(service)

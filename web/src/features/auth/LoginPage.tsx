@@ -37,17 +37,11 @@ export function LoginPage() {
         <PrimaryButton disabled={busy}>Entrar</PrimaryButton>
       </form>
 
-      {/* Password recovery is a placeholder for now — the reset flow isn't wired yet. */}
-      <div className="mt-3 text-right">
-        <button
-          type="button"
-          disabled
-          title="Recuperação de senha em breve"
-          className="text-xs text-zinc-500 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:no-underline"
-        >
-          Esqueci minha senha
-        </button>
-      </div>
+      {/* No self-service reset (no SMTP in a local instance) — an admin issues a
+       * reset link out-of-band (see docs/specs/05-account-auth.md). */}
+      <p className="mt-3 text-right text-xs text-zinc-500">
+        Esqueceu a senha? Peça um link de redefinição ao administrador.
+      </p>
 
       <p className="mt-5 text-center text-xs text-zinc-500">
         Recebeu um convite?{" "}

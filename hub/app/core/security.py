@@ -50,6 +50,16 @@ def generate_invite_code() -> str:
     return "AMP-" + "-".join(groups)
 
 
+def generate_reset_token() -> str:
+    """Opaque, high-entropy password-reset token. Stored as a sha256 hash and
+    matched by hash lookup (like agent keys) — never in plaintext in the DB."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 def create_jwt(user_id: int, secret: str, expires_days: int) -> str:
     now = datetime.now(UTC)
     payload = {"sub": str(user_id), "iat": now, "exp": now + timedelta(days=expires_days)}

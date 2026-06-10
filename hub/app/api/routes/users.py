@@ -2,10 +2,22 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.api.deps import get_auth_service, get_current_user
 from app.models.user import User
-from app.schemas.auth import AuditOut, RoleUpdate, UserOut
+from app.schemas.auth import AuditOut, PasswordResetIssued, RoleUpdate, UserOut
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/api/users", tags=["users"])
+
+
+@router.post("/{user_id}/password-reset", response_model=PasswordResetIssued)
+async def issue_password_reset(
+    user_id: int,
+    user: User = Depends(get_current_user),
+    auth: AuthService = Depends(get_auth_service),
+) -> PasswordResetIssued:
+    """Admin issues a single-use reset link for a user (no email is sent — the
+    admin hands the link over, like an invite)."""
+    token, expires_at = await auth.issue_password_reset(user, user_id)
+    return PasswordResetIssued(token=token, expires_at=expires_at)
 
 
 @router.get("/{user_id}/avatar")

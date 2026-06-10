@@ -4,6 +4,7 @@ import { AppShell } from "./components/AppShell";
 import { AgentsPage } from "./features/agents/AgentsPage";
 import { LoginPage } from "./features/auth/LoginPage";
 import { RegisterPage } from "./features/auth/RegisterPage";
+import { ResetPasswordPage } from "./features/auth/ResetPasswordPage";
 import { SetupPage } from "./features/auth/SetupPage";
 import { ChatPage } from "./features/chat/ChatPage";
 import { GroupsPage } from "./features/groups/GroupsPage";
@@ -53,6 +54,7 @@ export default function App() {
     return (
       <Routes>
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/reset" element={<ResetPasswordPage />} />
         <Route path="*" element={<LoginPage />} />
       </Routes>
     );

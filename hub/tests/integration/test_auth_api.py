@@ -131,6 +131,49 @@ class TestAvatar:
         assert client.post("/api/auth/me/avatar", json={"image": "x"}).status_code == 401
 
 
+class TestPasswordReset:
+    def test_admin_issues_and_user_resets(self, client):
+        admin_token = do_setup(client)
+        member_token = register_member(client, admin_token)
+        member_id = client.get("/api/auth/me", headers=auth(member_token)).json()["id"]
+
+        issued = client.post(
+            f"/api/users/{member_id}/password-reset", headers=auth(admin_token)
+        )
+        assert issued.status_code == 200
+        token = issued.json()["token"]
+
+        reset = client.post(
+            "/api/auth/reset-password",
+            json={"token": token, "new_password": "senha-redefinida-1"},
+        )
+        assert reset.status_code == 204
+        # the member logs in with the new password
+        login = client.post(
+            "/api/auth/login", json={"email": MEMBER["email"], "password": "senha-redefinida-1"}
+        )
+        assert login.status_code == 200
+
+    def test_member_cannot_issue_reset(self, client):
+        admin_token = do_setup(client)
+        member_token = register_member(client, admin_token)
+        member_id = client.get("/api/auth/me", headers=auth(member_token)).json()["id"]
+        assert (
+            client.post(
+                f"/api/users/{member_id}/password-reset", headers=auth(member_token)
+            ).status_code
+            == 403
+        )
+
+    def test_invalid_reset_token_is_422(self, client):
+        do_setup(client)
+        response = client.post(
+            "/api/auth/reset-password",
+            json={"token": "token-invalido-aqui", "new_password": "senha-redefinida-1"},
+        )
+        assert response.status_code == 422
+
+
 class TestRegister:
     def test_registration_by_invite(self, client):
         admin_token = do_setup(client)

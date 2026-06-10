@@ -59,6 +59,18 @@ class AvatarUpload(BaseModel):
     image: str = Field(min_length=1, max_length=3_000_000)
 
 
+class PasswordResetIssued(BaseModel):
+    """Returned to the admin once — the plaintext token to hand over out-of-band."""
+
+    token: str
+    expires_at: datetime
+
+
+class PasswordResetRequest(BaseModel):
+    token: str = Field(min_length=8, max_length=200)
+    new_password: str = Field(min_length=10, max_length=128)
+
+
 class AuditOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

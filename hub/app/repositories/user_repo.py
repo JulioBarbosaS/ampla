@@ -1,7 +1,7 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.user import User, UserAvatar, utcnow
+from app.models.user import PasswordReset, User, UserAvatar, utcnow
 
 
 class UserRepository:
@@ -63,3 +63,21 @@ class UserRepository:
         await self._session.delete(avatar)
         await self._session.commit()
         return True
+
+    # ---- password resets ----
+
+    async def add_reset(self, reset: PasswordReset) -> PasswordReset:
+        self._session.add(reset)
+        await self._session.commit()
+        await self._session.refresh(reset)
+        return reset
+
+    async def get_reset_by_hash(self, token_hash: str) -> PasswordReset | None:
+        result = await self._session.execute(
+            select(PasswordReset).where(PasswordReset.token_hash == token_hash)
+        )
+        return result.scalar_one_or_none()
+
+    async def save_reset(self, reset: PasswordReset) -> None:
+        self._session.add(reset)
+        await self._session.commit()

@@ -19,6 +19,7 @@ export function TeamPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [resetLink, setResetLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(() => {
@@ -55,6 +56,18 @@ export function TeamPage() {
     }
   }
 
+  async function issueReset(user: User) {
+    setError(null);
+    setResetLink(null);
+    try {
+      const { token } = await usersApi.issuePasswordReset(user.id);
+      // No email is sent — hand this link to the user out-of-band.
+      setResetLink(`${window.location.origin}/reset?token=${token}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao gerar o link de redefinição.");
+    }
+  }
+
   if (me?.role !== "admin") {
     return (
       <div className="flex h-full items-center justify-center text-sm text-zinc-500">
@@ -66,6 +79,24 @@ export function TeamPage() {
   return (
     <div className="mx-auto h-full max-w-3xl space-y-6 overflow-y-auto px-4 py-6">
       <FormError message={error} />
+
+      {resetLink && (
+        <div className="rounded-md border border-amber-900/50 bg-zinc-900 p-3">
+          <p className="mb-1.5 text-xs text-zinc-400">
+            Link de redefinição (uso único) — entregue ao usuário. Não enviamos e-mail.
+          </p>
+          <div className="flex items-center gap-2">
+            <p className="flex-1 break-all font-mono text-xs text-amber-300">{resetLink}</p>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard?.writeText(resetLink)}
+              className="shrink-0 rounded-md bg-zinc-800 px-2.5 py-2 text-xs text-zinc-200 hover:bg-zinc-700"
+            >
+              copiar
+            </button>
+          </div>
+        </div>
+      )}
 
       <section className="rounded-lg border border-zinc-800 p-4">
         <div className="flex items-center justify-between">
@@ -150,23 +181,32 @@ export function TeamPage() {
                   </span>
                 </td>
                 <td className="py-2 text-right">
-                  {user.role === "member" ? (
+                  <div className="flex justify-end gap-2">
+                    {user.role === "member" ? (
+                      <button
+                        type="button"
+                        onClick={() => changeRole(user, "admin")}
+                        className="rounded-md bg-zinc-800 px-2.5 py-1 text-xs text-emerald-300 hover:bg-zinc-700"
+                      >
+                        Tornar admin
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => changeRole(user, "member")}
+                        className="rounded-md bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300 hover:bg-zinc-700"
+                      >
+                        Rebaixar
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => changeRole(user, "admin")}
-                      className="rounded-md bg-zinc-800 px-2.5 py-1 text-xs text-emerald-300 hover:bg-zinc-700"
+                      onClick={() => issueReset(user)}
+                      className="rounded-md bg-zinc-800 px-2.5 py-1 text-xs text-amber-300 hover:bg-zinc-700"
                     >
-                      Tornar admin
+                      Redefinir senha
                     </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => changeRole(user, "member")}
-                      className="rounded-md bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300 hover:bg-zinc-700"
-                    >
-                      Rebaixar
-                    </button>
-                  )}
+                  </div>
                 </td>
               </tr>
             ))}

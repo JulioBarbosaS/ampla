@@ -30,10 +30,10 @@ describe("LoginPage", () => {
     expect(screen.getByLabelText("Senha")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Entrar" })).toBeEnabled();
 
-    // no social sign-in (OAuth doesn't fit a local instance); recovery is a
-    // placeholder until the reset flow exists
+    // no social sign-in (OAuth doesn't fit a local instance); recovery is
+    // admin-mediated (no SMTP), so the footer just explains how to get a link
     expect(screen.queryByRole("button", { name: /Google|GitHub/ })).toBeNull();
-    expect(screen.getByRole("button", { name: "Esqueci minha senha" })).toBeDisabled();
+    expect(screen.getByText(/Peça um link de redefinição/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Criar conta" })).toHaveAttribute("href", "/register");
   });
 

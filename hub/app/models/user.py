@@ -48,3 +48,17 @@ class Invite(Base):
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
     used_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), default=None)
     used_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)
+
+
+class PasswordReset(Base):
+    """Admin-issued, single-use password-reset token (the no-SMTP analog of an
+    invite). The token is handed over out-of-band; only its sha256 hash is kept."""
+
+    __tablename__ = "password_resets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

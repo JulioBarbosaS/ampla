@@ -9,7 +9,7 @@ from datetime import datetime
 from app.models.agent import Agent, AgentKey
 from app.models.group import Group
 from app.models.message import Message
-from app.models.user import Invite, User, utcnow
+from app.models.user import Invite, PasswordReset, User, utcnow
 
 
 class FakeGroupRepository:
@@ -66,6 +66,8 @@ class FakeUserRepository:
     def __init__(self) -> None:
         self._users: dict[int, User] = {}
         self._seq = 0
+        self._resets: dict[str, PasswordReset] = {}
+        self._reset_seq = 0
 
     async def count(self) -> int:
         return len(self._users)
@@ -93,6 +95,20 @@ class FakeUserRepository:
 
     async def save(self, user: User) -> None:
         self._users[user.id] = user
+
+    async def add_reset(self, reset: PasswordReset) -> PasswordReset:
+        self._reset_seq += 1
+        reset.id = self._reset_seq
+        _default(reset, "created_at", utcnow())
+        _default(reset, "used_at", None)
+        self._resets[reset.token_hash] = reset
+        return reset
+
+    async def get_reset_by_hash(self, token_hash: str) -> PasswordReset | None:
+        return self._resets.get(token_hash)
+
+    async def save_reset(self, reset: PasswordReset) -> None:
+        self._resets[reset.token_hash] = reset
 
 
 class FakeInviteRepository:

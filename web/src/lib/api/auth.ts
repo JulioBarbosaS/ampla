@@ -16,6 +16,8 @@ export const authApi = {
     api.post<null>("/api/auth/me/password", data),
   setAvatar: (image: string) => api.post<null>("/api/auth/me/avatar", { image }),
   removeAvatar: () => api.delete<null>("/api/auth/me/avatar"),
+  resetPassword: (data: { token: string; new_password: string }) =>
+    api.post<null>("/api/auth/reset-password", data),
   createInvite: () => api.post<Invite>("/api/invites"),
   listInvites: () => api.get<Invite[]>("/api/invites"),
 };

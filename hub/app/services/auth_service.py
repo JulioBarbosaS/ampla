@@ -1,11 +1,11 @@
 """Admin setup, invite-based registration, login with incremental lockout."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from app.core import security
 from app.core.config import Settings
 from app.core.images import decode_data_url, normalize_avatar
-from app.models.user import Invite, User, utcnow
+from app.models.user import Invite, PasswordReset, User, utcnow
 from app.repositories.audit_repo import AuditRepository
 from app.repositories.invite_repo import InviteRepository
 from app.repositories.user_repo import UserRepository
@@ -126,6 +126,47 @@ class AuthService:
             "role_changed", actor=actor.email, detail={"target": target.email, "role": role}
         )
         return target
+
+    # ---- admin-mediated password reset (no SMTP — mirrors the invite model) ----
+
+    async def issue_password_reset(self, actor: User, target_id: int) -> tuple[str, datetime]:
+        """Admin issues a single-use reset token, handed to the user out-of-band
+        (the system sends no email). Returns the plaintext token (shown once) and
+        its expiry; only the hash is stored."""
+        if actor.role != "admin":
+            raise PermissionDeniedError("Apenas administradores redefinem senhas.")
+        target = await self._users.get_by_id(target_id)
+        if target is None:
+            raise NotFoundError("Usuário não encontrado.")
+        token = security.generate_reset_token()
+        expires_at = utcnow() + timedelta(hours=self._settings.invite_expires_hours)
+        await self._users.add_reset(
+            PasswordReset(
+                user_id=target.id,
+                token_hash=security.hash_reset_token(token),
+                expires_at=expires_at,
+            )
+        )
+        await self._audit.record(
+            "password_reset_issued", actor=actor.email, detail={"target": target.email}
+        )
+        return token, expires_at
+
+    async def reset_password(self, token: str, new: str) -> None:
+        reset = await self._users.get_reset_by_hash(security.hash_reset_token(token))
+        if reset is None or reset.used_at is not None or reset.expires_at < utcnow():
+            await self._audit.record("password_reset_fail", actor="")
+            raise InvalidInputError("Link de redefinição inválido ou expirado.")
+        user = await self._users.get_by_id(reset.user_id)
+        if user is None:
+            raise InvalidInputError("Link de redefinição inválido ou expirado.")
+        user.password_hash = security.hash_password(new)
+        user.failed_logins = 0
+        user.locked_until = None
+        reset.used_at = utcnow()
+        await self._users.save(user)
+        await self._users.save_reset(reset)
+        await self._audit.record("password_reset", actor=user.email)
 
     # ---- login with incremental lockout (Threat 2) ----
 

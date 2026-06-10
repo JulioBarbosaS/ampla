@@ -8,6 +8,7 @@ from app.schemas.auth import (
     AvatarUpload,
     LoginRequest,
     PasswordChange,
+    PasswordResetRequest,
     ProfileUpdate,
     RegisterRequest,
     SetupRequest,
@@ -63,6 +64,20 @@ async def login(
     user, token = await auth.login(body.email, body.password)
     set_session_cookie(response, token, settings)
     return TokenResponse(token=token, user=UserOut.model_validate(user))
+
+
+@router.post(
+    "/reset-password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(auth_rate_limit)],
+)
+async def reset_password(
+    body: PasswordResetRequest,
+    auth: AuthService = Depends(get_auth_service),
+) -> None:
+    # Public + token-gated: an admin-issued, single-use token sets a new password.
+    # Rate-limited to blunt token guessing; generic error on an invalid token.
+    await auth.reset_password(body.token, body.new_password)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
