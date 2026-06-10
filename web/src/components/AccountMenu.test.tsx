@@ -42,8 +42,7 @@ describe("AccountMenu", () => {
     await openDrawer();
 
     const menu = screen.getByRole("menu");
-    // header: avatar initial next to the name and email
-    expect(within(menu).getByText("J")).toBeInTheDocument();
+    // header shows the account name and email (next to the avatar)
     expect(within(menu).getByText("Julio")).toBeInTheDocument();
     expect(within(menu).getByText("julio@example.com")).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Perfil" })).toBeInTheDocument();

@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from app.core import security
 from app.core.config import Settings
+from app.core.images import decode_data_url, normalize_avatar
 from app.models.user import Invite, User, utcnow
 from app.repositories.audit_repo import AuditRepository
 from app.repositories.invite_repo import InviteRepository
@@ -181,6 +182,21 @@ class AuthService:
         user.locked_until = None
         await self._users.save(user)
         await self._audit.record("password_changed", actor=user.email)
+
+    # ---- avatar (re-encoded server-side; never store client bytes verbatim) ----
+
+    async def set_avatar(self, user: User, image_data_url: str) -> None:
+        normalized = normalize_avatar(decode_data_url(image_data_url))
+        await self._users.set_avatar(user.id, normalized)
+        await self._audit.record("avatar_updated", actor=user.email)
+
+    async def get_avatar(self, user_id: int) -> tuple[str, bytes] | None:
+        avatar = await self._users.get_avatar(user_id)
+        return (avatar.mime, avatar.data) if avatar is not None else None
+
+    async def remove_avatar(self, user: User) -> None:
+        await self._users.delete_avatar(user.id)
+        await self._audit.record("avatar_removed", actor=user.email)
 
     async def list_audit(self, actor: User, limit: int = 100):
         """Admin-only view of the audit trail (events are recorded across the

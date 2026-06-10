@@ -5,6 +5,7 @@ from app.core.config import Settings
 from app.core.cookies import clear_session_cookie, set_session_cookie
 from app.models.user import User
 from app.schemas.auth import (
+    AvatarUpload,
     LoginRequest,
     PasswordChange,
     ProfileUpdate,
@@ -101,3 +102,20 @@ async def change_password(
     # Rate-limited (same limiter as login) to blunt online guessing of the
     # current password.
     await auth.change_password(user, body.current_password, body.new_password)
+
+
+@router.post("/me/avatar", status_code=status.HTTP_204_NO_CONTENT)
+async def set_avatar(
+    body: AvatarUpload,
+    user: User = Depends(get_current_user),
+    auth: AuthService = Depends(get_auth_service),
+) -> None:
+    await auth.set_avatar(user, body.image)
+
+
+@router.delete("/me/avatar", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_avatar(
+    user: User = Depends(get_current_user),
+    auth: AuthService = Depends(get_auth_service),
+) -> None:
+    await auth.remove_avatar(user)

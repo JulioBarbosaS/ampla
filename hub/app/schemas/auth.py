@@ -52,6 +52,13 @@ class PasswordChange(BaseModel):
     new_password: str = Field(min_length=10, max_length=128)
 
 
+class AvatarUpload(BaseModel):
+    """A cropped image as a base64 data URL. Re-encoded server-side via Pillow —
+    the cap here bounds the request before the strict base64 decode."""
+
+    image: str = Field(min_length=1, max_length=3_000_000)
+
+
 class AuditOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

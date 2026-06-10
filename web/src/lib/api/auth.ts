@@ -14,6 +14,8 @@ export const authApi = {
   updateProfile: (data: { name: string }) => api.patch<User>("/api/auth/me", data),
   changePassword: (data: { current_password: string; new_password: string }) =>
     api.post<null>("/api/auth/me/password", data),
+  setAvatar: (image: string) => api.post<null>("/api/auth/me/avatar", { image }),
+  removeAvatar: () => api.delete<null>("/api/auth/me/avatar"),
   createInvite: () => api.post<Invite>("/api/invites"),
   listInvites: () => api.get<Invite[]>("/api/invites"),
 };

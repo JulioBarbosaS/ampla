@@ -6,7 +6,12 @@ import { useAvatarStore } from "../../stores/avatar";
 import { SettingsPage } from "./SettingsPage";
 
 vi.mock("../../lib/api/auth", () => ({
-  authApi: { updateProfile: vi.fn(), changePassword: vi.fn() },
+  authApi: {
+    updateProfile: vi.fn(),
+    changePassword: vi.fn(),
+    setAvatar: vi.fn(),
+    removeAvatar: vi.fn(),
+  },
 }));
 
 import { authApi } from "../../lib/api/auth";
@@ -34,7 +39,7 @@ beforeEach(() => {
   useAuthStore.setState({
     user: { id: 7, email: "julio@example.com", name: "Julio", role: "admin", created_at: "" },
   });
-  useAvatarStore.setState({ photos: {} });
+  useAvatarStore.setState({ version: {}, present: {} });
 });
 
 afterEach(() => {
@@ -53,7 +58,8 @@ describe("SettingsPage photo", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("crops a picked image and saves it to the avatar store", async () => {
+  it("crops a picked image and uploads it to the hub", async () => {
+    vi.mocked(authApi.setAvatar).mockResolvedValue(null);
     render(<SettingsPage />);
     const input = screen.getByLabelText("Selecionar foto");
     const file = new File(["PNG"], "me.png", { type: "image/png" });
@@ -63,16 +69,17 @@ describe("SettingsPage photo", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
 
     await waitFor(() =>
-      expect(useAvatarStore.getState().photos[7]).toBe("data:image/jpeg;base64,CROPPED"),
+      expect(authApi.setAvatar).toHaveBeenCalledWith("data:image/jpeg;base64,CROPPED"),
     );
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("removes an existing photo", async () => {
-    useAvatarStore.setState({ photos: { 7: "data:image/jpeg;base64,abc" } });
+  it("removes an existing photo via the API", async () => {
+    vi.mocked(authApi.removeAvatar).mockResolvedValue(null);
+    useAvatarStore.setState({ present: { 7: true } }); // a photo is present
     render(<SettingsPage />);
     await userEvent.click(screen.getByRole("button", { name: "Remover foto" }));
-    expect(useAvatarStore.getState().photos[7]).toBeUndefined();
+    expect(authApi.removeAvatar).toHaveBeenCalled();
   });
 });
 
@@ -105,6 +112,8 @@ describe("SettingsPage profile", () => {
 beforeEach(() => {
   vi.mocked(authApi.updateProfile).mockReset();
   vi.mocked(authApi.changePassword).mockReset();
+  vi.mocked(authApi.setAvatar).mockReset();
+  vi.mocked(authApi.removeAvatar).mockReset();
 });
 
 describe("SettingsPage password", () => {

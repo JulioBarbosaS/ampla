@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { User } from "../lib/api/types";
 import { useAvatarStore } from "../stores/avatar";
@@ -13,21 +13,27 @@ const USER: User = {
 };
 
 describe("Avatar", () => {
-  afterEach(() => {
-    useAvatarStore.setState({ photos: {} });
+  afterEach(() => useAvatarStore.setState({ version: {}, present: {} }));
+
+  it("renders an <img> pointing at the user's avatar endpoint", () => {
+    const { container } = render(<Avatar user={USER} alt="Foto de perfil" />);
+    const img = container.querySelector("img");
+    expect(img?.getAttribute("src")).toContain("/api/users/7/avatar");
   });
 
-  it("falls back to the name's initial when there is no photo", () => {
-    render(<Avatar user={USER} />);
+  it("falls back to the initial when the image fails to load", () => {
+    const { container } = render(<Avatar user={USER} />);
+    const img = container.querySelector("img");
+    if (img) fireEvent.error(img);
     expect(screen.getByText("J")).toBeInTheDocument();
-    expect(screen.queryByRole("img")).toBeNull();
+    expect(container.querySelector("img")).toBeNull();
   });
 
-  it("renders the photo when one is set for the user", () => {
-    useAvatarStore.setState({ photos: { 7: "data:image/jpeg;base64,abc" } });
-    render(<Avatar user={USER} alt="Foto de perfil" />);
-    const img = screen.getByRole("img", { name: "Foto de perfil" });
-    expect(img).toHaveAttribute("src", "data:image/jpeg;base64,abc");
+  it("records presence in the store from the load result", () => {
+    const { container } = render(<Avatar user={USER} />);
+    const img = container.querySelector("img");
+    if (img) fireEvent.load(img);
+    expect(useAvatarStore.getState().present[7]).toBe(true);
   });
 
   it("shows '?' for a missing user", () => {

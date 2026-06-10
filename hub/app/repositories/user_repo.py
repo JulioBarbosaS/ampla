@@ -1,7 +1,7 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.user import User
+from app.models.user import User, UserAvatar, utcnow
 
 
 class UserRepository:
@@ -38,3 +38,28 @@ class UserRepository:
     async def save(self, user: User) -> None:
         self._session.add(user)
         await self._session.commit()
+
+    # ---- avatars (stored separately from the hot users row) ----
+
+    async def get_avatar(self, user_id: int) -> UserAvatar | None:
+        return await self._session.get(UserAvatar, user_id)
+
+    async def set_avatar(self, user_id: int, data: bytes, mime: str = "image/jpeg") -> None:
+        avatar = await self._session.get(UserAvatar, user_id)
+        if avatar is None:
+            self._session.add(
+                UserAvatar(user_id=user_id, data=data, mime=mime, updated_at=utcnow())
+            )
+        else:
+            avatar.data = data
+            avatar.mime = mime
+            avatar.updated_at = utcnow()
+        await self._session.commit()
+
+    async def delete_avatar(self, user_id: int) -> bool:
+        avatar = await self._session.get(UserAvatar, user_id)
+        if avatar is None:
+            return False
+        await self._session.delete(avatar)
+        await self._session.commit()
+        return True

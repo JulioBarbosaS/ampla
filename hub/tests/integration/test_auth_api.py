@@ -85,6 +85,52 @@ class TestProfile:
         assert response.status_code == 401
 
 
+def _png_data_url() -> str:
+    import base64
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (12, 12), (200, 100, 50)).save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+class TestAvatar:
+    def test_upload_serve_and_delete(self, client):
+        token = do_setup(client)
+        uid = client.get("/api/auth/me", headers=auth(token)).json()["id"]
+
+        # no avatar yet → 404 (client falls back to the initial)
+        assert client.get(f"/api/users/{uid}/avatar", headers=auth(token)).status_code == 404
+
+        up = client.post(
+            "/api/auth/me/avatar", json={"image": _png_data_url()}, headers=auth(token)
+        )
+        assert up.status_code == 204
+
+        got = client.get(f"/api/users/{uid}/avatar", headers=auth(token))
+        assert got.status_code == 200
+        # always re-encoded to JPEG server-side, never the original PNG bytes
+        assert got.headers["content-type"] == "image/jpeg"
+        assert got.headers["x-content-type-options"] == "nosniff"
+        assert got.content[:2] == b"\xff\xd8"  # JPEG magic
+
+        assert client.delete("/api/auth/me/avatar", headers=auth(token)).status_code == 204
+        assert client.get(f"/api/users/{uid}/avatar", headers=auth(token)).status_code == 404
+
+    def test_rejects_a_non_image(self, client):
+        token = do_setup(client)
+        import base64
+
+        junk = "data:image/png;base64," + base64.b64encode(b"not an image").decode()
+        response = client.post("/api/auth/me/avatar", json={"image": junk}, headers=auth(token))
+        assert response.status_code == 422
+
+    def test_upload_requires_auth(self, client):
+        assert client.post("/api/auth/me/avatar", json={"image": "x"}).status_code == 401
+
+
 class TestRegister:
     def test_registration_by_invite(self, client):
         admin_token = do_setup(client)

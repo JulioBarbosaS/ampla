@@ -17,9 +17,8 @@ const inputClass =
 export function SettingsPage() {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
-  const photo = useAvatarStore((s) => (user ? (s.photos[user.id] ?? null) : null));
-  const setPhoto = useAvatarStore((s) => s.setPhoto);
-  const removePhoto = useAvatarStore((s) => s.removePhoto);
+  const present = useAvatarStore((s) => (user ? (s.present[user.id] ?? false) : false));
+  const bump = useAvatarStore((s) => s.bump);
   const inputRef = useRef<HTMLInputElement>(null);
   const [cropping, setCropping] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -111,12 +110,20 @@ export function SettingsPage() {
               onClick={() => inputRef.current?.click()}
               className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition-colors hover:bg-zinc-800"
             >
-              {photo ? "Trocar foto" : "Adicionar foto"}
+              {present ? "Trocar foto" : "Adicionar foto"}
             </button>
-            {photo && user && (
+            {present && user && (
               <button
                 type="button"
-                onClick={() => removePhoto(user.id)}
+                onClick={async () => {
+                  setError(null);
+                  try {
+                    await authApi.removeAvatar();
+                    bump(user.id);
+                  } catch (err) {
+                    setError(authErrorMessage(err));
+                  }
+                }}
                 className="rounded-md px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-red-950/40"
               >
                 Remover foto
@@ -242,9 +249,16 @@ export function SettingsPage() {
         <AvatarCropper
           image={cropping}
           onCancel={() => setCropping(null)}
-          onSave={(dataUrl) => {
-            setPhoto(user.id, dataUrl);
-            setCropping(null);
+          onSave={async (dataUrl) => {
+            setError(null);
+            try {
+              await authApi.setAvatar(dataUrl);
+              bump(user.id);
+            } catch (err) {
+              setError(authErrorMessage(err));
+            } finally {
+              setCropping(null);
+            }
           }}
         />
       )}

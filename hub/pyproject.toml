@@ -13,6 +13,7 @@ dependencies = [
     "bcrypt>=4.2",
     "pyjwt>=2.10",
     "alembic>=1.13",
+    "pillow>=11.0",
 ]
 
 [project.optional-dependencies]

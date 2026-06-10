@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, LargeBinary, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, UTCDateTime
@@ -23,6 +23,19 @@ class User(Base):
     # Incremental lockout (Threat 2): consecutive failed attempts and the block
     failed_logins: Mapped[int] = mapped_column(default=0)
     locked_until: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)
+
+
+class UserAvatar(Base):
+    """Profile photo, stored separately from the hot `users` row so user queries
+    never drag the blob. Always a normalized 256x256 JPEG (re-encoded server-side
+    via Pillow — we never store client bytes verbatim)."""
+
+    __tablename__ = "user_avatars"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    mime: Mapped[str] = mapped_column(String(40), default="image/jpeg")
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
 class Invite(Base):

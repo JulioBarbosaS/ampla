@@ -386,6 +386,22 @@
         "title": "AuditOut",
         "type": "object"
       },
+      "AvatarUpload": {
+        "description": "A cropped image as a base64 data URL. Re-encoded server-side via Pillow —\nthe cap here bounds the request before the strict base64 decode.",
+        "properties": {
+          "image": {
+            "maxLength": 3000000,
+            "minLength": 1,
+            "title": "Image",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image"
+        ],
+        "title": "AvatarUpload",
+        "type": "object"
+      },
       "BroadcastRequest": {
         "properties": {
           "body": {
@@ -1554,6 +1570,62 @@
         ]
       }
     },
+    "/api/auth/me/avatar": {
+      "delete": {
+        "operationId": "delete_avatar_api_auth_me_avatar_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Avatar",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "operationId": "set_avatar_api_auth_me_avatar_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AvatarUpload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Avatar",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/auth/me/password": {
       "post": {
         "operationId": "change_password_api_auth_me_password_post",
@@ -2313,6 +2385,52 @@
           }
         ],
         "summary": "Audit Log",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/users/{user_id}/avatar": {
+      "get": {
+        "description": "Serves a user's avatar bytes (any authenticated user — a profile photo is\nlow-sensitivity). 404 when none, so the client falls back to the initial.",
+        "operationId": "get_avatar_api_users__user_id__avatar_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Avatar",
         "tags": [
           "users"
         ]
