@@ -44,3 +44,19 @@
 body {
   @apply bg-zinc-950 text-zinc-100 antialiased;
 }
+
+/*
+ * Restore the pointer cursor on clickable controls. Native <button> uses the
+ * default arrow, and Tailwind v4's Preflight doesn't override it — so every
+ * button-based control (chat list items, the account drawer trigger, dropdowns,
+ * icon buttons) would otherwise feel non-clickable. Disabled controls keep
+ * their own cursor (e.g. disabled:cursor-not-allowed).
+ */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  label[role="button"] {
+    cursor: pointer;
+  }
+}
