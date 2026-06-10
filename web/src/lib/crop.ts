@@ -1,4 +1,4 @@
-import type { Area } from "react-easy-crop";
+import type { PixelCrop } from "react-image-crop";
 
 /** Square side of the exported avatar, in pixels. */
 const OUTPUT_SIZE = 256;
@@ -20,27 +20,31 @@ export function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Falha ao carregar a imagem."));
-    image.src = src;
-  });
-}
-
 /**
- * Render the cropped region to a fixed-size square canvas and return a JPEG data
- * URL. Re-encoding through the canvas also strips EXIF/metadata, so we only ever
+ * Render the selected region of a displayed <img> to a fixed-size square canvas
+ * and return a JPEG data URL. `crop` comes from react-image-crop in pixels
+ * relative to the *displayed* image, so we scale by natural/display size.
+ * Re-encoding through the canvas also strips EXIF/metadata, so we only ever
  * store our own pixels.
  */
-export async function getCroppedImage(src: string, area: Area): Promise<string> {
-  const image = await loadImage(src);
+export function getCroppedImage(image: HTMLImageElement, crop: PixelCrop): string {
+  const scaleX = image.naturalWidth / image.width;
+  const scaleY = image.naturalHeight / image.height;
   const canvas = document.createElement("canvas");
   canvas.width = OUTPUT_SIZE;
   canvas.height = OUTPUT_SIZE;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Não foi possível processar a imagem.");
-  ctx.drawImage(image, area.x, area.y, area.width, area.height, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+  ctx.drawImage(
+    image,
+    crop.x * scaleX,
+    crop.y * scaleY,
+    crop.width * scaleX,
+    crop.height * scaleY,
+    0,
+    0,
+    OUTPUT_SIZE,
+    OUTPUT_SIZE,
+  );
   return canvas.toDataURL("image/jpeg", 0.9);
 }

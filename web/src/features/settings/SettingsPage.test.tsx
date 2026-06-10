@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "../../stores/auth";
 import { useAvatarStore } from "../../stores/avatar";
@@ -16,23 +17,31 @@ vi.mock("../../lib/api/auth", () => ({
 
 import { authApi } from "../../lib/api/auth";
 
-// Stub the cropper UI: fire onCropComplete on mount so "Salvar" is enabled, and
-// resolve the crop to a fixed data URL — the real canvas/cropper need a browser.
-vi.mock("react-easy-crop", async () => {
+// Stub the cropper UI: render children (so the <img> ref mounts) and fire
+// onComplete so "Salvar" is enabled — the real canvas/cropper need a browser.
+vi.mock("react-image-crop", async () => {
   const React = await import("react");
   return {
-    default: ({ onCropComplete }: { onCropComplete?: (a: unknown, b: unknown) => void }) => {
+    default: ({
+      children,
+      onComplete,
+    }: {
+      children?: ReactNode;
+      onComplete?: (c: unknown) => void;
+    }) => {
       React.useEffect(() => {
-        onCropComplete?.({}, { x: 0, y: 0, width: 100, height: 100 });
-      }, [onCropComplete]);
-      return React.createElement("div", { "data-testid": "cropper" });
+        onComplete?.({ x: 0, y: 0, width: 50, height: 50, unit: "px" });
+      }, [onComplete]);
+      return React.createElement("div", { "data-testid": "cropper" }, children);
     },
+    centerCrop: (c: unknown) => c,
+    makeAspectCrop: (c: unknown) => c,
   };
 });
 
 vi.mock("../../lib/crop", async (orig) => ({
   ...(await orig<typeof import("../../lib/crop")>()),
-  getCroppedImage: vi.fn().mockResolvedValue("data:image/jpeg;base64,CROPPED"),
+  getCroppedImage: vi.fn().mockReturnValue("data:image/jpeg;base64,CROPPED"),
 }));
 
 beforeEach(() => {
