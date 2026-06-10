@@ -35,6 +35,21 @@ function preview(text: string, max = 80): string {
   return flat.length > max ? `${flat.slice(0, max)}…` : flat;
 }
 
+/** TTL chip info: only pending messages expire (delivered ones persist). */
+function expiryInfo(
+  expiresAt: string | null,
+  deliveredAt: string | null,
+): { text: string; expired: boolean } | null {
+  if (!expiresAt || deliveredAt) return null;
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return { text: "expirada", expired: true };
+  const mins = Math.round(ms / 60000);
+  if (mins < 60) return { text: `expira em ${Math.max(mins, 1)} min`, expired: false };
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return { text: `expira em ${hours} h`, expired: false };
+  return { text: `expira em ${Math.round(hours / 24)} d`, expired: false };
+}
+
 function ReplyButton({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -72,6 +87,7 @@ export function MessageBubble({
   const isAuto = message.body.startsWith(AUTO_PREFIX);
   const text = stripAuto(message.body);
   const isQuestion = message.type === "request" || message.type === "task";
+  const expiry = expiryInfo(message.expires_at, message.delivered_at);
   const replyBtn = onReply ? <ReplyButton onClick={() => onReply(message)} /> : null;
 
   return (
@@ -84,7 +100,7 @@ export function MessageBubble({
             : "rounded-bl-sm bg-zinc-800 text-zinc-100"
         }`}
       >
-        {(badge || isAuto || message.group) && (
+        {(badge || isAuto || message.group || expiry) && (
           <div className="mb-1 flex flex-wrap items-center gap-1">
             {badge && (
               <span
@@ -101,6 +117,16 @@ export function MessageBubble({
             {message.group && (
               <span className="inline-block rounded bg-zinc-700/70 px-1.5 py-0.5 text-[10px] font-medium text-zinc-300">
                 via {message.group}
+              </span>
+            )}
+            {expiry && (
+              <span
+                className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                  expiry.expired ? "bg-red-500/20 text-red-300" : "bg-zinc-700/70 text-zinc-300"
+                }`}
+                title="mensagem pendente com tempo de vida"
+              >
+                ⏳ {expiry.text}
               </span>
             )}
           </div>

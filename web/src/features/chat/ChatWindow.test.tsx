@@ -114,6 +114,40 @@ describe("MessageBubble", () => {
     expect(screen.queryByText(/respondida/)).not.toBeInTheDocument();
   });
 
+  it("shows a TTL chip for a pending message that is expiring", () => {
+    const future = new Date(Date.now() + 90 * 60_000).toISOString(); // ~90 min
+    render(
+      <MessageBubble
+        message={msg(1, "x", "backend-julio", "efêmera", { expires_at: future })}
+        mine={false}
+      />,
+    );
+    expect(screen.getByText(/expira em/)).toBeInTheDocument();
+  });
+
+  it("shows 'expirada' once past expires_at", () => {
+    const past = new Date(Date.now() - 60_000).toISOString();
+    render(
+      <MessageBubble
+        message={msg(1, "x", "backend-julio", "velha", { expires_at: past })}
+        mine={false}
+      />,
+    );
+    expect(screen.getByText(/expirada/)).toBeInTheDocument();
+  });
+
+  it("does not show a TTL chip on a delivered message", () => {
+    const future = new Date(Date.now() + 60 * 60_000).toISOString();
+    // id 2 → delivered in the helper
+    render(
+      <MessageBubble
+        message={msg(2, "backend-julio", "x", "entregue", { expires_at: future })}
+        mine
+      />,
+    );
+    expect(screen.queryByText(/expira/)).not.toBeInTheDocument();
+  });
+
   it("reply button fires onReply with the message", () => {
     const onReply = vi.fn();
     const m = msg(1, "mobile-eduardo", "backend-julio", "pergunta");
