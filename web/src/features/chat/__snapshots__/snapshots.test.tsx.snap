@@ -7,11 +7,13 @@ exports[`snapshots > MessageBubble received 1`] = `
   <div
     class="max-w-[75%] rounded-2xl px-3.5 py-2 text-sm rounded-bl-sm bg-zinc-800 text-zinc-100"
   >
-    <p
-      class="whitespace-pre-wrap break-words"
+    <div
+      class="amp-md break-words"
     >
-      Existe endpoint de reset de senha?
-    </p>
+      <p>
+        Existe endpoint de reset de senha?
+      </p>
+    </div>
     <p
       class="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-zinc-500"
     >
@@ -30,11 +32,13 @@ exports[`snapshots > MessageBubble sent (delivered) 1`] = `
   <div
     class="max-w-[75%] rounded-2xl px-3.5 py-2 text-sm rounded-br-sm bg-emerald-700 text-white"
   >
-    <p
-      class="whitespace-pre-wrap break-words"
+    <div
+      class="amp-md break-words"
     >
-      Existe endpoint de reset de senha?
-    </p>
+      <p>
+        Existe endpoint de reset de senha?
+      </p>
+    </div>
     <p
       class="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-emerald-200/70"
     >

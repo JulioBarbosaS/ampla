@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Dropdown } from "../../components/Dropdown";
+import { Markdown, stripMarkdown } from "../../components/Markdown";
 import { messagesApi } from "../../lib/api/messages";
 import type { Message, MessageType, Priority } from "../../lib/api/types";
 import { conversationKey, useChatStore } from "../../stores/chat";
@@ -30,7 +31,7 @@ function stripAuto(body: string): string {
 }
 
 function preview(text: string, max = 80): string {
-  const flat = text.replace(/\s+/g, " ").trim();
+  const flat = stripMarkdown(text);
   return flat.length > max ? `${flat.slice(0, max)}…` : flat;
 }
 
@@ -114,7 +115,7 @@ export function MessageBubble({
             {preview(stripAuto(repliedTo.body))}
           </div>
         )}
-        <p className="whitespace-pre-wrap break-words">{text}</p>
+        <Markdown>{text}</Markdown>
         <p
           className={`mt-1 flex items-center justify-end gap-1.5 text-[10px] ${
             mine ? "text-emerald-200/70" : "text-zinc-500"

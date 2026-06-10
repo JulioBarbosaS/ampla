@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Dropdown } from "../../components/Dropdown";
+import { stripMarkdown } from "../../components/Markdown";
 import { agentsApi } from "../../lib/api/agents";
 import { groupsApi } from "../../lib/api/groups";
 import { messagesApi } from "../../lib/api/messages";
@@ -9,9 +10,8 @@ import { useChatStore } from "../../stores/chat";
 const AUTO_PREFIX = "[auto] ";
 
 function previewOf(body: string, max = 38): string {
-  const flat = (body.startsWith(AUTO_PREFIX) ? body.slice(AUTO_PREFIX.length) : body)
-    .replace(/\s+/g, " ")
-    .trim();
+  const stripped = body.startsWith(AUTO_PREFIX) ? body.slice(AUTO_PREFIX.length) : body;
+  const flat = stripMarkdown(stripped);
   return flat.length > max ? `${flat.slice(0, max)}…` : flat;
 }
 

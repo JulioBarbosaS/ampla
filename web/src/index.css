@@ -46,6 +46,61 @@ body {
 }
 
 /*
+ * Markdown rendered inside chat bubbles. Tailwind v4 has no typography plugin,
+ * so a few scoped rules give message bodies sane spacing. Colors are inherited
+ * from the bubble (white / zinc), so this works on both themes.
+ */
+.amp-md > :first-child {
+  margin-top: 0;
+}
+.amp-md > :last-child {
+  margin-bottom: 0;
+}
+.amp-md p {
+  white-space: pre-wrap;
+  margin: 0;
+}
+.amp-md p + p {
+  margin-top: 0.5rem;
+}
+.amp-md ul,
+.amp-md ol {
+  margin: 0.25rem 0;
+  padding-left: 1.25rem;
+}
+.amp-md ul {
+  list-style: disc;
+}
+.amp-md ol {
+  list-style: decimal;
+}
+.amp-md a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.amp-md h1,
+.amp-md h2,
+.amp-md h3 {
+  font-weight: 600;
+  margin: 0.4rem 0 0.2rem;
+}
+.amp-md blockquote {
+  border-left: 2px solid currentColor;
+  opacity: 0.85;
+  padding-left: 0.5rem;
+  margin: 0.25rem 0;
+}
+.amp-md table {
+  border-collapse: collapse;
+  margin: 0.25rem 0;
+}
+.amp-md th,
+.amp-md td {
+  border: 1px solid var(--color-zinc-700);
+  padding: 0.15rem 0.4rem;
+}
+
+/*
  * Restore the pointer cursor on clickable controls. Native <button> uses the
  * default arrow, and Tailwind v4's Preflight doesn't override it — so every
  * button-based control (chat list items, the account drawer trigger, dropdowns,
