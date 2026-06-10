@@ -5,6 +5,16 @@ import { afterEach, vi } from "vitest";
 // jsdom does not implement scrollIntoView
 Element.prototype.scrollIntoView = vi.fn();
 
+// jsdom does not implement ResizeObserver (used by react-easy-crop).
+vi.stubGlobal(
+  "ResizeObserver",
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  },
+);
+
 // Node 25 ships a native `localStorage` global that, without --localstorage-file,
 // shadows jsdom's with a non-functional stub. Replace it with a real in-memory
 // Storage so persistence behaves like a browser.

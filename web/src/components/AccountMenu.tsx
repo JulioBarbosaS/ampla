@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { authApi } from "../lib/api/auth";
 import { useAuthStore } from "../stores/auth";
 import { type ThemePreference, useThemeStore } from "../stores/theme";
+import { Avatar } from "./Avatar";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: "light", label: "Claro" },
@@ -101,9 +102,9 @@ export function AccountMenu() {
         aria-expanded={open}
         title={user?.name}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-amber-300 transition-colors hover:bg-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+        className="rounded-full transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
       >
-        {user?.name?.charAt(0).toUpperCase() ?? "?"}
+        <Avatar user={user} />
       </button>
 
       {open && (
@@ -113,14 +114,7 @@ export function AccountMenu() {
           className="absolute right-0 top-full z-30 mt-2 w-64 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 shadow-lg shadow-black/40"
         >
           <div className="flex items-center gap-3 border-b border-zinc-800 px-3 py-3">
-            {/* No photo field yet (upload is a future feature) — the initial
-             * stands in for the avatar, like the topbar trigger. */}
-            <span
-              aria-hidden="true"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-amber-300"
-            >
-              {user?.name?.charAt(0).toUpperCase() ?? "?"}
-            </span>
+            <Avatar user={user} sizeClass="h-9 w-9" />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-zinc-100">{user?.name}</p>
               <p className="truncate text-xs text-zinc-500">{user?.email}</p>

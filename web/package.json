@@ -25,6 +25,7 @@
   "dependencies": {
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-easy-crop": "^5.5.7",
     "react-router-dom": "^7.6.0",
     "zustand": "^5.0.5"
   },
