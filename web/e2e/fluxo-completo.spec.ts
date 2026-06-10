@@ -18,7 +18,7 @@ test("administrator setup on first access", async ({ page }) => {
 
   // logged in: app shell with navigation and the account (avatar) entry point
   await expect(page.getByRole("link", { name: "Conversas" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Configurações" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Conta e configurações" })).toBeVisible();
 });
 
 test("login, agent creation and daemon key", async ({ page }) => {

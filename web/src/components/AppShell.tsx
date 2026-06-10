@@ -1,5 +1,6 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import { useAuthStore } from "../stores/auth";
+import { AccountMenu } from "./AccountMenu";
 import { Logo } from "./Logo";
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -9,7 +10,6 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function AppShell() {
   const user = useAuthStore((s) => s.user);
-  const navigate = useNavigate();
 
   return (
     <div className="flex h-screen flex-col">
@@ -34,17 +34,7 @@ export function AppShell() {
           </nav>
         </div>
 
-        {/* The avatar is the single entry point to account settings (profile,
-         * logout, …). No photo field yet, so it shows the name's initial. */}
-        <button
-          type="button"
-          aria-label="Configurações"
-          title={user?.name}
-          onClick={() => navigate("/settings")}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-amber-300 transition-colors hover:bg-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
-        >
-          {user?.name?.charAt(0).toUpperCase() ?? "?"}
-        </button>
+        <AccountMenu />
       </header>
       <main className="min-h-0 flex-1">
         <Outlet />
