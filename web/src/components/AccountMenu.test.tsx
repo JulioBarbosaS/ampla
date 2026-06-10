@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "../stores/auth";
@@ -41,7 +41,11 @@ describe("AccountMenu", () => {
 
     await openDrawer();
 
-    expect(screen.getByRole("menu")).toBeInTheDocument();
+    const menu = screen.getByRole("menu");
+    // header: avatar initial next to the name and email
+    expect(within(menu).getByText("J")).toBeInTheDocument();
+    expect(within(menu).getByText("Julio")).toBeInTheDocument();
+    expect(within(menu).getByText("julio@example.com")).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Perfil" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tema" })).toBeInTheDocument();
     expect(screen.getByText("Idioma")).toBeInTheDocument();

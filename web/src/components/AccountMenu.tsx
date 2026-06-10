@@ -112,9 +112,19 @@ export function AccountMenu() {
           aria-label="Conta"
           className="absolute right-0 top-full z-30 mt-2 w-64 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 shadow-lg shadow-black/40"
         >
-          <div className="border-b border-zinc-800 px-3 py-3">
-            <p className="truncate text-sm font-medium text-zinc-100">{user?.name}</p>
-            <p className="truncate text-xs text-zinc-500">{user?.email}</p>
+          <div className="flex items-center gap-3 border-b border-zinc-800 px-3 py-3">
+            {/* No photo field yet (upload is a future feature) — the initial
+             * stands in for the avatar, like the topbar trigger. */}
+            <span
+              aria-hidden="true"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-amber-300"
+            >
+              {user?.name?.charAt(0).toUpperCase() ?? "?"}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-zinc-100">{user?.name}</p>
+              <p className="truncate text-xs text-zinc-500">{user?.email}</p>
+            </div>
           </div>
 
           <button
