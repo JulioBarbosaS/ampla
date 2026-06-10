@@ -5,7 +5,7 @@ import { Logo } from "./Logo";
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-    isActive ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-white"
+    isActive ? "bg-zinc-800 text-zinc-50" : "text-zinc-400 hover:text-zinc-50"
   }`;
 
 export function AppShell() {

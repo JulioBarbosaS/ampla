@@ -4,6 +4,43 @@
   color-scheme: dark;
 }
 
+/*
+ * Light theme. The whole panel is written with dark-first zinc utilities
+ * (bg-zinc-900, text-zinc-100, …). Tailwind v4 compiles those to
+ * `var(--color-zinc-NNN)`, so inverting the neutral scale here flips every
+ * surface, border and neutral text at once — no per-component rewrite. The
+ * store sets `data-theme` on <html> (resolving "system" via prefers-color-scheme).
+ *
+ * Accent button/surface shades (emerald/amber/red 500–950) are left untouched
+ * so colored buttons, the message bubble and the danger zone read the same on
+ * both themes; only the *bright accent text* shades are pulled down to dark,
+ * readable values for use on a light background.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* neutral scale, inverted (50 ⇄ 950, 100 ⇄ 900, …; 500 stays) */
+  --color-zinc-50: oklch(14.1% 0.005 285.823);
+  --color-zinc-100: oklch(21% 0.006 285.885);
+  --color-zinc-200: oklch(27.4% 0.006 286.033);
+  --color-zinc-300: oklch(37% 0.013 285.805);
+  --color-zinc-400: oklch(44.2% 0.017 285.786);
+  --color-zinc-500: oklch(55.2% 0.016 285.938);
+  --color-zinc-600: oklch(70.5% 0.015 286.067);
+  --color-zinc-700: oklch(87.1% 0.006 286.286);
+  --color-zinc-800: oklch(92% 0.004 286.32);
+  --color-zinc-900: oklch(96.7% 0.001 286.375);
+  --color-zinc-950: oklch(98.5% 0.001 286.375);
+
+  /* bright accent text → dark enough to read on light surfaces */
+  --color-emerald-100: oklch(50.8% 0.118 165.612);
+  --color-emerald-200: oklch(50.8% 0.118 165.612);
+  --color-emerald-300: oklch(50.8% 0.118 165.612);
+  --color-emerald-400: oklch(50.8% 0.118 165.612);
+  --color-amber-200: oklch(55.5% 0.163 48.998);
+  --color-amber-300: oklch(55.5% 0.163 48.998);
+}
+
 body {
   @apply bg-zinc-950 text-zinc-100 antialiased;
 }

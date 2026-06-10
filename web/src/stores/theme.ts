@@ -18,8 +18,7 @@ function readStored(): ThemePreference {
 }
 
 function systemPrefersDark(): boolean {
-  // jsdom (and very old browsers) lack matchMedia — default to dark, the only
-  // palette that renders today.
+  // jsdom (and very old browsers) lack matchMedia — default to dark.
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return true;
   return window.matchMedia(DARK_QUERY).matches;
 }
@@ -30,10 +29,9 @@ function resolve(preference: ThemePreference): Resolved {
 }
 
 /**
- * Reflect the resolved theme on <html> so CSS can target it. Only the dark
- * palette is actually implemented today; "light" is persisted and applied here
- * so it starts rendering for real once the components move to theme tokens (the
- * deferred UI pass) — no further wiring needed then.
+ * Reflect the resolved theme on <html> so CSS can target it. `index.css` keys
+ * the light palette off `[data-theme="light"]` (it inverts the neutral scale);
+ * the `dark` class is kept for any future `dark:` variants.
  */
 function apply(resolved: Resolved): void {
   const root = document.documentElement;

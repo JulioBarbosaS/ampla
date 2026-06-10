@@ -23,7 +23,7 @@ export function PrimaryButton({ children, disabled }: { children: ReactNode; dis
     <button
       type="submit"
       disabled={disabled}
-      className="w-full rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+      className="w-full rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:opacity-50"
     >
       {children}
     </button>

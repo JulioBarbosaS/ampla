@@ -129,9 +129,8 @@ export function AccountMenu() {
             Perfil
           </button>
 
-          {/* Theme: shows the current choice; clicking expands the options.
-           * Only dark renders for real today; light is wired and ready for the
-           * upcoming theme-token UI pass. */}
+          {/* Theme: shows the current choice; clicking expands the options
+           * (light / dark / follow the device). */}
           <button
             type="button"
             aria-label="Tema"
