@@ -25,6 +25,12 @@ export const daemonConfigSchema = z.object({
    *   sandbox_image built (bridge/sandbox/Dockerfile). */
   sandbox: z.enum(["host", "docker"]).default("host"),
   sandbox_image: z.string().default("ampla/claude-runner:latest"),
+  /** Capture token/cost usage by running `claude -p --output-format json` and
+   * parsing it (Epic 03 · 3.4). OFF by default: the validated text-mode flow is
+   * unchanged. Turn on (after smoke-testing your claude version) to populate the
+   * transcript's usage fields AND enforce the per-agent daily token/cost budget —
+   * the budget can only act on captured usage. */
+  capture_usage: z.boolean().default(false),
 });
 export type DaemonConfig = z.infer<typeof daemonConfigSchema>;
 
@@ -52,6 +58,12 @@ export function socketPath(): string {
 
 export function storePath(): string {
   return join(ampDir(), "messages.jsonl");
+}
+
+/** Persisted daily auto-respond usage counter (Epic 03 · 3.4) — survives a
+ * daemon restart so a bounce can't reset a budget mid-day. */
+export function usagePath(): string {
+  return join(ampDir(), "usage.json");
 }
 
 export function loadConfig(): DaemonConfig {

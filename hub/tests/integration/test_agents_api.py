@@ -103,6 +103,31 @@ class TestSettings:
         assert body["denied_paths"] == ["secrets.txt", "*.pem"]
         assert body["trusted_senders"] == ["mobile-eduardo"]
 
+    def test_daily_budget_defaults_unlimited_and_round_trips(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")
+        body = client.get("/api/agents/backend-julio", headers=auth(token)).json()
+        assert body["max_auto_tokens_per_day"] is None  # unlimited by default
+        assert body["max_auto_cost_usd_per_day"] is None
+
+        # set caps
+        set_resp = client.patch(
+            "/api/agents/backend-julio/settings",
+            json={"max_auto_tokens_per_day": 5000, "max_auto_cost_usd_per_day": 1.5},
+            headers=auth(token),
+        ).json()
+        assert set_resp["max_auto_tokens_per_day"] == 5000
+        assert set_resp["max_auto_cost_usd_per_day"] == 1.5
+
+        # 0 clears the token cap back to unlimited
+        cleared = client.patch(
+            "/api/agents/backend-julio/settings",
+            json={"max_auto_tokens_per_day": 0},
+            headers=auth(token),
+        ).json()
+        assert cleared["max_auto_tokens_per_day"] is None
+        assert cleared["max_auto_cost_usd_per_day"] == 1.5  # untouched
+
     def test_denied_paths_over_limit_422(self, client):
         token = do_setup(client)
         create_agent(client, token, "backend-julio")

@@ -156,9 +156,31 @@
             "title": "Instructions",
             "type": "string"
           },
+          "max_auto_cost_usd_per_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Auto Cost Usd Per Day"
+          },
           "max_auto_per_hour": {
             "title": "Max Auto Per Hour",
             "type": "integer"
+          },
+          "max_auto_tokens_per_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Auto Tokens Per Day"
           },
           "mode": {
             "title": "Mode",
@@ -196,7 +218,9 @@
           "confine_to_dir",
           "denied_paths",
           "trusted_senders",
-          "auto_paused"
+          "auto_paused",
+          "max_auto_tokens_per_day",
+          "max_auto_cost_usd_per_day"
         ],
         "title": "AgentOut",
         "type": "object"
@@ -317,6 +341,18 @@
             ],
             "title": "Instructions"
           },
+          "max_auto_cost_usd_per_day": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Auto Cost Usd Per Day"
+          },
           "max_auto_per_hour": {
             "anyOf": [
               {
@@ -329,6 +365,18 @@
               }
             ],
             "title": "Max Auto Per Hour"
+          },
+          "max_auto_tokens_per_day": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Auto Tokens Per Day"
           },
           "mode": {
             "anyOf": [

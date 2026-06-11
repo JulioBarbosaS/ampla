@@ -113,7 +113,7 @@ describe.skipIf(!hasHub)("full-stack: real hub ↔ real daemons", () => {
         agent_key: keyA,
         claude_bin: "claude",
       },
-      { store: join(dir, "store-a.jsonl") },
+      { store: join(dir, "store-a.jsonl"), usage: join(dir, "usage-a.json") },
     );
     daemonB = createDaemon(
       {
@@ -122,7 +122,7 @@ describe.skipIf(!hasHub)("full-stack: real hub ↔ real daemons", () => {
         agent_key: keyB,
         claude_bin: "claude",
       },
-      { store: join(dir, "store-b.jsonl") },
+      { store: join(dir, "store-b.jsonl"), usage: join(dir, "usage-b.json") },
       runnerB,
     );
     daemonA.hub.start();

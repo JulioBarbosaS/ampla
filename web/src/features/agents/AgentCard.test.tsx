@@ -39,6 +39,8 @@ const AGENT: Agent = {
   denied_paths: [],
   trusted_senders: [],
   auto_paused: false,
+  max_auto_tokens_per_day: null,
+  max_auto_cost_usd_per_day: null,
 };
 
 const GROUPS: Group[] = [

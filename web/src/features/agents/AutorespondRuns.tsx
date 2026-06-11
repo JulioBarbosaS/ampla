@@ -28,6 +28,21 @@ function Flag({ on, label }: { on: boolean; label: string }) {
   );
 }
 
+/** Today's aggregate from the loaded runs (Epic 03 · 3.4 metrics). */
+function todaySummary(runs: AutorespondRun[]): { runs: number; tokens: number; cost: number } {
+  const today = new Date().toDateString();
+  let count = 0;
+  let tokens = 0;
+  let cost = 0;
+  for (const r of runs) {
+    if (new Date(r.created_at).toDateString() !== today) continue;
+    count += 1;
+    tokens += (r.input_tokens ?? 0) + (r.output_tokens ?? 0);
+    cost += r.cost_usd ?? 0;
+  }
+  return { runs: count, tokens, cost };
+}
+
 function RunRow({ run }: { run: AutorespondRun }) {
   const chip = RESULT_CHIP[run.result] ?? RESULT_CHIP.skipped;
   const g = run.guardrails ?? {};
@@ -140,11 +155,23 @@ export function AutorespondRuns({ slug }: { slug: string }) {
             <p className="text-xs text-zinc-500">Nenhuma resposta automática registrada ainda.</p>
           )}
           {runs && runs.length > 0 && (
-            <ul className="space-y-1.5">
-              {runs.map((run) => (
-                <RunRow key={run.id} run={run} />
-              ))}
-            </ul>
+            <>
+              {(() => {
+                const s = todaySummary(runs);
+                return (
+                  <p className="mb-2 text-xs text-zinc-500">
+                    Hoje: <span className="text-zinc-300">{s.runs}</span> respostas ·{" "}
+                    <span className="text-zinc-300">{s.tokens}</span> tokens ·{" "}
+                    <span className="text-zinc-300">${s.cost.toFixed(4)}</span>
+                  </p>
+                );
+              })()}
+              <ul className="space-y-1.5">
+                {runs.map((run) => (
+                  <RunRow key={run.id} run={run} />
+                ))}
+              </ul>
+            </>
           )}
         </div>
       )}

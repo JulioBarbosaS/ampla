@@ -49,6 +49,11 @@ class AgentSettings(BaseModel):
     # When true the daemon treats the agent as inbox regardless of `mode`.
     auto_paused: bool = False
 
+    # Daily auto-respond budget (Epic 03 · 3.4). None = unlimited. Enforced by the
+    # daemon against captured usage (requires capture_usage on the daemon).
+    max_auto_tokens_per_day: int | None = Field(default=None, ge=1)
+    max_auto_cost_usd_per_day: float | None = Field(default=None, ge=0)
+
     @field_validator("denied_paths")
     @classmethod
     def _check_denied_paths(cls, v: list[str]) -> list[str]:
@@ -71,6 +76,10 @@ class AgentSettingsUpdate(BaseModel):
     denied_paths: list[str] | None = None
     trusted_senders: list[str] | None = None
     auto_paused: bool | None = None
+    # Budget caps (Epic 03 · 3.4): None = unchanged; 0 = clear (unlimited);
+    # a positive value sets the daily ceiling.
+    max_auto_tokens_per_day: int | None = Field(default=None, ge=0)
+    max_auto_cost_usd_per_day: float | None = Field(default=None, ge=0)
 
     @field_validator("denied_paths")
     @classmethod
@@ -102,6 +111,8 @@ class AgentOut(BaseModel):
     denied_paths: list[str]
     trusted_senders: list[str]
     auto_paused: bool
+    max_auto_tokens_per_day: int | None
+    max_auto_cost_usd_per_day: float | None
 
 
 class DirectoryEntry(BaseModel):

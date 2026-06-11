@@ -11,6 +11,7 @@
 import { spawn } from "node:child_process";
 import type { AgentSettings, WireMessage } from "../shared/protocol.js";
 import { scanForSecrets } from "./secret-filter.js";
+import type { DailyUsageTracker, UsageDelta } from "./usage-tracker.js";
 
 export const READ_ONLY_TOOLS = "Read,Grep,Glob";
 const WRITE_TOOLS = "Edit,Write";
@@ -67,6 +68,8 @@ export interface ClaudeRunOptions {
   settingsJson: string | null;
   /** allow_write — the docker runner mounts the project rw instead of ro. */
   writable?: boolean;
+  /** Run with --output-format json so usage can be parsed (Epic 03 · 3.4). */
+  captureUsage?: boolean;
 }
 
 export type ClaudeRunner = (prompt: string, opts: ClaudeRunOptions) => Promise<string>;
@@ -116,10 +119,46 @@ export function buildGuardrails(settings: AgentSettings, sender: string): Guardr
 }
 
 export type AutoRespondResult =
-  | { kind: "replied"; reply: string }
-  | { kind: "skipped"; reason: "mode_inbox" | "rate_limited" }
-  | { kind: "blocked"; reason: string }
+  | { kind: "replied"; reply: string; usage?: UsageDelta | null }
+  | { kind: "skipped"; reason: "mode_inbox" | "rate_limited" | "budget_exceeded" }
+  | { kind: "blocked"; reason: string; usage?: UsageDelta | null }
   | { kind: "failed"; reason: string };
+
+/** Parses the raw `claude -p` output. In text mode (capture off) the stdout IS
+ * the reply. In JSON mode (--output-format json) we extract `result` + `usage`;
+ * a shape we don't recognize fails the run rather than sending raw JSON as a
+ * reply (fail safe, Epic 03 · 3.4). */
+export type ParsedClaude =
+  | { ok: true; text: string; usage: UsageDelta | null }
+  | { ok: false; reason: string };
+
+function num(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+export function parseClaudeOutput(raw: string, captureUsage: boolean): ParsedClaude {
+  const trimmed = raw.trim();
+  if (!captureUsage) return { ok: true, text: trimmed, usage: null };
+  let obj: Record<string, unknown>;
+  try {
+    obj = JSON.parse(trimmed);
+  } catch {
+    return { ok: false, reason: "saída JSON inválida do claude" };
+  }
+  if (typeof obj.result !== "string") {
+    return { ok: false, reason: "formato JSON inesperado do claude (sem 'result')" };
+  }
+  if (obj.is_error) {
+    return { ok: false, reason: "claude retornou is_error" };
+  }
+  const u = (obj.usage ?? {}) as Record<string, unknown>;
+  const usage: UsageDelta = {
+    input_tokens: num(u.input_tokens),
+    output_tokens: num(u.output_tokens),
+    cost_usd: num(obj.total_cost_usd) ?? num(obj.cost_usd),
+  };
+  return { ok: true, text: obj.result, usage };
+}
 
 /** Conversation history item injected into the prompt (thread memory). */
 export interface HistoryEntry {
@@ -188,6 +227,7 @@ function claudeArgs(
   allowedTools: string,
   disallowedTools: string,
   settingsJson: string | null,
+  captureUsage = false,
 ): string[] {
   const args = [
     "-p",
@@ -198,6 +238,8 @@ function claudeArgs(
     "--disallowedTools",
     disallowedTools,
   ];
+  // JSON output lets us parse token/cost usage (Epic 03 · 3.4); off by default.
+  if (captureUsage) args.push("--output-format", "json");
   if (settingsJson) args.push("--settings", settingsJson);
   return args;
 }
@@ -254,7 +296,13 @@ function runProcess(cmd: string, args: string[], timeoutMs: number, cwd?: string
 export const defaultClaudeRunner: ClaudeRunner = (prompt, opts) =>
   runProcess(
     opts.bin,
-    claudeArgs(prompt, opts.allowedTools, opts.disallowedTools, opts.settingsJson),
+    claudeArgs(
+      prompt,
+      opts.allowedTools,
+      opts.disallowedTools,
+      opts.settingsJson,
+      opts.captureUsage,
+    ),
     opts.timeoutMs,
     opts.cwd,
   );
@@ -301,7 +349,13 @@ export function buildDockerArgs(
     "/work",
     sandbox.image,
     "claude",
-    ...claudeArgs(opts.prompt, opts.allowedTools, opts.disallowedTools, opts.settingsJson),
+    ...claudeArgs(
+      opts.prompt,
+      opts.allowedTools,
+      opts.disallowedTools,
+      opts.settingsJson,
+      opts.captureUsage,
+    ),
   ];
 }
 
@@ -316,9 +370,11 @@ export class AutoResponder {
 
   constructor(
     private readonly agentId: string,
-    private readonly opts: { bin: string; projectDir?: string },
+    private readonly opts: { bin: string; projectDir?: string; captureUsage?: boolean },
     private readonly runner: ClaudeRunner = defaultClaudeRunner,
     private readonly now: () => number = Date.now,
+    /** Daily token/cost budget tracker (Epic 03 · 3.4). Omitted ⇒ no budget. */
+    private readonly usage?: DailyUsageTracker,
   ) {}
 
   async handle(
@@ -328,6 +384,12 @@ export class AutoResponder {
   ): Promise<AutoRespondResult> {
     if (settings.mode !== "auto") {
       return { kind: "skipped", reason: "mode_inbox" };
+    }
+    // Daily budget (anti-abuse): caps the blast radius of a message flood even
+    // within the hourly limit. Only bites when usage is being captured — the
+    // counters stay 0 in text mode (capture off), so the cap is inert there.
+    if (this.usage?.exceeds(settings.max_auto_tokens_per_day, settings.max_auto_cost_usd_per_day)) {
+      return { kind: "skipped", reason: "budget_exceeded" };
     }
     if (!this.allowByRate(settings.max_auto_per_hour)) {
       return { kind: "skipped", reason: "rate_limited" };
@@ -342,9 +404,9 @@ export class AutoResponder {
     );
 
     const prompt = buildPrompt(this.agentId, message, settings.instructions, history);
-    let reply: string;
+    let raw: string;
     try {
-      reply = await this.runner(prompt, {
+      raw = await this.runner(prompt, {
         bin: this.opts.bin,
         ...(cwd ? { cwd } : {}),
         timeoutMs: settings.auto_timeout_secs * 1000,
@@ -352,21 +414,31 @@ export class AutoResponder {
         disallowedTools: guardrails.disallowedTools,
         settingsJson: guardrails.settingsJson,
         writable: settings.allow_write,
+        captureUsage: this.opts.captureUsage,
       });
     } catch (error) {
       return { kind: "failed", reason: error instanceof Error ? error.message : String(error) };
     }
 
-    if (!reply) {
+    const parsed = parseClaudeOutput(raw, this.opts.captureUsage ?? false);
+    if (!parsed.ok) {
+      return { kind: "failed", reason: parsed.reason };
+    }
+    // The run consumed tokens whether or not we end up sending the reply, so
+    // count it against the daily budget before the secret filter can drop it.
+    this.usage?.add(parsed.usage);
+    const usage = parsed.usage ?? undefined;
+
+    if (!parsed.text) {
       return { kind: "failed", reason: "resposta vazia" };
     }
 
-    const scan = scanForSecrets(reply);
+    const scan = scanForSecrets(parsed.text);
     if (!scan.clean) {
       // Full block — never send a reply with a possible secret
-      return { kind: "blocked", reason: `filtro de segredos: ${scan.matches.join(", ")}` };
+      return { kind: "blocked", reason: `filtro de segredos: ${scan.matches.join(", ")}`, usage };
     }
-    return { kind: "replied", reply };
+    return { kind: "replied", reply: parsed.text, usage };
   }
 
   private allowByRate(maxPerHour: number): boolean {

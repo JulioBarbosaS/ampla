@@ -62,6 +62,9 @@ export function AgentCard({
           : { clear_allowed_senders: true }),
         max_auto_per_hour: Number(data.get("max_auto_per_hour")),
         auto_timeout_secs: Number(data.get("auto_timeout_secs")),
+        // empty input → 0 → clears the cap (unlimited)
+        max_auto_tokens_per_day: Number(data.get("max_auto_tokens_per_day")) || 0,
+        max_auto_cost_usd_per_day: Number(data.get("max_auto_cost_usd_per_day")) || 0,
         instructions: String(data.get("instructions") ?? ""),
         // sensitive-paths block and trusted senders live in the danger zone below
         allow_write: data.get("allow_write") === "on",
@@ -248,7 +251,32 @@ pnpm daemon   # deixe rodando`;
               className={inputClass}
             />
           </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-zinc-400">Máx. tokens/dia (0 = ilimitado)</span>
+            <input
+              name="max_auto_tokens_per_day"
+              type="number"
+              min={0}
+              defaultValue={agent.max_auto_tokens_per_day ?? 0}
+              className={inputClass}
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-zinc-400">Máx. custo/dia US$ (0 = ilimitado)</span>
+            <input
+              name="max_auto_cost_usd_per_day"
+              type="number"
+              min={0}
+              step="0.01"
+              defaultValue={agent.max_auto_cost_usd_per_day ?? 0}
+              className={inputClass}
+            />
+          </label>
         </div>
+        <p className="text-xs text-zinc-500">
+          O teto diário de tokens/custo só age quando a captura de uso está ligada no daemon (
+          <span className="font-mono">capture_usage</span>).
+        </p>
         <label className="block text-sm">
           <span className="mb-1 block text-zinc-400">Instruções do agente (auto-respond)</span>
           <textarea

@@ -14,6 +14,7 @@ import {
   loadConfig,
   socketPath,
   storePath,
+  usagePath,
 } from "../shared/config.js";
 import type { AutorespondRecord, WireMessage } from "../shared/protocol.js";
 import {
@@ -25,6 +26,7 @@ import {
 } from "./auto-responder.js";
 import { buildLocalApi } from "./local-api.js";
 import { MessageStore } from "./message-store.js";
+import { DailyUsageTracker } from "./usage-tracker.js";
 import { HubClient } from "./ws-client.js";
 
 /** Automatic replies carry this prefix — and never trigger
@@ -54,18 +56,22 @@ export interface Daemon {
 
 export function createDaemon(
   config: DaemonConfig,
-  paths: { store: string },
+  paths: { store: string; usage?: string },
   runner?: ClaudeRunner,
 ): Daemon {
   const store = new MessageStore(paths.store);
   const hub = new HubClient(config.hub_url, config.agent_id, config.agent_key);
+  const usageTracker = new DailyUsageTracker(paths.usage ?? usagePath());
   const responder = new AutoResponder(
     config.agent_id,
     {
       bin: config.claude_bin,
       ...(config.project_dir ? { projectDir: config.project_dir } : {}),
+      captureUsage: config.capture_usage,
     },
-    ...(runner ? [runner] : []),
+    runner ?? defaultClaudeRunner,
+    Date.now,
+    usageTracker,
   );
   const api = buildLocalApi({ agentId: config.agent_id, hub, store });
 
@@ -233,6 +239,7 @@ export function createDaemon(
   ): void {
     const guardrails = buildGuardrails(settings, message.from);
     const reply = result.kind === "replied" ? result.reply : "";
+    const usage = result.kind === "replied" || result.kind === "blocked" ? result.usage : null;
     const record: AutorespondRecord = {
       trigger_message_id: message.id,
       from_sender: message.from,
@@ -251,9 +258,9 @@ export function createDaemon(
       },
       duration_ms: durationMs,
       timed_out: result.kind === "failed" && result.reason === "timeout",
-      input_tokens: null,
-      output_tokens: null,
-      cost_usd: null,
+      input_tokens: usage?.input_tokens ?? null,
+      output_tokens: usage?.output_tokens ?? null,
+      cost_usd: usage?.cost_usd ?? null,
     };
     hub.sendAutorespondReport(record);
   }
@@ -315,7 +322,11 @@ function selectRunner(config: DaemonConfig): ClaudeRunner {
 async function main(): Promise<void> {
   ensureAmpDir();
   const config = loadConfig();
-  const daemon = createDaemon(config, { store: storePath() }, selectRunner(config));
+  const daemon = createDaemon(
+    config,
+    { store: storePath(), usage: usagePath() },
+    selectRunner(config),
+  );
   if (config.sandbox === "docker") {
     console.error(`[amp] auto-respond em sandbox docker (imagem ${config.sandbox_image})`);
   }

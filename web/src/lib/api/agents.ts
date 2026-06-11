@@ -15,6 +15,9 @@ export interface SettingsPatch {
   denied_paths?: string[];
   trusted_senders?: string[];
   auto_paused?: boolean;
+  // 0 clears the cap (unlimited); a positive value sets the daily ceiling.
+  max_auto_tokens_per_day?: number;
+  max_auto_cost_usd_per_day?: number;
 }
 
 export const agentsApi = {

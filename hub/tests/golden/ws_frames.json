@@ -128,7 +128,9 @@
       "confine_to_dir": true,
       "denied_paths": [],
       "instructions": "",
+      "max_auto_cost_usd_per_day": null,
       "max_auto_per_hour": 10,
+      "max_auto_tokens_per_day": null,
       "mode": "inbox",
       "trusted_senders": []
     },
@@ -174,7 +176,9 @@
       "confine_to_dir": true,
       "denied_paths": [],
       "instructions": "",
+      "max_auto_cost_usd_per_day": null,
       "max_auto_per_hour": 10,
+      "max_auto_tokens_per_day": null,
       "mode": "inbox",
       "trusted_senders": []
     },

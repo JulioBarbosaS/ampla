@@ -24,6 +24,10 @@ export const agentSettingsSchema = z.object({
   // Fast brake (Epic 03 · 3.2): when true the daemon treats the agent as inbox
   // regardless of `mode` — no claude -p until the owner un-pauses.
   auto_paused: z.boolean(),
+  // Daily budget (Epic 03 · 3.4): null = unlimited. Enforced against captured
+  // usage (only bites when capture_usage is on).
+  max_auto_tokens_per_day: z.number().int().nullable(),
+  max_auto_cost_usd_per_day: z.number().nullable(),
 });
 export type AgentSettings = z.infer<typeof agentSettingsSchema>;
 

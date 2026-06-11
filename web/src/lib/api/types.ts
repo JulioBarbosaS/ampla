@@ -28,6 +28,9 @@ export interface AgentSettings {
   trusted_senders: string[];
   // Fast brake: pause auto-respond without changing `mode` (Epic 03 · 3.2).
   auto_paused: boolean;
+  // Daily auto-respond budget (Epic 03 · 3.4). null = unlimited.
+  max_auto_tokens_per_day: number | null;
+  max_auto_cost_usd_per_day: number | null;
 }
 
 export interface Agent extends AgentSettings {

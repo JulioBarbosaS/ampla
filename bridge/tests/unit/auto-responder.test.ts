@@ -5,8 +5,23 @@ import {
   buildGuardrails,
   buildPrompt,
   type ClaudeRunner,
+  parseClaudeOutput,
 } from "../../src/daemon/auto-responder.js";
+import type { DailyUsageTracker, UsageDelta } from "../../src/daemon/usage-tracker.js";
 import type { AgentSettings, WireMessage } from "../../src/shared/protocol.js";
+
+/** Minimal stand-in for the daily budget tracker (no filesystem). */
+function stubTracker(over = false): { tracker: DailyUsageTracker; added: UsageDelta[] } {
+  const added: UsageDelta[] = [];
+  const tracker = {
+    exceeds: () => over,
+    add: (u: UsageDelta | null) => {
+      if (u) added.push(u);
+    },
+    today: () => ({ tokens: 0, cost: 0 }),
+  } as unknown as DailyUsageTracker;
+  return { tracker, added };
+}
 
 const MESSAGE: WireMessage = {
   id: 1,
@@ -37,12 +52,24 @@ function settings(overrides: Partial<AgentSettings> = {}): AgentSettings {
     denied_paths: [],
     trusted_senders: [],
     auto_paused: false,
+    max_auto_tokens_per_day: null,
+    max_auto_cost_usd_per_day: null,
     ...overrides,
   };
 }
 
-function makeResponder(runner: ClaudeRunner, now?: () => number): AutoResponder {
-  return new AutoResponder("backend-julio", { bin: "claude" }, runner, now);
+function makeResponder(
+  runner: ClaudeRunner,
+  now?: () => number,
+  extra: { captureUsage?: boolean; usage?: DailyUsageTracker } = {},
+): AutoResponder {
+  return new AutoResponder(
+    "backend-julio",
+    { bin: "claude", captureUsage: extra.captureUsage },
+    runner,
+    now,
+    extra.usage,
+  );
 }
 
 describe("AutoResponder", () => {
@@ -97,6 +124,79 @@ describe("AutoResponder", () => {
       expect.any(String),
       expect.objectContaining({ timeoutMs: 45_000 }),
     );
+  });
+});
+
+describe("parseClaudeOutput (Epic 03 · 3.4 usage capture)", () => {
+  it("text mode (capture off): the stdout IS the reply, no usage", () => {
+    expect(parseClaudeOutput("  Sim, existe.  ", false)).toEqual({
+      ok: true,
+      text: "Sim, existe.",
+      usage: null,
+    });
+  });
+
+  it("json mode: extracts result + token/cost usage", () => {
+    const raw = JSON.stringify({
+      result: "Sim: POST /reset",
+      is_error: false,
+      total_cost_usd: 0.0123,
+      usage: { input_tokens: 100, output_tokens: 20 },
+    });
+    expect(parseClaudeOutput(raw, true)).toEqual({
+      ok: true,
+      text: "Sim: POST /reset",
+      usage: { input_tokens: 100, output_tokens: 20, cost_usd: 0.0123 },
+    });
+  });
+
+  it("json mode: invalid JSON fails the run (never sends raw output)", () => {
+    expect(parseClaudeOutput("not json", true)).toEqual({
+      ok: false,
+      reason: expect.stringContaining("JSON"),
+    });
+  });
+
+  it("json mode: a shape without 'result' fails (fail safe)", () => {
+    expect(parseClaudeOutput(JSON.stringify({ foo: "bar" }), true).ok).toBe(false);
+  });
+
+  it("json mode: is_error fails the run", () => {
+    const raw = JSON.stringify({ result: "boom", is_error: true });
+    expect(parseClaudeOutput(raw, true).ok).toBe(false);
+  });
+});
+
+describe("usage capture + daily budget (Epic 03 · 3.4)", () => {
+  it("captures usage from json output and counts it against the budget", async () => {
+    const raw = JSON.stringify({
+      result: "Sim, existe.",
+      usage: { input_tokens: 50, output_tokens: 10 },
+      total_cost_usd: 0.002,
+    });
+    const runner = vi.fn().mockResolvedValue(raw);
+    const { tracker, added } = stubTracker();
+    const result = await makeResponder(runner, undefined, {
+      captureUsage: true,
+      usage: tracker,
+    }).handle(MESSAGE, settings());
+    expect(result).toEqual({
+      kind: "replied",
+      reply: "Sim, existe.",
+      usage: { input_tokens: 50, output_tokens: 10, cost_usd: 0.002 },
+    });
+    expect(added).toEqual([{ input_tokens: 50, output_tokens: 10, cost_usd: 0.002 }]);
+  });
+
+  it("skips with budget_exceeded when the daily cap is already met (no run)", async () => {
+    const runner = vi.fn();
+    const { tracker } = stubTracker(true); // over budget
+    const result = await makeResponder(runner, undefined, {
+      captureUsage: true,
+      usage: tracker,
+    }).handle(MESSAGE, settings({ max_auto_tokens_per_day: 1000 }));
+    expect(result).toEqual({ kind: "skipped", reason: "budget_exceeded" });
+    expect(runner).not.toHaveBeenCalled();
   });
 });
 

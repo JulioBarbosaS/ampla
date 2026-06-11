@@ -116,6 +116,13 @@ class AgentService:
         if patch.auto_paused is not None:
             agent.auto_paused = patch.auto_paused
             changed["auto_paused"] = patch.auto_paused
+        if patch.max_auto_tokens_per_day is not None:
+            # 0 clears the cap (unlimited); a positive value sets it.
+            agent.max_auto_tokens_per_day = patch.max_auto_tokens_per_day or None
+            changed["max_auto_tokens_per_day"] = agent.max_auto_tokens_per_day
+        if patch.max_auto_cost_usd_per_day is not None:
+            agent.max_auto_cost_usd_per_day = patch.max_auto_cost_usd_per_day or None
+            changed["max_auto_cost_usd_per_day"] = agent.max_auto_cost_usd_per_day
         await self._agents.save(agent)
         await self._audit.record(
             "settings_changed", actor=actor.email, detail={"slug": slug, "fields": list(changed)}

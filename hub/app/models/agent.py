@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, ForeignKey, String, Text
+from sqlalchemy import JSON, Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, UTCDateTime
@@ -43,6 +43,12 @@ class Agent(Base):
     # the mode it had. Distinct from `mode` precisely so it is reversible.
     # (server_default lives in the migration, like the other guardrail columns.)
     auto_paused: Mapped[bool] = mapped_column(default=False)
+
+    # Daily auto-respond budget (Epic 03 · 3.4): a hard ceiling on spend per
+    # local day. None = unlimited. The daemon enforces these against captured
+    # usage (only when capture_usage is on), skipping with reason budget_exceeded.
+    max_auto_tokens_per_day: Mapped[int | None] = mapped_column(default=None)
+    max_auto_cost_usd_per_day: Mapped[float | None] = mapped_column(Float, default=None)
 
 
 class AgentKey(Base):

@@ -37,7 +37,11 @@ function makeConfig(hubUrl: string): DaemonConfig {
 
 async function startDaemon(runner?: Parameters<typeof createDaemon>[2]): Promise<Daemon> {
   const url = await hub.start();
-  daemon = createDaemon(makeConfig(url), { store: join(dir, "messages.jsonl") }, runner);
+  daemon = createDaemon(
+    makeConfig(url),
+    { store: join(dir, "messages.jsonl"), usage: join(dir, "usage.json") },
+    runner,
+  );
   daemon.hub.start();
   await waitFor(() => daemon!.hub.connected, 5000, "conexão com o hub");
   return daemon;
