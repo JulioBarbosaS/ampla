@@ -45,9 +45,9 @@ export function AvatarCropper({
       aria-label="Recortar foto"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
     >
-      <div className="w-full max-w-2xl rounded-lg border border-zinc-800 bg-zinc-900 p-5 shadow-lg shadow-black/40">
+      <div className="flex h-[94vh] w-[96vw] max-w-6xl flex-col rounded-lg border border-zinc-800 bg-zinc-900 p-5 shadow-lg shadow-black/40">
         <h2 className="mb-3 text-sm font-medium text-zinc-200">Recortar foto</h2>
-        <div className="flex max-h-[70vh] justify-center overflow-hidden rounded-md bg-zinc-950">
+        <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-md bg-zinc-950">
           <ReactCrop
             crop={crop}
             onChange={(_, percentCrop) => setCrop(percentCrop)}
@@ -62,7 +62,7 @@ export function AvatarCropper({
               src={image}
               alt=""
               onLoad={onImageLoad}
-              className="max-h-[70vh] w-auto object-contain"
+              className="max-h-full w-auto object-contain"
             />
           </ReactCrop>
         </div>
