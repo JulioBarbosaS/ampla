@@ -681,6 +681,34 @@
         "title": "InviteOut",
         "type": "object"
       },
+      "KillSwitchState": {
+        "description": "Current global auto-responder state (GET /api/admin/kill-switch).",
+        "properties": {
+          "auto_responder_enabled": {
+            "title": "Auto Responder Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "auto_responder_enabled"
+        ],
+        "title": "KillSwitchState",
+        "type": "object"
+      },
+      "KillSwitchUpdate": {
+        "description": "Flip the global kill switch. enabled=False suspends ALL auto-responders.",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "KillSwitchUpdate",
+        "type": "object"
+      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -1133,6 +1161,76 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/kill-switch": {
+      "get": {
+        "operationId": "get_kill_switch_api_admin_kill_switch_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitchState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Kill Switch",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "set_kill_switch_api_admin_kill_switch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KillSwitchUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitchState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Kill Switch",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/agents": {
       "get": {
         "operationId": "list_my_agents_api_agents_get",

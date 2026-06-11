@@ -56,6 +56,7 @@ class TestAuth:
             assert "backend-julio" in ack["online"]
             assert ack["settings"]["mode"] == "inbox"
             assert ack["pending"] == []
+            assert ack["auto_responder_enabled"] is True  # global kill switch off by default
 
 
 class TestRouting:

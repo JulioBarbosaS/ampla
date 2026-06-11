@@ -11,10 +11,11 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.api.errors import register_error_handlers
-from app.api.routes import agents, auth, groups, invites, messages, users, ws
+from app.api.routes import admin, agents, auth, groups, invites, messages, users, ws
 from app.core.config import Settings, get_settings
 from app.core.db import build_engine, build_session_factory, create_tables
 from app.core.ratelimit import SlidingWindowLimiter
+from app.repositories.hub_state_repo import HubStateRepository
 from app.ws.connection_manager import ConnectionManager
 
 # CSP for the bundled SPA: external JS/CSS from same origin, same-origin
@@ -36,12 +37,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.engine = engine
         app.state.session_factory = build_session_factory(engine)
         await create_tables(engine)
+        # Load the persisted global kill switch into app.state (seeding the row
+        # on first boot) so the daemon hello_ack reflects it from the start.
+        async with app.state.session_factory() as session:
+            hub_state = await HubStateRepository(session).get()
+            app.state.auto_responder_enabled = hub_state.auto_responder_enabled
         yield
         await engine.dispose()
 
     app = FastAPI(title="Ampla Hub", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.manager = ConnectionManager()
+    # Safe default before the lifespan loads the persisted value from the DB,
+    # so the WS route can always read state.auto_responder_enabled.
+    app.state.auto_responder_enabled = True
     app.state.auth_limiter = SlidingWindowLimiter(
         max_events=settings.login_rate_per_minute, window_secs=60
     )
@@ -79,6 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(agents.router)
     app.include_router(groups.router)
     app.include_router(messages.router)
+    app.include_router(admin.router)
     app.include_router(ws.router)
 
     @app.get("/api/health", tags=["health"])

@@ -8,6 +8,7 @@ from datetime import datetime
 
 from app.models.agent import Agent, AgentKey
 from app.models.group import Group
+from app.models.hub_state import HubState
 from app.models.message import Message
 from app.models.user import Invite, PasswordReset, User, utcnow
 
@@ -109,6 +110,18 @@ class FakeUserRepository:
 
     async def save_reset(self, reset: PasswordReset) -> None:
         self._resets[reset.token_hash] = reset
+
+
+class FakeHubStateRepository:
+    def __init__(self) -> None:
+        self._state = HubState(id=1, auto_responder_enabled=True)
+
+    async def get(self) -> HubState:
+        return self._state
+
+    async def set_auto_responder_enabled(self, enabled: bool) -> HubState:
+        self._state.auto_responder_enabled = enabled
+        return self._state
 
 
 class FakeInviteRepository:

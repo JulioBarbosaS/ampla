@@ -104,6 +104,14 @@ class ConnectionManager:
         for obs in list(self._observers):
             await self._send_quietly(obs.ws, payload)
 
+    async def broadcast_kill_switch(self, payload: dict) -> None:
+        """Global kill switch flip: every daemon (to gate auto-respond) AND every
+        observer (to show a banner). Not sender-filtered — it's instance-wide."""
+        for ws in list(self._agents.values()):
+            await self._send_quietly(ws, payload)
+        for obs in list(self._observers):
+            await self._send_quietly(obs.ws, payload)
+
     async def send_settings_update(self, slug: str, payload: dict) -> bool:
         return await self.send_to_agent(slug, payload)
 

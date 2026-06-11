@@ -62,6 +62,7 @@
   },
   "server.hello_ack": {
     "agent_id": "backend-julio",
+    "auto_responder_enabled": true,
     "groups": [
       {
         "display_name": "Time Frontend",
@@ -107,6 +108,10 @@
       "trusted_senders": []
     },
     "type": "hello_ack"
+  },
+  "server.kill_switch": {
+    "auto_responder_enabled": false,
+    "type": "kill_switch"
   },
   "server.message": {
     "message": {

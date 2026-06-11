@@ -28,6 +28,7 @@ export class FakeHub {
   };
   pending: WireMessage[] = [];
   validKeys = new Map<string, string>(); // agent_id -> key
+  autoResponderEnabled = true; // global kill switch state sent in hello_ack
   private nextId = 1000;
 
   async start(): Promise<string> {
@@ -61,6 +62,7 @@ export class FakeHub {
               online: [frame.agent_id],
               settings: this.settings,
               pending: this.pending,
+              auto_responder_enabled: this.autoResponderEnabled,
             }),
           );
         } else if (frame.type === "message" && agentId) {
@@ -84,6 +86,14 @@ export class FakeHub {
   pushSettings(to: string, settings: AgentSettings): void {
     this.settings = settings;
     this.sockets.get(to)?.send(JSON.stringify({ type: "settings_update", settings }));
+  }
+
+  /** Flips the global kill switch and notifies the connected daemon. */
+  pushKillSwitch(to: string, enabled: boolean): void {
+    this.autoResponderEnabled = enabled;
+    this.sockets
+      .get(to)
+      ?.send(JSON.stringify({ type: "kill_switch", auto_responder_enabled: enabled }));
   }
 
   /** Heartbeat: the hub pings the daemon (which must reply pong). */

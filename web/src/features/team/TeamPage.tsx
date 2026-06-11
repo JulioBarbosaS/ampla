@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
+import { DangerAction } from "../../components/DangerAction";
 import { FormError } from "../../components/forms";
+import { adminApi } from "../../lib/api/admin";
 import { authApi } from "../../lib/api/auth";
 import type { Invite, User } from "../../lib/api/types";
 import { usersApi } from "../../lib/api/users";
 import { useAuthStore } from "../../stores/auth";
+import { useKillSwitchStore } from "../../stores/killSwitch";
 
 /** Invite state, derived from the dates (there is no backend field). */
 function inviteState(invite: Invite): { label: string; cls: string } {
@@ -21,6 +24,8 @@ export function TeamPage() {
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [resetLink, setResetLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [autoEnabled, setAutoEnabled] = useState<boolean | null>(null);
+  const setAutoResponderEnabled = useKillSwitchStore((s) => s.setAutoResponderEnabled);
 
   const reload = useCallback(() => {
     usersApi
@@ -30,6 +35,10 @@ export function TeamPage() {
     authApi
       .listInvites()
       .then(setInvites)
+      .catch(() => {});
+    adminApi
+      .getKillSwitch()
+      .then((s) => setAutoEnabled(s.auto_responder_enabled))
       .catch(() => {});
   }, []);
 
@@ -56,6 +65,18 @@ export function TeamPage() {
     }
   }
 
+  async function toggleKillSwitch(enabled: boolean) {
+    setError(null);
+    try {
+      const state = await adminApi.setKillSwitch(enabled);
+      setAutoEnabled(state.auto_responder_enabled);
+      // reflect immediately (the observer isn't connected on this route)
+      setAutoResponderEnabled(state.auto_responder_enabled);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao alterar o kill switch.");
+    }
+  }
+
   async function issueReset(user: User) {
     setError(null);
     setResetLink(null);
@@ -79,6 +100,42 @@ export function TeamPage() {
   return (
     <div className="mx-auto h-full max-w-3xl space-y-6 overflow-y-auto px-4 py-6">
       <FormError message={error} />
+
+      <section className="rounded-lg border border-red-800/70 bg-red-950/20 p-4">
+        <h2 className="mb-1 text-sm font-semibold text-red-300">
+          ⚠ Kill switch — respostas automáticas (global)
+        </h2>
+        <p className="mb-3 text-xs text-zinc-400">
+          Estado atual:{" "}
+          {autoEnabled === null ? (
+            <span className="text-zinc-500">carregando…</span>
+          ) : autoEnabled ? (
+            <span className="font-medium text-emerald-400">ativas</span>
+          ) : (
+            <span className="font-semibold text-red-400">SUSPENSAS</span>
+          )}
+          . Pausar interrompe o auto-respond de <strong>todos</strong> os agentes da instância. As
+          mensagens continuam chegando à inbox.
+        </p>
+        {autoEnabled === false ? (
+          <button
+            type="button"
+            onClick={() => toggleKillSwitch(true)}
+            className="rounded-md bg-emerald-800/60 px-2.5 py-1 text-xs font-medium text-emerald-200 hover:bg-emerald-800"
+          >
+            Reativar respostas automáticas
+          </button>
+        ) : (
+          autoEnabled === true && (
+            <DangerAction
+              trigger="Pausar TODAS as respostas automáticas"
+              warning="Isto suspende o auto-respond de TODOS os agentes da equipe, imediatamente. Use para conter um incidente. Reative aqui quando for seguro."
+              confirmWord="pausar-tudo"
+              onConfirm={() => toggleKillSwitch(false)}
+            />
+          )
+        )}
+      </section>
 
       {resetLink && (
         <div className="rounded-md border border-amber-900/50 bg-zinc-900 p-3">

@@ -113,6 +113,9 @@ export const helloAckFrameSchema = z.object({
   settings: agentSettingsSchema.nullable(),
   pending: z.array(wireMessageSchema),
   groups: z.array(groupInfoSchema).default([]),
+  // Global kill switch state, learned on connect (Epic 03 · 3.2). Default true
+  // keeps older hubs (without the field) operating normally.
+  auto_responder_enabled: z.boolean().default(true),
 });
 
 export const messageDeliveryFrameSchema = z.object({
@@ -161,6 +164,11 @@ export const pingFrameSchema = z.object({
   type: z.literal("ping"),
 });
 
+export const killSwitchFrameSchema = z.object({
+  type: z.literal("kill_switch"),
+  auto_responder_enabled: z.boolean(),
+});
+
 export const serverFrameSchema = z.discriminatedUnion("type", [
   helloAckFrameSchema,
   messageDeliveryFrameSchema,
@@ -171,6 +179,7 @@ export const serverFrameSchema = z.discriminatedUnion("type", [
   broadcastResultFrameSchema,
   errorFrameSchema,
   pingFrameSchema,
+  killSwitchFrameSchema,
 ]);
 export type ServerFrame = z.infer<typeof serverFrameSchema>;
 export type HelloAckFrame = z.infer<typeof helloAckFrameSchema>;

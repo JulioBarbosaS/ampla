@@ -15,9 +15,11 @@ from app.models.user import User
 from app.repositories.agent_repo import AgentRepository
 from app.repositories.audit_repo import AuditRepository
 from app.repositories.group_repo import GroupRepository
+from app.repositories.hub_state_repo import HubStateRepository
 from app.repositories.invite_repo import InviteRepository
 from app.repositories.message_repo import MessageRepository
 from app.repositories.user_repo import UserRepository
+from app.services.admin_service import AdminService
 from app.services.agent_service import AgentService
 from app.services.auth_service import AuthService
 from app.services.group_service import GroupService
@@ -69,6 +71,10 @@ def build_message_service(session: AsyncSession, settings) -> MessageService:
     )
 
 
+def build_admin_service(session: AsyncSession) -> AdminService:
+    return AdminService(state=HubStateRepository(session), audit=AuditRepository(session))
+
+
 def get_app_settings(request: Request) -> Settings:
     """The Settings the app was built with (tests inject their own — never the
     module-level get_settings cache)."""
@@ -93,6 +99,10 @@ def get_message_service(
     return build_message_service(session, request.app.state.settings)
 
 
+def get_admin_service(session: AsyncSession = Depends(get_session)) -> AdminService:
+    return build_admin_service(session)
+
+
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
@@ -109,6 +119,13 @@ async def get_current_user(
     user = await auth.get_user_by_token(token)
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão inválida ou expirada.")
+    return user
+
+
+async def require_admin(user: User = Depends(get_current_user)) -> User:
+    """Gate for instance-wide admin routes (kill switch). 403 for non-admins."""
+    if user.role != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Apenas administradores.")
     return user
 
 

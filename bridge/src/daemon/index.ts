@@ -91,6 +91,12 @@ export function createDaemon(
   async function maybeAutoRespond(message: WireMessage): Promise<void> {
     const settings = hub.settings;
     if (!settings) return;
+    // Global kill switch (Epic 03 · 3.2): an admin suspended ALL auto-responders
+    // instance-wide. Highest-priority gate — the message still enqueued above.
+    if (!hub.autoResponderEnabled) {
+      console.error("[amp] kill switch global ativo — auto-resposta suspensa, mensagem na inbox");
+      return;
+    }
     // Per-agent pause (Epic 03 · 3.2): a fast brake. The owner flipped this agent
     // out of auto-respond without changing `mode`; the message already enqueued
     // in the `message` handler above, so here we just don't drive claude -p.
@@ -217,6 +223,13 @@ export function createDaemon(
   });
   hub.on("hubError", ({ code, detail }) => {
     console.error(`[amp] erro do hub: ${code} — ${detail}`);
+  });
+  hub.on("killSwitch", ({ autoResponderEnabled }) => {
+    console.error(
+      autoResponderEnabled
+        ? "[amp] kill switch global LIBERADO — auto-resposta volta a operar"
+        : "[amp] kill switch global ATIVADO pelo admin — auto-resposta suspensa",
+    );
   });
   hub.on("broadcastResult", ({ group, sent, skipped, offline }) => {
     console.error(

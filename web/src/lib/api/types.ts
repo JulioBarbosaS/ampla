@@ -43,6 +43,10 @@ export interface DirectoryEntry {
   online: boolean;
 }
 
+export interface KillSwitchState {
+  auto_responder_enabled: boolean;
+}
+
 export interface AgentKey {
   id: number;
   label: string;

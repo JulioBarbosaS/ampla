@@ -24,6 +24,7 @@ export interface HubClientEvents {
   settings: [AgentSettings];
   broadcastResult: [{ group: string; sent: string[]; skipped: string[]; offline: string[] }];
   hubError: [{ code: string; detail: string }];
+  killSwitch: [{ autoResponderEnabled: boolean }];
   down: [{ willRetry: boolean; delayMs: number }];
 }
 
@@ -40,6 +41,9 @@ export class HubClient extends EventEmitter<HubClientEvents> {
   private readonly online = new Set<string>();
   settings: AgentSettings | null = null;
   groups: GroupInfo[] = [];
+  /** Global kill switch (Epic 03 · 3.2). True = auto-respond allowed. Learned
+   * from hello_ack and updated live by `kill_switch` frames. */
+  autoResponderEnabled = true;
 
   constructor(
     private readonly hubUrl: string,
@@ -134,6 +138,7 @@ export class HubClient extends EventEmitter<HubClientEvents> {
           for (const slug of frame.online) this.online.add(slug);
           if (frame.settings) this.settings = frame.settings;
           this.groups = frame.groups;
+          this.autoResponderEnabled = frame.auto_responder_enabled;
           this.emit("ack", frame);
           for (const pending of frame.pending) this.emit("message", pending);
           break;
@@ -159,6 +164,10 @@ export class HubClient extends EventEmitter<HubClientEvents> {
             skipped: frame.skipped,
             offline: frame.offline,
           });
+          break;
+        case "kill_switch":
+          this.autoResponderEnabled = frame.auto_responder_enabled;
+          this.emit("killSwitch", { autoResponderEnabled: frame.auto_responder_enabled });
           break;
         case "ping":
           // heartbeat: respond immediately so we are not considered a zombie

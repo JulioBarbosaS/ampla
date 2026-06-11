@@ -1,9 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { adminApi } from "../../lib/api/admin";
 import { authApi } from "../../lib/api/auth";
 import { usersApi } from "../../lib/api/users";
 import { useAuthStore } from "../../stores/auth";
+import { useKillSwitchStore } from "../../stores/killSwitch";
 import { TeamPage } from "./TeamPage";
 
 vi.mock("../../lib/api/users", () => ({
@@ -12,6 +14,10 @@ vi.mock("../../lib/api/users", () => ({
 
 vi.mock("../../lib/api/auth", () => ({
   authApi: { listInvites: vi.fn(), createInvite: vi.fn() },
+}));
+
+vi.mock("../../lib/api/admin", () => ({
+  adminApi: { getKillSwitch: vi.fn(), setKillSwitch: vi.fn() },
 }));
 
 const ADMIN = {
@@ -31,8 +37,11 @@ const MEMBER = {
 
 beforeEach(() => {
   useAuthStore.setState({ user: ADMIN });
+  useKillSwitchStore.setState({ autoResponderEnabled: true });
   vi.mocked(usersApi.list).mockResolvedValue([ADMIN, MEMBER]);
   vi.mocked(authApi.listInvites).mockResolvedValue([]);
+  vi.mocked(adminApi.getKillSwitch).mockResolvedValue({ auto_responder_enabled: true });
+  vi.mocked(adminApi.setKillSwitch).mockResolvedValue({ auto_responder_enabled: false });
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -84,6 +93,32 @@ describe("TeamPage", () => {
     expect(await screen.findByText("pendente")).toBeInTheDocument();
     expect(screen.getByText("expirado")).toBeInTheDocument();
     expect(screen.getByText("usado")).toBeInTheDocument();
+  });
+
+  it("engaging the kill switch needs 3 confirmations + the word, then toggles + updates the store", async () => {
+    render(<TeamPage />);
+    // wait for the current state to load (button only renders once enabled === true)
+    const trigger = await screen.findByRole("button", {
+      name: "Pausar TODAS as respostas automáticas",
+    });
+    await userEvent.click(trigger);
+    await userEvent.click(screen.getByRole("button", { name: "Entendo o risco" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar de novo" }));
+    await userEvent.type(screen.getByPlaceholderText("pausar-tudo"), "pausar-tudo");
+    await userEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+
+    expect(adminApi.setKillSwitch).toHaveBeenCalledWith(false);
+    // the store is updated for an immediate banner, even off the chat route
+    expect(useKillSwitchStore.getState().autoResponderEnabled).toBe(false);
+  });
+
+  it("re-enabling auto-respond is a single safe click", async () => {
+    vi.mocked(adminApi.getKillSwitch).mockResolvedValue({ auto_responder_enabled: false });
+    vi.mocked(adminApi.setKillSwitch).mockResolvedValue({ auto_responder_enabled: true });
+    render(<TeamPage />);
+    const btn = await screen.findByRole("button", { name: "Reativar respostas automáticas" });
+    await userEvent.click(btn);
+    expect(adminApi.setKillSwitch).toHaveBeenCalledWith(true);
   });
 
   it("hides everything from non-admins", () => {

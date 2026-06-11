@@ -78,6 +78,9 @@ class HelloAckFrame(BaseModel):
     settings: AgentSettings | None  # None for observers
     pending: list[MessageOut]
     groups: list[GroupInfo] = []
+    # Global kill switch state (Epic 03 · 3.2): the daemon learns it on connect
+    # so a reconnect can't resume auto-respond while the switch is engaged.
+    auto_responder_enabled: bool = True
 
 
 class MessageDeliveryFrame(BaseModel):
@@ -133,6 +136,15 @@ class PingFrame(BaseModel):
     type: Literal["ping"] = "ping"
 
 
+class KillSwitchFrame(BaseModel):
+    """Hub→all clients: the global kill switch flipped. Broadcast to every daemon
+    (which gates auto-respond on it) AND every panel observer (which shows a
+    banner) the moment an admin toggles it (Epic 03 · 3.2)."""
+
+    type: Literal["kill_switch"] = "kill_switch"
+    auto_responder_enabled: bool
+
+
 ServerFrame = (
     HelloAckFrame
     | MessageDeliveryFrame
@@ -143,4 +155,5 @@ ServerFrame = (
     | BroadcastResultFrame
     | ErrorFrame
     | PingFrame
+    | KillSwitchFrame
 )

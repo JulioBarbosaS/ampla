@@ -168,6 +168,38 @@ describe("daemon ↔ hub", () => {
     await waitFor(() => hub.sentMessages().length === 1, 5000, "auto-resposta após retomar");
   });
 
+  it("does not auto-respond while the global kill switch is engaged (from hello_ack)", async () => {
+    const runner = vi.fn();
+    hub.settings = { ...hub.settings, mode: "auto" };
+    hub.autoResponderEnabled = false; // admin engaged the switch before we connected
+    const d = await startDaemon(runner);
+    expect(d.hub.autoResponderEnabled).toBe(false);
+
+    hub.pushMessage(AGENT, wireMessage(18, "mobile-eduardo", AGENT, "pergunta?"));
+    await waitFor(() => d.store.inbox(false).length === 1, 5000, "mensagem na inbox");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(runner).not.toHaveBeenCalled();
+    expect(hub.sentMessages()).toHaveLength(0);
+  });
+
+  it("a live kill_switch frame suspends then resumes auto-respond", async () => {
+    const runner = vi.fn().mockResolvedValue("ok");
+    hub.settings = { ...hub.settings, mode: "auto", max_auto_per_hour: 120 };
+    const d = await startDaemon(runner);
+
+    hub.pushKillSwitch(AGENT, false);
+    await waitFor(() => d.hub.autoResponderEnabled === false, 5000, "kill switch ativado");
+    hub.pushMessage(AGENT, wireMessage(19, "mobile-eduardo", AGENT, "1?"));
+    await waitFor(() => d.store.inbox(false).length === 1, 5000, "msg enfileirada");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(runner).not.toHaveBeenCalled();
+
+    hub.pushKillSwitch(AGENT, true);
+    await waitFor(() => d.hub.autoResponderEnabled === true, 5000, "kill switch liberado");
+    hub.pushMessage(AGENT, wireMessage(20, "mobile-eduardo", AGENT, "2?"));
+    await waitFor(() => hub.sentMessages().length === 1, 5000, "auto-resposta após liberar");
+  });
+
   it("auto-reply goes out as response, with in_reply_to and inherited priority", async () => {
     const runner = vi.fn().mockResolvedValue("Sim, existe.");
     hub.settings = { ...hub.settings, mode: "auto" };

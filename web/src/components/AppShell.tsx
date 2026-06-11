@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuthStore } from "../stores/auth";
+import { useKillSwitchStore } from "../stores/killSwitch";
 import { AccountMenu } from "./AccountMenu";
 import { Logo } from "./Logo";
 
@@ -10,9 +11,19 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function AppShell() {
   const user = useAuthStore((s) => s.user);
+  const autoResponderEnabled = useKillSwitchStore((s) => s.autoResponderEnabled);
 
   return (
     <div className="flex h-screen flex-col">
+      {!autoResponderEnabled && (
+        <div
+          role="alert"
+          className="bg-red-950/80 px-4 py-1.5 text-center text-xs font-medium text-red-200"
+        >
+          ⚠ Respostas automáticas suspensas pelo administrador (kill switch global). As mensagens
+          continuam chegando à inbox.
+        </div>
+      )}
       <header className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
         <div className="flex items-center gap-4">
           <Logo variant="icon" className="h-6 w-6" />

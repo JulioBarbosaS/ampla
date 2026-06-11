@@ -17,6 +17,8 @@ export interface ObserverHandlers {
   onDelivered?: (messageId: number) => void;
   /** An agent started/stopped generating an auto-reply ("responding…"). */
   onActivity?: (agentId: string, responding: boolean) => void;
+  /** Global kill switch state (from hello_ack and live kill_switch frames). */
+  onKillSwitch?: (enabled: boolean) => void;
 }
 
 const RECONNECT_MS = 3000;
@@ -41,6 +43,10 @@ export function connectObserver(handlers: ObserverHandlers): () => void {
       if (frame.type === "hello_ack") {
         handlers.onStatus?.(true);
         handlers.onOnlineList((frame.online as string[]) ?? []);
+        // absent on older hubs → treat as enabled (normal operation)
+        handlers.onKillSwitch?.(frame.auto_responder_enabled !== false);
+      } else if (frame.type === "kill_switch") {
+        handlers.onKillSwitch?.(frame.auto_responder_enabled === true);
       } else if (frame.type === "message") {
         handlers.onMessage(frame.message as Message);
       } else if (frame.type === "delivered") {

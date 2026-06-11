@@ -4,6 +4,7 @@ import { messagesApi } from "../../lib/api/messages";
 import { connectObserver } from "../../lib/ws/observer";
 import { useAuthStore } from "../../stores/auth";
 import { useChatStore } from "../../stores/chat";
+import { useKillSwitchStore } from "../../stores/killSwitch";
 import { ChatWindow } from "./ChatWindow";
 import { Sidebar } from "./Sidebar";
 
@@ -21,6 +22,7 @@ export function ChatPage() {
     markDelivered,
     setActivity,
   } = useChatStore();
+  const setAutoResponderEnabled = useKillSwitchStore((s) => s.setAutoResponderEnabled);
 
   // directory + initial perspective (the user's first agent)
   useEffect(() => {
@@ -47,8 +49,18 @@ export function ChatPage() {
       onStatus: setWsConnected,
       onDelivered: markDelivered,
       onActivity: setActivity,
+      onKillSwitch: setAutoResponderEnabled,
     });
-  }, [authed, addMessage, setPresence, setOnlineList, setWsConnected, markDelivered, setActivity]);
+  }, [
+    authed,
+    addMessage,
+    setPresence,
+    setOnlineList,
+    setWsConnected,
+    markDelivered,
+    setActivity,
+    setAutoResponderEnabled,
+  ]);
 
   // history of the selected conversation
   useEffect(() => {

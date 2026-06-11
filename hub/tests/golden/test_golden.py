@@ -25,6 +25,7 @@ from app.schemas.ws import (
     GroupInfo,
     HelloAckFrame,
     HelloFrame,
+    KillSwitchFrame,
     MessageDeliveryFrame,
     PingFrame,
     PresenceFrame,
@@ -141,5 +142,7 @@ def test_ws_frames_contract() -> None:
             code="rate_limited", detail="Limite de mensagens excedido."
         ).model_dump(mode="json"),
         "server.ping": PingFrame().model_dump(mode="json"),
+        # global kill switch flip, broadcast to every daemon + observer
+        "server.kill_switch": KillSwitchFrame(auto_responder_enabled=False).model_dump(mode="json"),
     }
     check_golden("ws_frames.json", frames)

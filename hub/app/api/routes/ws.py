@@ -136,6 +136,7 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
         settings=agent_settings,
         pending=[MessageOut.model_validate(m) for m in pending],
         groups=groups,
+        auto_responder_enabled=getattr(state, "auto_responder_enabled", True),
     )
     await ws.send_json(ack.model_dump(mode="json", by_alias=True))
 
@@ -358,7 +359,13 @@ async def _run_observer_connection(ws: WebSocket, hello: HelloFrame) -> None:
 
     conn = ObserverConn(ws=ws, user_id=user.id, role=user.role, owned_slugs=owned)
     await manager.add_observer(conn)
-    ack = HelloAckFrame(agent_id=None, online=manager.online_slugs(), settings=None, pending=[])
+    ack = HelloAckFrame(
+        agent_id=None,
+        online=manager.online_slugs(),
+        settings=None,
+        pending=[],
+        auto_responder_enabled=getattr(state, "auto_responder_enabled", True),
+    )
     await ws.send_json(ack.model_dump(mode="json", by_alias=True))
 
     try:
