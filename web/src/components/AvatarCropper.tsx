@@ -59,13 +59,15 @@ export function AvatarCropper({
             circularCrop
             keepSelection
           >
-            {/* alt empty: decorative — the dialog is already labelled */}
+            {/* alt empty: decorative — the dialog is already labelled.
+             * min-w scales small photos up to a comfortable size (GitHub-style),
+             * so the modal never gets tiny; max-w/max-h cap large ones. */}
             <img
               ref={imgRef}
               src={image}
               alt=""
               onLoad={onImageLoad}
-              className="block max-h-[78vh] max-w-[90vw] w-auto"
+              className="block w-auto min-w-[24rem] max-w-[90vw] max-h-[78vh]"
             />
           </ReactCrop>
         </div>
