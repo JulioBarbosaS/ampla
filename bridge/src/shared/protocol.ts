@@ -21,6 +21,9 @@ export const agentSettingsSchema = z.object({
   confine_to_dir: z.boolean(),
   denied_paths: z.array(z.string()),
   trusted_senders: z.array(z.string()),
+  // Fast brake (Epic 03 · 3.2): when true the daemon treats the agent as inbox
+  // regardless of `mode` — no claude -p until the owner un-pauses.
+  auto_paused: z.boolean(),
 });
 export type AgentSettings = z.infer<typeof agentSettingsSchema>;
 

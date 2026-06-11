@@ -95,6 +95,7 @@
     "settings": {
       "allow_write": false,
       "allowed_senders": null,
+      "auto_paused": false,
       "auto_timeout_secs": 120,
       "block_hidden_files": true,
       "block_sensitive_paths": true,
@@ -136,6 +137,7 @@
     "settings": {
       "allow_write": false,
       "allowed_senders": null,
+      "auto_paused": false,
       "auto_timeout_secs": 120,
       "block_hidden_files": true,
       "block_sensitive_paths": true,

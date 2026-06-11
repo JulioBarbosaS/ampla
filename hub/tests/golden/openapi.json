@@ -116,6 +116,10 @@
             ],
             "title": "Allowed Senders"
           },
+          "auto_paused": {
+            "title": "Auto Paused",
+            "type": "boolean"
+          },
           "auto_timeout_secs": {
             "title": "Auto Timeout Secs",
             "type": "integer"
@@ -191,7 +195,8 @@
           "block_sensitive_paths",
           "confine_to_dir",
           "denied_paths",
-          "trusted_senders"
+          "trusted_senders",
+          "auto_paused"
         ],
         "title": "AgentOut",
         "type": "object"
@@ -223,6 +228,17 @@
               }
             ],
             "title": "Allowed Senders"
+          },
+          "auto_paused": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Paused"
           },
           "auto_timeout_secs": {
             "anyOf": [

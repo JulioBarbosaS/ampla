@@ -91,6 +91,13 @@ export function createDaemon(
   async function maybeAutoRespond(message: WireMessage): Promise<void> {
     const settings = hub.settings;
     if (!settings) return;
+    // Per-agent pause (Epic 03 · 3.2): a fast brake. The owner flipped this agent
+    // out of auto-respond without changing `mode`; the message already enqueued
+    // in the `message` handler above, so here we just don't drive claude -p.
+    if (settings.auto_paused) {
+      console.error(`[amp] auto-resposta pausada para ${config.agent_id} — mensagem fica na inbox`);
+      return;
+    }
     // Anti-loop layer 1/3: an automatic reply does not trigger another reply.
     if (message.body.startsWith(AUTO_REPLY_PREFIX)) return;
     // Layer 2/3 (semantic): only request/task trigger — response/notification/

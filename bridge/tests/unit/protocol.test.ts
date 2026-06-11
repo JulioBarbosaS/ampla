@@ -29,6 +29,7 @@ const SETTINGS = {
   confine_to_dir: true,
   denied_paths: [],
   trusted_senders: [],
+  auto_paused: false,
 };
 
 describe("parseServerFrame", () => {

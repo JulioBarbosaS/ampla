@@ -155,6 +155,7 @@ class FakeAgentRepository:
         _default(agent, "max_auto_per_hour", 10)
         _default(agent, "auto_timeout_secs", 120)
         _default(agent, "instructions", "")
+        _default(agent, "auto_paused", False)
         _default(agent, "created_at", utcnow())
         self._agents[agent.slug] = agent
         return agent

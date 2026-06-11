@@ -24,6 +24,7 @@ export class FakeHub {
     confine_to_dir: true,
     denied_paths: [],
     trusted_senders: [],
+    auto_paused: false,
   };
   pending: WireMessage[] = [];
   validKeys = new Map<string, string>(); // agent_id -> key

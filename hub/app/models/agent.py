@@ -37,6 +37,13 @@ class Agent(Base):
     denied_paths: Mapped[list[str]] = mapped_column(JSON, default=list)
     trusted_senders: Mapped[list[str]] = mapped_column(JSON, default=list)
 
+    # Per-agent pause (Epic 03 · kill switch): a fast brake that takes the agent
+    # out of auto-respond WITHOUT changing `mode`. When true the daemon enqueues
+    # to the inbox only (no claude -p), so the owner can flip it back to exactly
+    # the mode it had. Distinct from `mode` precisely so it is reversible.
+    # (server_default lives in the migration, like the other guardrail columns.)
+    auto_paused: Mapped[bool] = mapped_column(default=False)
+
 
 class AgentKey(Base):
     __tablename__ = "agent_keys"

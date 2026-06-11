@@ -45,6 +45,10 @@ class AgentSettings(BaseModel):
     # access (write still gated by allow_write).
     trusted_senders: list[str] = Field(default_factory=list)
 
+    # Fast brake (Epic 03 · 3.2): pause auto-respond without changing `mode`.
+    # When true the daemon treats the agent as inbox regardless of `mode`.
+    auto_paused: bool = False
+
     @field_validator("denied_paths")
     @classmethod
     def _check_denied_paths(cls, v: list[str]) -> list[str]:
@@ -66,6 +70,7 @@ class AgentSettingsUpdate(BaseModel):
     confine_to_dir: bool | None = None
     denied_paths: list[str] | None = None
     trusted_senders: list[str] | None = None
+    auto_paused: bool | None = None
 
     @field_validator("denied_paths")
     @classmethod
@@ -96,6 +101,7 @@ class AgentOut(BaseModel):
     confine_to_dir: bool
     denied_paths: list[str]
     trusted_senders: list[str]
+    auto_paused: bool
 
 
 class DirectoryEntry(BaseModel):

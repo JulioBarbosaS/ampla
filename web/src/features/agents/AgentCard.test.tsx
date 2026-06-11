@@ -38,6 +38,7 @@ const AGENT: Agent = {
   confine_to_dir: true,
   denied_paths: [],
   trusted_senders: [],
+  auto_paused: false,
 };
 
 const GROUPS: Group[] = [
@@ -128,6 +129,21 @@ describe("AgentCard", () => {
     } as unknown as Agent;
     render(<AgentCard agent={legacy} groups={[]} onChanged={() => {}} />);
     expect(screen.getByText("⚠ Zona de perigo")).toBeInTheDocument();
+  });
+
+  it("pausing auto-respond patches auto_paused without confirmation (fast brake)", async () => {
+    vi.mocked(agentsApi.updateSettings).mockResolvedValue(AGENT);
+    render(<AgentCard agent={AGENT} groups={[]} onChanged={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "Pausar auto-resposta" }));
+    expect(agentsApi.updateSettings).toHaveBeenCalledWith("backend-julio", { auto_paused: true });
+  });
+
+  it("a paused agent shows the banner and a Retomar button", async () => {
+    vi.mocked(agentsApi.updateSettings).mockResolvedValue(AGENT);
+    render(<AgentCard agent={{ ...AGENT, auto_paused: true }} groups={[]} onChanged={() => {}} />);
+    expect(screen.getByText(/Auto-resposta pausada/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Retomar auto-resposta" }));
+    expect(agentsApi.updateSettings).toHaveBeenCalledWith("backend-julio", { auto_paused: false });
   });
 
   it("danger zone: disabling the sensitive-path block needs 3 confirmations + the slug", async () => {

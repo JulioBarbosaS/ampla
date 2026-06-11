@@ -113,6 +113,9 @@ class AgentService:
                     raise InvalidInputError(f"Slug inválido em trusted_senders: {sender!r}")
             agent.trusted_senders = patch.trusted_senders
             changed["trusted_senders"] = patch.trusted_senders
+        if patch.auto_paused is not None:
+            agent.auto_paused = patch.auto_paused
+            changed["auto_paused"] = patch.auto_paused
         await self._agents.save(agent)
         await self._audit.record(
             "settings_changed", actor=actor.email, detail={"slug": slug, "fields": list(changed)}

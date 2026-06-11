@@ -140,6 +140,34 @@ describe("daemon ↔ hub", () => {
     expect(hub.sentMessages()).toHaveLength(0);
   });
 
+  it("does not auto-respond when the agent is paused (fast brake), but enqueues", async () => {
+    const runner = vi.fn();
+    hub.settings = { ...hub.settings, mode: "auto", auto_paused: true };
+    const d = await startDaemon(runner);
+
+    hub.pushMessage(AGENT, wireMessage(15, "mobile-eduardo", AGENT, "tem endpoint de reset?"));
+    await waitFor(() => d.store.inbox(false).length === 1, 5000, "mensagem na inbox");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(runner).not.toHaveBeenCalled(); // no claude -p while paused
+    expect(hub.sentMessages()).toHaveLength(0);
+  });
+
+  it("resumes auto-respond once the pause is lifted via settings_update", async () => {
+    const runner = vi.fn().mockResolvedValue("Sim, existe.");
+    hub.settings = { ...hub.settings, mode: "auto", auto_paused: true };
+    const d = await startDaemon(runner);
+
+    hub.pushMessage(AGENT, wireMessage(16, "mobile-eduardo", AGENT, "pergunta 1?"));
+    await waitFor(() => d.store.inbox(false).length === 1, 5000, "1ª na inbox");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(runner).not.toHaveBeenCalled();
+
+    hub.pushSettings(AGENT, { ...hub.settings, mode: "auto", auto_paused: false });
+    await waitFor(() => d.hub.settings?.auto_paused === false, 5000, "pause liberado");
+    hub.pushMessage(AGENT, wireMessage(17, "mobile-eduardo", AGENT, "pergunta 2?"));
+    await waitFor(() => hub.sentMessages().length === 1, 5000, "auto-resposta após retomar");
+  });
+
   it("auto-reply goes out as response, with in_reply_to and inherited priority", async () => {
     const runner = vi.fn().mockResolvedValue("Sim, existe.");
     hub.settings = { ...hub.settings, mode: "auto" };

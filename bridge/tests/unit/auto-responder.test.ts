@@ -36,6 +36,7 @@ function settings(overrides: Partial<AgentSettings> = {}): AgentSettings {
     confine_to_dir: true,
     denied_paths: [],
     trusted_senders: [],
+    auto_paused: false,
     ...overrides,
   };
 }

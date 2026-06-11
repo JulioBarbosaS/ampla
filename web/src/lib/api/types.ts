@@ -26,6 +26,8 @@ export interface AgentSettings {
   confine_to_dir: boolean;
   denied_paths: string[];
   trusted_senders: string[];
+  // Fast brake: pause auto-respond without changing `mode` (Epic 03 · 3.2).
+  auto_paused: boolean;
 }
 
 export interface Agent extends AgentSettings {

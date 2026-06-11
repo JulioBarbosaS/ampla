@@ -177,6 +177,19 @@ export function AgentCard({
     }
   }
 
+  // Fast brake (Epic 03 · 3.2): flip auto_paused on its own — a single click, no
+  // confirmation. It is a containment action; making it slow would defeat it.
+  // Real-time: the hub pushes settings_update so the daemon stops/resumes at once.
+  async function setPaused(paused: boolean) {
+    setError(null);
+    try {
+      await agentsApi.updateSettings(agent.slug, { auto_paused: paused });
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao salvar.");
+    }
+  }
+
   async function handleCreateKey() {
     setError(null);
     try {
@@ -226,6 +239,7 @@ pnpm daemon   # deixe rodando`;
   const deniedPaths = agent.denied_paths ?? [];
   const trustedSenders = agent.trusted_senders ?? [];
   const sensitiveBlocked = agent.block_sensitive_paths ?? true;
+  const paused = agent.auto_paused ?? false;
 
   return (
     <section className="rounded-lg border border-zinc-800 p-4">
@@ -248,6 +262,40 @@ pnpm daemon   # deixe rodando`;
           </span>
         </div>
       </header>
+
+      {/* Fast brake: a one-click pause distinct from the mode select. Shown when
+       * the agent is in auto (so it can be paused) or already paused (so it can
+       * be resumed) — an inbox agent has nothing to brake. */}
+      {(agent.mode === "auto" || paused) && (
+        <div
+          className={`mb-3 flex items-center justify-between gap-3 rounded-md border px-3 py-2 ${
+            paused ? "border-amber-700 bg-amber-950/40" : "border-zinc-800 bg-zinc-900/60"
+          }`}
+        >
+          <p className="text-xs">
+            {paused ? (
+              <span className="font-medium text-amber-300">
+                ⏸ Auto-resposta pausada — mensagens só enfileiram na inbox
+              </span>
+            ) : (
+              <span className="text-zinc-400">
+                Freio rápido: pausa o auto-respond sem mudar o modo.
+              </span>
+            )}
+          </p>
+          <button
+            type="button"
+            onClick={() => setPaused(!paused)}
+            className={
+              paused
+                ? "shrink-0 rounded-md bg-emerald-800/60 px-2.5 py-1 text-xs font-medium text-emerald-200 hover:bg-emerald-800"
+                : "shrink-0 rounded-md border border-amber-700 px-2.5 py-1 text-xs font-medium text-amber-300 hover:bg-amber-950/40"
+            }
+          >
+            {paused ? "Retomar auto-resposta" : "Pausar auto-resposta"}
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSettings} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">

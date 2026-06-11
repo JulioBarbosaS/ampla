@@ -14,6 +14,7 @@ export interface SettingsPatch {
   confine_to_dir?: boolean;
   denied_paths?: string[];
   trusted_senders?: string[];
+  auto_paused?: boolean;
 }
 
 export const agentsApi = {
