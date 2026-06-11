@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { Agent, AgentKey, AgentKeyCreated, DirectoryEntry } from "./types";
+import type { Agent, AgentKey, AgentKeyCreated, AutorespondRun, DirectoryEntry } from "./types";
 
 export interface SettingsPatch {
   mode?: "inbox" | "auto";
@@ -28,4 +28,6 @@ export const agentsApi = {
   listKeys: (slug: string) => api.get<AgentKey[]>(`/api/agents/${slug}/keys`),
   revokeKey: (slug: string, keyId: number) =>
     api.delete<AgentKey>(`/api/agents/${slug}/keys/${keyId}`),
+  autorespondRuns: (slug: string, limit = 50) =>
+    api.get<AutorespondRun[]>(`/api/agents/${slug}/autorespond-runs?limit=${limit}`),
 };

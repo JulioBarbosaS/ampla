@@ -47,6 +47,25 @@ export interface KillSwitchState {
   auto_responder_enabled: boolean;
 }
 
+export interface AutorespondRun {
+  id: number;
+  agent_slug: string;
+  trigger_message_id: number | null;
+  from_sender: string;
+  result: "replied" | "blocked" | "failed" | "skipped";
+  reason: string | null;
+  reply_preview: string;
+  tools_allowed: string;
+  tools_disallowed: string;
+  guardrails: Record<string, unknown>;
+  duration_ms: number;
+  timed_out: boolean;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cost_usd: number | null;
+  created_at: string;
+}
+
 export interface AgentKey {
   id: number;
   label: string;

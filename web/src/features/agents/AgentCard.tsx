@@ -7,6 +7,7 @@ import { groupsApi } from "../../lib/api/groups";
 import type { Agent, AgentKey, Group } from "../../lib/api/types";
 import { connectToken } from "../../lib/connect";
 import { PresenceDot } from "../chat/Sidebar";
+import { AutorespondRuns } from "./AutorespondRuns";
 
 export function AgentCard({
   agent,
@@ -313,6 +314,8 @@ pnpm daemon   # deixe rodando`;
         </div>
         <FormError message={error} />
       </form>
+
+      <AutorespondRuns slug={agent.slug} />
 
       <div className="mt-4 border-t border-zinc-800 pt-3">
         <div className="mb-2 flex items-center justify-between">
