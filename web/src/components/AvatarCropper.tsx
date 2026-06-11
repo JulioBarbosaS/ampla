@@ -45,9 +45,12 @@ export function AvatarCropper({
       aria-label="Recortar foto"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
     >
-      <div className="flex h-[94vh] w-[96vw] max-w-6xl flex-col rounded-lg border border-zinc-800 bg-zinc-900 p-5 shadow-lg shadow-black/40">
-        <h2 className="mb-3 text-sm font-medium text-zinc-200">Recortar foto</h2>
-        <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-md bg-zinc-950">
+      {/* Sizes to the photo (capped to the viewport); not forced full-screen. */}
+      <div className="flex max-h-[92vh] max-w-[92vw] flex-col overflow-hidden rounded border border-zinc-800 bg-zinc-900 shadow-lg shadow-black/40">
+        <h2 className="border-b border-zinc-800 px-4 py-3 text-sm font-medium text-zinc-200">
+          Recortar foto
+        </h2>
+        <div className="min-h-0 overflow-auto bg-zinc-950">
           <ReactCrop
             crop={crop}
             onChange={(_, percentCrop) => setCrop(percentCrop)}
@@ -62,28 +65,30 @@ export function AvatarCropper({
               src={image}
               alt=""
               onLoad={onImageLoad}
-              className="max-h-full w-auto object-contain"
+              className="block max-h-[78vh] max-w-[90vw] w-auto"
             />
           </ReactCrop>
         </div>
         {error && (
-          <p role="alert" className="mt-2 text-xs text-red-400">
+          <p role="alert" className="border-t border-zinc-800 px-4 py-2 text-xs text-red-400">
             {error}
           </p>
         )}
-        <div className="mt-4 flex justify-end gap-2">
+        {/* Split footer: half cancel, half save. */}
+        <div className="flex border-t border-zinc-800">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md px-3 py-2 text-sm text-zinc-300 transition-colors hover:bg-zinc-800"
+            className="flex-1 py-3 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800"
           >
             Cancelar
           </button>
+          <div aria-hidden="true" className="w-px bg-zinc-800" />
           <button
             type="button"
             onClick={handleSave}
             disabled={busy || !completed?.width}
-            className="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:opacity-50"
+            className="flex-1 py-3 text-sm font-semibold text-amber-400 transition-colors hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
           >
             Salvar
           </button>
