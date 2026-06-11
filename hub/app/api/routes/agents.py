@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
-from app.api.deps import get_agent_service, get_current_user
+from app.api.deps import get_agent_service, get_autorespond_service, get_current_user
 from app.models.user import User
 from app.schemas.agent import (
     AgentCreate,
@@ -11,8 +11,10 @@ from app.schemas.agent import (
     AgentSettingsUpdate,
     DirectoryEntry,
 )
+from app.schemas.autorespond import AutorespondRunOut
 from app.schemas.ws import SettingsUpdateFrame
 from app.services.agent_service import AgentService
+from app.services.autorespond_service import AutorespondService
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
@@ -69,6 +71,19 @@ async def update_settings(
     frame = SettingsUpdateFrame(settings=svc.settings_of(agent))
     await request.app.state.manager.send_settings_update(slug, frame.model_dump(mode="json"))
     return AgentOut.model_validate(agent)
+
+
+@router.get("/{slug}/autorespond-runs", response_model=list[AutorespondRunOut])
+async def autorespond_runs(
+    slug: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    user: User = Depends(get_current_user),
+    svc: AgentService = Depends(get_agent_service),
+    ar_svc: AutorespondService = Depends(get_autorespond_service),
+) -> list[AutorespondRunOut]:
+    await svc.get_owned(user, slug)  # owner/admin authz (raises otherwise)
+    runs = await ar_svc.list_for_agent(slug, limit)
+    return [AutorespondRunOut.model_validate(r) for r in runs]
 
 
 @router.post("/{slug}/keys", response_model=AgentKeyCreated, status_code=201)

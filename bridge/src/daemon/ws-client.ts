@@ -7,6 +7,7 @@ import { EventEmitter } from "node:events";
 import WebSocket from "ws";
 import {
   type AgentSettings,
+  type AutorespondRecord,
   type ClientFrame,
   type GroupInfo,
   type HelloAckFrame,
@@ -99,6 +100,16 @@ export class HubClient extends EventEmitter<HubClientEvents> {
     const ws = this.ws;
     if (!ws || ws.readyState !== WebSocket.OPEN) return false;
     const frame: ClientFrame = { type: "activity", state };
+    ws.send(JSON.stringify(frame));
+    return true;
+  }
+
+  /** Reports an auto-respond run to the hub for the auditable transcript
+   * (Epic 03 · 3.1). Best-effort: a dropped report only loses one audit row. */
+  sendAutorespondReport(record: AutorespondRecord): boolean {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const frame: ClientFrame = { type: "autorespond_report", record };
     ws.send(JSON.stringify(frame));
     return true;
   }

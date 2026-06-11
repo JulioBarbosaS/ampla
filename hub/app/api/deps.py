@@ -14,6 +14,7 @@ from app.core.cookies import SESSION_COOKIE
 from app.models.user import User
 from app.repositories.agent_repo import AgentRepository
 from app.repositories.audit_repo import AuditRepository
+from app.repositories.autorespond_repo import AutorespondRunRepository
 from app.repositories.group_repo import GroupRepository
 from app.repositories.hub_state_repo import HubStateRepository
 from app.repositories.invite_repo import InviteRepository
@@ -22,6 +23,7 @@ from app.repositories.user_repo import UserRepository
 from app.services.admin_service import AdminService
 from app.services.agent_service import AgentService
 from app.services.auth_service import AuthService
+from app.services.autorespond_service import AutorespondService
 from app.services.group_service import GroupService
 from app.services.message_service import MessageService
 
@@ -75,6 +77,10 @@ def build_admin_service(session: AsyncSession) -> AdminService:
     return AdminService(state=HubStateRepository(session), audit=AuditRepository(session))
 
 
+def build_autorespond_service(session: AsyncSession) -> AutorespondService:
+    return AutorespondService(runs=AutorespondRunRepository(session))
+
+
 def get_app_settings(request: Request) -> Settings:
     """The Settings the app was built with (tests inject their own — never the
     module-level get_settings cache)."""
@@ -101,6 +107,10 @@ def get_message_service(
 
 def get_admin_service(session: AsyncSession = Depends(get_session)) -> AdminService:
     return build_admin_service(session)
+
+
+def get_autorespond_service(session: AsyncSession = Depends(get_session)) -> AutorespondService:
+    return build_autorespond_service(session)
 
 
 async def get_current_user(

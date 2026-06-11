@@ -1,12 +1,14 @@
 """Instance-wide admin controls. Admin-only (require_admin)."""
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
-from app.api.deps import get_admin_service, require_admin
+from app.api.deps import get_admin_service, get_autorespond_service, require_admin
 from app.models.user import User
 from app.schemas.admin import KillSwitchState, KillSwitchUpdate
+from app.schemas.autorespond import AutorespondRunOut
 from app.schemas.ws import KillSwitchFrame
 from app.services.admin_service import AdminService
+from app.services.autorespond_service import AutorespondService
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -33,3 +35,13 @@ async def set_kill_switch(
     frame = KillSwitchFrame(auto_responder_enabled=enabled)
     await request.app.state.manager.broadcast_kill_switch(frame.model_dump(mode="json"))
     return KillSwitchState(auto_responder_enabled=enabled)
+
+
+@router.get("/autorespond-runs", response_model=list[AutorespondRunOut])
+async def all_autorespond_runs(
+    limit: int = Query(default=50, ge=1, le=200),
+    _admin: User = Depends(require_admin),
+    ar_svc: AutorespondService = Depends(get_autorespond_service),
+) -> list[AutorespondRunOut]:
+    """Instance-wide transcript across every agent (admin only)."""
+    return [AutorespondRunOut.model_validate(r) for r in await ar_svc.list_all(limit)]

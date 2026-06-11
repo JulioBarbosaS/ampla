@@ -123,6 +123,13 @@ export class FakeHub {
     return this.received.filter((f) => f.type === "activity").map((f) => String(f.state));
   }
 
+  /** auto-respond run records the daemon reported (Epic 03 · 3.1). */
+  autorespondReports(): Array<Record<string, unknown>> {
+    return this.received
+      .filter((f) => f.type === "autorespond_report")
+      .map((f) => f.record as Record<string, unknown>);
+  }
+
   async stop(): Promise<void> {
     for (const ws of this.sockets.values()) ws.terminate();
     await new Promise<void>((resolve) => this.wss?.close(() => resolve()));

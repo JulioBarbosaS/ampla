@@ -102,7 +102,38 @@ export interface ActivityFrame {
   state: "responding" | "idle";
 }
 
-export type ClientFrame = HelloFrame | SendMessageFrame | AckFrame | PongFrame | ActivityFrame;
+/** One auto-respond run, reported to the hub (Epic 03 · 3.1). No agent_id: the
+ * hub attributes it to the socket's authenticated agent (anti-spoof). Mirrors
+ * AutorespondRecord. */
+export interface AutorespondRecord {
+  trigger_message_id: number | null;
+  from_sender: string;
+  result: "replied" | "blocked" | "failed" | "skipped";
+  reason: string | null;
+  reply_preview: string;
+  tools_allowed: string;
+  tools_disallowed: string;
+  guardrails: Record<string, unknown>;
+  duration_ms: number;
+  timed_out: boolean;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cost_usd: number | null;
+}
+
+/** Daemon→hub auditable run record. Mirrors AutorespondReportFrame. */
+export interface AutorespondReportFrame {
+  type: "autorespond_report";
+  record: AutorespondRecord;
+}
+
+export type ClientFrame =
+  | HelloFrame
+  | SendMessageFrame
+  | AckFrame
+  | PongFrame
+  | ActivityFrame
+  | AutorespondReportFrame;
 
 // ---------- hub → daemon ----------
 

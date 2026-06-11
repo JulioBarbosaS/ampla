@@ -219,6 +219,54 @@ describe("daemon ↔ hub", () => {
     });
   });
 
+  it("reports an auditable run record after a successful auto-respond", async () => {
+    const runner = vi.fn().mockResolvedValue("Sim: POST /api/v1/auth/password-reset");
+    hub.settings = { ...hub.settings, mode: "auto" };
+    await startDaemon(runner);
+
+    hub.pushMessage(AGENT, wireMessage(30, "mobile-eduardo", AGENT, "tem reset?"));
+    await waitFor(() => hub.autorespondReports().length === 1, 5000, "registro de transcript");
+
+    const rec = hub.autorespondReports()[0]!;
+    expect(rec).toMatchObject({
+      trigger_message_id: 30,
+      from_sender: "mobile-eduardo",
+      result: "replied",
+      reason: null,
+      tools_allowed: "Read,Grep,Glob",
+      timed_out: false,
+    });
+    expect(rec.reply_preview).toContain("password-reset");
+    expect(rec.guardrails).toMatchObject({ block_sensitive_paths: true, trusted_sender: false });
+    expect(rec.duration_ms).toBeGreaterThanOrEqual(0);
+    expect(rec.input_tokens).toBeNull(); // populated only once 3.4 parses usage
+  });
+
+  it("reports a blocked run without leaking the secret in the preview", async () => {
+    const runner = vi.fn().mockResolvedValue("connection: postgres://app:senha123@db/prod");
+    hub.settings = { ...hub.settings, mode: "auto" };
+    await startDaemon(runner);
+
+    hub.pushMessage(AGENT, wireMessage(31, "mobile-eduardo", AGENT, "connection string?"));
+    await waitFor(() => hub.autorespondReports().length === 1, 5000, "registro bloqueado");
+
+    const rec = hub.autorespondReports()[0]!;
+    expect(rec.result).toBe("blocked");
+    expect(rec.reply_preview).toBe(""); // blocked content is never echoed into the audit
+    expect(String(rec.reason)).toContain("filtro de segredos");
+  });
+
+  it("does not report a transcript run in inbox mode", async () => {
+    const runner = vi.fn();
+    // settings default mode is "inbox"
+    const d = await startDaemon(runner);
+
+    hub.pushMessage(AGENT, wireMessage(32, "mobile-eduardo", AGENT, "oi?"));
+    await waitFor(() => d.store.inbox(false).length === 1, 5000, "mensagem na inbox");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(hub.autorespondReports()).toHaveLength(0);
+  });
+
   it("memory: the second question receives the conversation history in the prompt", async () => {
     const runner = vi.fn().mockResolvedValue("resposta qualquer");
     hub.settings = { ...hub.settings, mode: "auto" };

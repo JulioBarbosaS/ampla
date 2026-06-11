@@ -15,9 +15,10 @@ import {
   socketPath,
   storePath,
 } from "../shared/config.js";
-import type { WireMessage } from "../shared/protocol.js";
+import type { AutorespondRecord, WireMessage } from "../shared/protocol.js";
 import {
   AutoResponder,
+  buildGuardrails,
   type ClaudeRunner,
   defaultClaudeRunner,
   makeDockerRunner,
@@ -36,6 +37,13 @@ export const HISTORY_LIMIT = 6;
 /** Hop-based loop guard: maximum auto-replies within the SAME thread.
  * Third anti-loop layer (besides the [auto] prefix and the type semantics). */
 export const MAX_AUTO_REPLIES_PER_THREAD = 5;
+
+/** Transcript reply preview cap (Epic 03 · 3.1). The full reply already lives as
+ * a normal message; the audit row only keeps a bounded preview. The opt-in
+ * AMP_AUTORESPOND_FULL_TRANSCRIPT widens it for debugging (documented sensitive).
+ * The prompt itself is NEVER reported (owner instructions + conversation). */
+const FULL_TRANSCRIPT = process.env.AMP_AUTORESPOND_FULL_TRANSCRIPT === "1";
+export const REPLY_PREVIEW_MAX = FULL_TRANSCRIPT ? 4000 : 280;
 
 export interface Daemon {
   hub: HubClient;
@@ -158,11 +166,17 @@ export function createDaemon(
     // which is harmless.
     const signalsActivity = settings.mode === "auto";
     if (signalsActivity) hub.sendActivity("responding");
+    const startedAt = Date.now();
     let result: Awaited<ReturnType<typeof responder.handle>>;
     try {
       result = await responder.handle(message, settings, history);
     } finally {
       if (signalsActivity) hub.sendActivity("idle");
+    }
+    // Transcript (Epic 03 · 3.1): report every genuine auto-respond attempt
+    // (mode=auto). Inbox-mode skips aren't runs, so they're not recorded.
+    if (settings.mode === "auto") {
+      reportRun(message, settings, result, Date.now() - startedAt);
     }
     const replyOpts = {
       msgType: "response" as const,
@@ -206,6 +220,42 @@ export function createDaemon(
       case "skipped":
         break; // inbox mode or rate limit: message stays in the inbox for the owner
     }
+  }
+
+  /** Builds and sends the auditable run record (Epic 03 · 3.1). The guardrail
+   * snapshot is recomputed from settings (deterministic) so the audit row shows
+   * exactly what was in effect for this sender. */
+  function reportRun(
+    message: WireMessage,
+    settings: NonNullable<typeof hub.settings>,
+    result: Awaited<ReturnType<typeof responder.handle>>,
+    durationMs: number,
+  ): void {
+    const guardrails = buildGuardrails(settings, message.from);
+    const reply = result.kind === "replied" ? result.reply : "";
+    const record: AutorespondRecord = {
+      trigger_message_id: message.id,
+      from_sender: message.from,
+      result: result.kind,
+      reason: result.kind === "replied" ? null : result.reason,
+      reply_preview: reply.slice(0, REPLY_PREVIEW_MAX),
+      tools_allowed: guardrails.allowedTools,
+      tools_disallowed: guardrails.disallowedTools,
+      guardrails: {
+        allow_write: settings.allow_write,
+        block_hidden_files: settings.block_hidden_files,
+        block_sensitive_paths: settings.block_sensitive_paths,
+        confine_to_dir: settings.confine_to_dir,
+        trusted_sender: settings.trusted_senders.includes(message.from),
+        sandbox: config.sandbox === "docker" ? "docker" : "host",
+      },
+      duration_ms: durationMs,
+      timed_out: result.kind === "failed" && result.reason === "timeout",
+      input_tokens: null,
+      output_tokens: null,
+      cost_usd: null,
+    };
+    hub.sendAutorespondReport(record);
   }
 
   hub.on("ack", (ack) => {

@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from app.api.deps import (
     build_agent_service,
     build_auth_service,
+    build_autorespond_service,
     build_group_service,
     build_message_service,
 )
@@ -29,6 +30,7 @@ from app.schemas.ws import (
     AckFrame,
     ActivityFrame,
     AgentActivityFrame,
+    AutorespondReportFrame,
     BroadcastResultFrame,
     DeliveredFrame,
     ErrorFrame,
@@ -208,6 +210,13 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
                 )
                 continue
 
+            # autorespond report: an auditable run record. Attributed to the
+            # authenticated `slug` (anti-spoof). Does not count against the token
+            # bucket — it is bounded by the agent's actual auto-respond runs.
+            if isinstance(frame, AutorespondReportFrame):
+                await _handle_autorespond_report(ws, slug, frame)
+                continue
+
             if not isinstance(frame, SendMessageFrame):
                 await _send_error(ws, "bad_frame", "Frame inesperado.")
                 continue
@@ -293,6 +302,20 @@ async def _handle_ack(ws: WebSocket, recipient_slug: str, message_id: int) -> No
         DeliveredFrame(message_id=msg.id, to=msg.to_agent).model_dump(mode="json"),
     )
     await manager.notify_message(_message_payload(msg), msg.from_agent, msg.to_agent)
+
+
+async def _handle_autorespond_report(
+    ws: WebSocket, slug: str, frame: AutorespondReportFrame
+) -> None:
+    """Persists an auto-respond run record under the authenticated agent. Shielded
+    so a mid-write disconnect doesn't leave the row half-applied."""
+    session_factory = ws.app.state.session_factory
+
+    async def _persist():
+        async with session_factory() as session:
+            await build_autorespond_service(session).record_run(slug, frame.record)
+
+    await asyncio.shield(_persist())
 
 
 async def _handle_broadcast(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -> None:

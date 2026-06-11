@@ -106,6 +106,34 @@ def test_ws_frames_contract() -> None:
         "client.pong": _accepted_client_frame({"type": "pong"}),
         # auto-respond 'responding…' signal for the panel indicator
         "client.activity": _accepted_client_frame({"type": "activity", "state": "responding"}),
+        # auto-respond transcript record (Epic 03 · 3.1) — no agent_id (anti-spoof)
+        "client.autorespond_report": _accepted_client_frame(
+            {
+                "type": "autorespond_report",
+                "record": {
+                    "trigger_message_id": 1,
+                    "from_sender": "mobile-eduardo",
+                    "result": "replied",
+                    "reason": None,
+                    "reply_preview": "Sim: POST /api/v1/auth/password-reset",
+                    "tools_allowed": "Read,Grep,Glob",
+                    "tools_disallowed": "Bash,NotebookEdit,WebFetch,WebSearch,Edit,Write",
+                    "guardrails": {
+                        "allow_write": False,
+                        "block_hidden_files": True,
+                        "block_sensitive_paths": True,
+                        "confine_to_dir": True,
+                        "trusted_sender": False,
+                        "sandbox": "host",
+                    },
+                    "duration_ms": 1234,
+                    "timed_out": False,
+                    "input_tokens": None,
+                    "output_tokens": None,
+                    "cost_usd": None,
+                },
+            }
+        ),
         "server.hello_ack": HelloAckFrame(
             agent_id="backend-julio",
             online=["backend-julio", "mobile-eduardo"],

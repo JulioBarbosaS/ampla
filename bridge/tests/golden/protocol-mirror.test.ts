@@ -83,4 +83,33 @@ describe("espelhamento hub ↔ bridge (golden compartilhado)", () => {
     const pong: ClientFrame = { type: "pong" };
     expect(JSON.parse(JSON.stringify(pong))).toEqual(golden["client.pong"]);
   });
+
+  it("bridge produz client.autorespond_report byte-idêntico ao contrato", () => {
+    const report: ClientFrame = {
+      type: "autorespond_report",
+      record: {
+        trigger_message_id: 1,
+        from_sender: "mobile-eduardo",
+        result: "replied",
+        reason: null,
+        reply_preview: "Sim: POST /api/v1/auth/password-reset",
+        tools_allowed: "Read,Grep,Glob",
+        tools_disallowed: "Bash,NotebookEdit,WebFetch,WebSearch,Edit,Write",
+        guardrails: {
+          allow_write: false,
+          block_hidden_files: true,
+          block_sensitive_paths: true,
+          confine_to_dir: true,
+          trusted_sender: false,
+          sandbox: "host",
+        },
+        duration_ms: 1234,
+        timed_out: false,
+        input_tokens: null,
+        output_tokens: null,
+        cost_usd: null,
+      },
+    };
+    expect(JSON.parse(JSON.stringify(report))).toEqual(golden["client.autorespond_report"]);
+  });
 });

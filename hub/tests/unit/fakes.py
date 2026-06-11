@@ -7,6 +7,7 @@ on `add` so the models behave as if persisted.
 from datetime import datetime
 
 from app.models.agent import Agent, AgentKey
+from app.models.autorespond_run import AutorespondRun
 from app.models.group import Group
 from app.models.hub_state import HubState
 from app.models.message import Message
@@ -122,6 +123,29 @@ class FakeHubStateRepository:
     async def set_auto_responder_enabled(self, enabled: bool) -> HubState:
         self._state.auto_responder_enabled = enabled
         return self._state
+
+
+class FakeAutorespondRunRepository:
+    def __init__(self) -> None:
+        self._runs: list[AutorespondRun] = []
+        self._seq = 0
+        self.last_limit: int | None = None  # records the clamped limit passed in
+
+    async def add(self, run: AutorespondRun) -> AutorespondRun:
+        self._seq += 1
+        run.id = self._seq
+        _default(run, "created_at", utcnow())
+        self._runs.append(run)
+        return run
+
+    async def list_for_agent(self, agent_slug: str, limit: int) -> list[AutorespondRun]:
+        self.last_limit = limit
+        rows = [r for r in self._runs if r.agent_slug == agent_slug]
+        return list(reversed(rows))[:limit]
+
+    async def list_all(self, limit: int) -> list[AutorespondRun]:
+        self.last_limit = limit
+        return list(reversed(self._runs))[:limit]
 
 
 class FakeInviteRepository:

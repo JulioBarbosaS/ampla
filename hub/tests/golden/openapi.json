@@ -402,6 +402,132 @@
         "title": "AuditOut",
         "type": "object"
       },
+      "AutorespondRunOut": {
+        "description": "One stored auto-respond run, for the agent's 'Atividade automática' tab.",
+        "properties": {
+          "agent_slug": {
+            "title": "Agent Slug",
+            "type": "string"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "from_sender": {
+            "title": "From Sender",
+            "type": "string"
+          },
+          "guardrails": {
+            "additionalProperties": true,
+            "title": "Guardrails",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reply_preview": {
+            "title": "Reply Preview",
+            "type": "string"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          },
+          "timed_out": {
+            "title": "Timed Out",
+            "type": "boolean"
+          },
+          "tools_allowed": {
+            "title": "Tools Allowed",
+            "type": "string"
+          },
+          "tools_disallowed": {
+            "title": "Tools Disallowed",
+            "type": "string"
+          },
+          "trigger_message_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger Message Id"
+          }
+        },
+        "required": [
+          "id",
+          "agent_slug",
+          "trigger_message_id",
+          "from_sender",
+          "result",
+          "reason",
+          "reply_preview",
+          "tools_allowed",
+          "tools_disallowed",
+          "guardrails",
+          "duration_ms",
+          "timed_out",
+          "input_tokens",
+          "output_tokens",
+          "cost_usd",
+          "created_at"
+        ],
+        "title": "AutorespondRunOut",
+        "type": "object"
+      },
       "AvatarUpload": {
         "description": "A cropped image as a base64 data URL. Re-encoded server-side via Pillow —\nthe cap here bounds the request before the strict base64 decode.",
         "properties": {
@@ -1161,6 +1287,61 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/autorespond-runs": {
+      "get": {
+        "description": "Instance-wide transcript across every agent (admin only).",
+        "operationId": "all_autorespond_runs_api_admin_autorespond_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AutorespondRunOut"
+                  },
+                  "title": "Response All Autorespond Runs Api Admin Autorespond Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "All Autorespond Runs",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/kill-switch": {
       "get": {
         "operationId": "get_kill_switch_api_admin_kill_switch_get",
@@ -1377,6 +1558,69 @@
           }
         ],
         "summary": "Get Agent",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/api/agents/{slug}/autorespond-runs": {
+      "get": {
+        "operationId": "autorespond_runs_api_agents__slug__autorespond_runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AutorespondRunOut"
+                  },
+                  "title": "Response Autorespond Runs Api Agents  Slug  Autorespond Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Autorespond Runs",
         "tags": [
           "agents"
         ]

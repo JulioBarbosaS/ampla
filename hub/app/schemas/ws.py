@@ -56,8 +56,38 @@ class ActivityFrame(BaseModel):
     state: Literal["responding", "idle"]
 
 
+class AutorespondRecord(BaseModel):
+    """One auto-respond run, reported by the daemon (Epic 03 · 3.1). The hub
+    stores it as an autorespond_runs row, attributing it to the socket's
+    AUTHENTICATED agent — the record carries no agent_id, so a daemon cannot
+    claim a run for someone else (anti-spoof, like ack)."""
+
+    trigger_message_id: int | None = None
+    from_sender: str = Field(max_length=60)
+    result: Literal["replied", "blocked", "failed", "skipped"]
+    reason: str | None = Field(default=None, max_length=500)
+    # Bounded reply preview (the full reply already lives as a normal message).
+    reply_preview: str = Field(default="", max_length=4000)
+    tools_allowed: str = Field(default="", max_length=500)
+    tools_disallowed: str = Field(default="", max_length=500)
+    guardrails: dict = Field(default_factory=dict)
+    duration_ms: int = Field(default=0, ge=0)
+    timed_out: bool = False
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost_usd: float | None = None
+
+
+class AutorespondReportFrame(BaseModel):
+    """Daemon→hub: an auditable record of one auto-respond run. Sent after each
+    run on the authenticated WS (Epic 03 · 3.1)."""
+
+    type: Literal["autorespond_report"] = "autorespond_report"
+    record: AutorespondRecord
+
+
 ClientFrame = Annotated[
-    HelloFrame | SendMessageFrame | AckFrame | PongFrame | ActivityFrame,
+    HelloFrame | SendMessageFrame | AckFrame | PongFrame | ActivityFrame | AutorespondReportFrame,
     Field(discriminator="type"),
 ]
 client_frame_adapter: TypeAdapter[ClientFrame] = TypeAdapter(ClientFrame)

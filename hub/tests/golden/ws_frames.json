@@ -7,6 +7,31 @@
     "state": "responding",
     "type": "activity"
   },
+  "client.autorespond_report": {
+    "record": {
+      "cost_usd": null,
+      "duration_ms": 1234,
+      "from_sender": "mobile-eduardo",
+      "guardrails": {
+        "allow_write": false,
+        "block_hidden_files": true,
+        "block_sensitive_paths": true,
+        "confine_to_dir": true,
+        "sandbox": "host",
+        "trusted_sender": false
+      },
+      "input_tokens": null,
+      "output_tokens": null,
+      "reason": null,
+      "reply_preview": "Sim: POST /api/v1/auth/password-reset",
+      "result": "replied",
+      "timed_out": false,
+      "tools_allowed": "Read,Grep,Glob",
+      "tools_disallowed": "Bash,NotebookEdit,WebFetch,WebSearch,Edit,Write",
+      "trigger_message_id": 1
+    },
+    "type": "autorespond_report"
+  },
   "client.broadcast": {
     "body": "deploy às 18h",
     "to": "@frontend-team",
