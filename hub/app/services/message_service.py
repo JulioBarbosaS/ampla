@@ -1,8 +1,11 @@
 """Sending with the allowlist enforced at the hub (Threat 3) and authorized history."""
 
+import logging
 from datetime import timedelta
 
 from app.core.config import Settings
+from app.core.mentions import parse_mentions
+from app.models.agent import Agent
 from app.models.message import Message
 from app.models.user import User, utcnow
 from app.repositories.agent_repo import AgentRepository
@@ -14,6 +17,12 @@ from app.services.errors import (
     NotFoundError,
     PermissionDeniedError,
 )
+from app.services.notification_service import NotificationService
+
+logger = logging.getLogger(__name__)
+
+# Message types that notify the recipient's owner as a direct message.
+_DM_TYPES = frozenset({"request", "notification", "alert"})
 
 
 class MessageService:
@@ -23,11 +32,13 @@ class MessageService:
         agents: AgentRepository,
         audit: AuditRepository,
         settings: Settings,
+        notifications: NotificationService | None = None,
     ) -> None:
         self._messages = messages
         self._agents = agents
         self._audit = audit
         self._settings = settings
+        self._notifications = notifications
 
     async def send(
         self,
@@ -71,7 +82,7 @@ class MessageService:
                 raise InvalidInputError("in_reply_to não pertence a esta conversa.")
             thread_id = parent.thread_id or parent.id
 
-        return await self._messages.add(
+        message = await self._messages.add(
             Message(
                 from_agent=from_slug,
                 to_agent=to_slug,
@@ -84,6 +95,74 @@ class MessageService:
                 expires_at=utcnow() + timedelta(days=self._settings.pending_ttl_days),
             )
         )
+        await self._generate_notifications(message, recipient)
+        return message
+
+    async def _generate_notifications(self, message: Message, recipient: Agent) -> None:
+        """Inbox notifications (Epic 02) as a side effect of a send. Best-effort:
+        the message is already committed, so a notification failure must never
+        propagate and drop it."""
+        if self._notifications is None:
+            return
+        try:
+            convo_link = (
+                f"/?perspective={message.to_agent}&partner={message.from_agent}&msg={message.id}"
+            )
+            # Recipient's owner: a DM / task / broadcast to their agent. Collapse
+            # per conversation (recipient-agent + sender), not per message.
+            if message.group_slug:
+                spec = (
+                    "broadcast",
+                    "broadcast",
+                    f"{message.from_agent} transmitiu para {message.group_slug}",
+                )
+            elif message.type == "task":
+                spec = (
+                    "task",
+                    "task_assigned",
+                    f"{message.from_agent} atribuiu uma tarefa a {message.to_agent}",
+                )
+            elif message.type in _DM_TYPES:
+                spec = (
+                    "dm",
+                    "direct_message",
+                    f"{message.from_agent} enviou uma mensagem para {message.to_agent}",
+                )
+            else:
+                spec = None  # response/status/ack are low-signal — no recipient notification
+            if spec is not None:
+                subject_type, reason, title = spec
+                await self._notifications.notify(
+                    recipient.user_id,
+                    subject_type=subject_type,
+                    subject_key=f"dm:{message.to_agent}:{message.from_agent}",
+                    reason=reason,
+                    title=title,
+                    link=convo_link,
+                    actor=message.from_agent,
+                    agent_slug=message.to_agent,
+                )
+            # @mentions in the body notify each mentioned agent's owner.
+            for slug in parse_mentions(message.body):
+                if slug in (message.from_agent, message.to_agent):
+                    continue  # sender self-mention / recipient already covered above
+                mentioned = await self._agents.get(slug)
+                if mentioned is None:
+                    continue
+                await self._notifications.notify(
+                    mentioned.user_id,
+                    subject_type="mention",
+                    subject_key=f"dm:{slug}:{message.from_agent}",
+                    reason="mention",
+                    title=f"{message.from_agent} mencionou @{slug}",
+                    link=f"/?perspective={slug}&partner={message.from_agent}&msg={message.id}",
+                    actor=message.from_agent,
+                    agent_slug=slug,
+                )
+        except Exception:
+            logger.warning(
+                "notification generation failed for message %s", message.id, exc_info=True
+            )
 
     async def send_broadcast(
         self,

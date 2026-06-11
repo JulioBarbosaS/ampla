@@ -50,6 +50,24 @@ export interface KillSwitchState {
   auto_responder_enabled: boolean;
 }
 
+export type NotificationStatus = "inbox" | "saved" | "done";
+
+export interface AppNotification {
+  id: number;
+  subject_type: string;
+  subject_key: string;
+  agent_slug: string | null;
+  reason: string;
+  title: string;
+  link: string;
+  actor: string;
+  unread: boolean;
+  status: NotificationStatus;
+  created_at: string;
+  updated_at: string;
+  last_read_at: string | null;
+}
+
 export interface AutorespondRun {
   id: number;
   agent_slug: string;

@@ -11,6 +11,7 @@ from app.models.autorespond_run import AutorespondRun
 from app.models.group import Group
 from app.models.hub_state import HubState
 from app.models.message import Message
+from app.models.notification import Notification
 from app.models.user import Invite, PasswordReset, User, utcnow
 
 
@@ -146,6 +147,63 @@ class FakeAutorespondRunRepository:
     async def list_all(self, limit: int) -> list[AutorespondRun]:
         self.last_limit = limit
         return list(reversed(self._runs))[:limit]
+
+
+class FakeNotificationRepository:
+    def __init__(self) -> None:
+        self._items: dict[int, Notification] = {}
+        self._seq = 0
+
+    async def add(self, notification: Notification) -> Notification:
+        self._seq += 1
+        notification.id = self._seq
+        _default(notification, "unread", True)
+        _default(notification, "status", "inbox")
+        _default(notification, "created_at", utcnow())
+        _default(notification, "updated_at", utcnow())
+        self._items[notification.id] = notification
+        return notification
+
+    async def save(self, notification: Notification) -> None:
+        self._items[notification.id] = notification
+
+    async def get(self, notification_id: int) -> Notification | None:
+        return self._items.get(notification_id)
+
+    async def get_by_subject(self, user_id: int, subject_key: str) -> Notification | None:
+        return next(
+            (
+                n
+                for n in self._items.values()
+                if n.user_id == user_id and n.subject_key == subject_key
+            ),
+            None,
+        )
+
+    async def list_for_user(
+        self,
+        user_id: int,
+        *,
+        status: str | None = None,
+        unread: bool | None = None,
+        reason: str | None = None,
+        agent_slug: str | None = None,
+        limit: int = 50,
+    ) -> list[Notification]:
+        found = [n for n in self._items.values() if n.user_id == user_id]
+        if status is not None:
+            found = [n for n in found if n.status == status]
+        if unread is not None:
+            found = [n for n in found if n.unread == unread]
+        if reason is not None:
+            found = [n for n in found if n.reason == reason]
+        if agent_slug is not None:
+            found = [n for n in found if n.agent_slug == agent_slug]
+        found.sort(key=lambda n: (n.updated_at, n.id), reverse=True)
+        return found[:limit]
+
+    async def unread_count(self, user_id: int) -> int:
+        return sum(1 for n in self._items.values() if n.user_id == user_id and n.unread)
 
 
 class FakeInviteRepository:

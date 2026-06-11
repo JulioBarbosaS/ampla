@@ -19,6 +19,7 @@ from app.repositories.group_repo import GroupRepository
 from app.repositories.hub_state_repo import HubStateRepository
 from app.repositories.invite_repo import InviteRepository
 from app.repositories.message_repo import MessageRepository
+from app.repositories.notification_repo import NotificationRepository
 from app.repositories.user_repo import UserRepository
 from app.services.admin_service import AdminService
 from app.services.agent_service import AgentService
@@ -26,6 +27,7 @@ from app.services.auth_service import AuthService
 from app.services.autorespond_service import AutorespondService
 from app.services.group_service import GroupService
 from app.services.message_service import MessageService
+from app.services.notification_service import NotificationService
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -64,12 +66,17 @@ def build_group_service(session: AsyncSession) -> GroupService:
     )
 
 
+def build_notification_service(session: AsyncSession) -> NotificationService:
+    return NotificationService(notifications=NotificationRepository(session))
+
+
 def build_message_service(session: AsyncSession, settings) -> MessageService:
     return MessageService(
         messages=MessageRepository(session),
         agents=AgentRepository(session),
         audit=AuditRepository(session),
         settings=settings,
+        notifications=build_notification_service(session),
     )
 
 
@@ -111,6 +118,12 @@ def get_admin_service(session: AsyncSession = Depends(get_session)) -> AdminServ
 
 def get_autorespond_service(session: AsyncSession = Depends(get_session)) -> AutorespondService:
     return build_autorespond_service(session)
+
+
+def get_notification_service(
+    session: AsyncSession = Depends(get_session),
+) -> NotificationService:
+    return build_notification_service(session)
 
 
 async def get_current_user(

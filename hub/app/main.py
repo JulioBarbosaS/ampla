@@ -11,7 +11,17 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.api.errors import register_error_handlers
-from app.api.routes import admin, agents, auth, groups, invites, messages, users, ws
+from app.api.routes import (
+    admin,
+    agents,
+    auth,
+    groups,
+    invites,
+    messages,
+    notifications,
+    users,
+    ws,
+)
 from app.core.config import Settings, get_settings
 from app.core.db import build_engine, build_session_factory, create_tables
 from app.core.ratelimit import SlidingWindowLimiter
@@ -89,6 +99,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(groups.router)
     app.include_router(messages.router)
     app.include_router(admin.router)
+    app.include_router(notifications.router)
     app.include_router(ws.router)
 
     @app.get("/api/health", tags=["health"])
