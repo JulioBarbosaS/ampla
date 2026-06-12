@@ -1,4 +1,6 @@
-from sqlalchemy import func, select, update
+from datetime import datetime
+
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification, NotificationSubscription
@@ -60,6 +62,27 @@ class NotificationRepository:
             .where(Notification.user_id == user_id, Notification.unread.is_(True))
         )
         return int(result.scalar_one())
+
+    async def count_created_since(self, user_id: int, since: datetime) -> int:
+        """Rows created for this user since `since` — feeds the per-user generation
+        rate cap (a flood of distinct subjects can't explode the table)."""
+        result = await self._session.execute(
+            select(func.count())
+            .select_from(Notification)
+            .where(Notification.user_id == user_id, Notification.created_at >= since)
+        )
+        return int(result.scalar_one())
+
+    async def prune_done_before(self, cutoff: datetime) -> int:
+        """Delete `done` notifications last touched before `cutoff` (retention).
+        Returns the number removed. Only `done` rows — inbox/saved are kept."""
+        result = await self._session.execute(
+            delete(Notification).where(
+                Notification.status == "done", Notification.updated_at < cutoff
+            )
+        )
+        await self._session.commit()
+        return int(result.rowcount or 0)
 
     async def mark_all_read(self, user_id: int) -> None:
         """Bulk-clear unread for one user (single UPDATE, never another user's)."""

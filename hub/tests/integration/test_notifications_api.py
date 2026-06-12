@@ -1,6 +1,16 @@
 """User inbox (Epic 02 · slice a): generation from sends, the read endpoints,
 and strict per-user isolation."""
 
+from datetime import timedelta
+
+from fastapi.testclient import TestClient
+
+from app.core.db import build_engine, build_session_factory, create_tables
+from app.main import create_app
+from app.models.notification import Notification
+from app.models.user import utcnow
+from app.repositories.notification_repo import NotificationRepository
+from tests.conftest import make_settings
 from tests.helpers import auth, create_agent, do_setup, recv_until, register_member
 
 
@@ -232,6 +242,61 @@ class TestSubscriptions:
         assert client.get("/api/notifications/unread-count", headers=auth(token)).json() == {
             "unread_count": 1
         }
+
+
+class TestRateCapAndRetention:
+    def test_new_thread_rate_cap_drops_excess(self):
+        # Own client with a tiny cap (the default is 200 — too high to hit here).
+        app = create_app(make_settings(notification_max_new_per_hour=2))
+        with TestClient(app) as client:
+            token = do_setup(client)
+            for slug in ("backend-julio", "sender-um", "sender-dois", "sender-tres"):
+                create_agent(client, token, slug)
+            # three DMs from three distinct senders → three distinct subject keys
+            for sender, body in (
+                ("sender-um", "um"),
+                ("sender-dois", "dois"),
+                ("sender-tres", "tres"),
+            ):
+                client.post(
+                    "/api/messages",
+                    json={"from": sender, "to": "backend-julio", "body": body},
+                    headers=auth(token),
+                )
+            # cap=2 → the third new thread is dropped (no flood explosion)
+            count = client.get("/api/notifications/unread-count", headers=auth(token)).json()
+            assert count == {"unread_count": 2}
+
+    async def test_prune_done_before_deletes_only_stale_done(self):
+        # Self-contained real DB (own event loop) to exercise the actual DELETE.
+        engine = build_engine("sqlite+aiosqlite:///:memory:")
+        await create_tables(engine)
+        async with build_session_factory(engine)() as session:
+            repo = NotificationRepository(session)
+
+            async def add(key, status):
+                return await repo.add(
+                    Notification(
+                        user_id=1,
+                        subject_type="dm",
+                        subject_key=key,
+                        reason="direct_message",
+                        title="t",
+                        status=status,
+                    )
+                )
+
+            old_done = await add("a", "done")
+            await add("b", "done")  # recent done — kept
+            await add("c", "inbox")  # never pruned regardless of age
+            old_done.updated_at = utcnow() - timedelta(days=120)
+            await repo.save(old_done)
+
+            removed = await repo.prune_done_before(utcnow() - timedelta(days=90))
+            assert removed == 1
+            remaining = {n.subject_key for n in await repo.list_for_user(1)}
+            assert remaining == {"b", "c"}
+        await engine.dispose()
 
     def test_cross_user_patch_is_404(self, client):
         admin = do_setup(client)

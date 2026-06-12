@@ -208,6 +208,19 @@ class FakeNotificationRepository:
     async def unread_count(self, user_id: int) -> int:
         return sum(1 for n in self._items.values() if n.user_id == user_id and n.unread)
 
+    async def count_created_since(self, user_id: int, since: datetime) -> int:
+        return sum(
+            1 for n in self._items.values() if n.user_id == user_id and n.created_at >= since
+        )
+
+    async def prune_done_before(self, cutoff: datetime) -> int:
+        stale = [
+            nid for nid, n in self._items.items() if n.status == "done" and n.updated_at < cutoff
+        ]
+        for nid in stale:
+            del self._items[nid]
+        return len(stale)
+
     async def mark_all_read(self, user_id: int) -> None:
         for n in self._items.values():
             if n.user_id == user_id and n.unread:

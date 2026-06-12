@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     ws_messages_per_minute: int = 60  # per-connection token bucket
     broadcast_per_minute: int = 5  # @group/@all fan-outs per agent (anti-spam)
 
+    # Inbox table protection (Epic 02 · §Security). New-thread creation per user
+    # per hour (collapse already bounds repeats; this bounds a flood of distinct
+    # subjects). 0 = unlimited. Always-deliver reasons bypass the cap.
+    notification_max_new_per_hour: int = 200
+    # Retention: prune `done` notifications older than N days at startup. 0 = keep.
+    notification_done_ttl_days: int = 90
+
     cors_origins: list[str] = ["http://localhost:5173"]
 
     def validate_for_environment(self) -> None:

@@ -1,6 +1,7 @@
 """Hub app factory. Application state: engine, session_factory,
 ConnectionManager and the auth rate limiter."""
 
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
+from app.api.deps import build_notification_service
 from app.api.errors import register_error_handlers
 from app.api.routes import (
     admin,
@@ -27,6 +29,8 @@ from app.core.db import build_engine, build_session_factory, create_tables
 from app.core.ratelimit import SlidingWindowLimiter
 from app.repositories.hub_state_repo import HubStateRepository
 from app.ws.connection_manager import ConnectionManager
+
+logger = logging.getLogger(__name__)
 
 # CSP for the bundled SPA: external JS/CSS from same origin, same-origin
 # fetch + WebSocket (ws/wss), no framing, no plugins.
@@ -52,6 +56,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         async with app.state.session_factory() as session:
             hub_state = await HubStateRepository(session).get()
             app.state.auto_responder_enabled = hub_state.auto_responder_enabled
+            # Retention: prune old `done` notifications at startup (best-effort —
+            # a failure here must never block boot). A live scheduler is future
+            # work; for a local hub a startup sweep keeps the table bounded.
+            try:
+                pruned = await build_notification_service(session, settings).prune_done(
+                    settings.notification_done_ttl_days
+                )
+                if pruned:
+                    logger.info("retention: pruned %s done notifications", pruned)
+            except Exception:
+                logger.warning("notification retention prune failed", exc_info=True)
         yield
         await engine.dispose()
 

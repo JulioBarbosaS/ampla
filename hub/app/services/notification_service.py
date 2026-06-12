@@ -5,7 +5,9 @@ threads re-open only on high-signal reasons.
 Authorization: every read/mutate is scoped to the requesting user's own rows. A
 cross-user id is treated as not-found (never reveals another user's inbox)."""
 
+import logging
 from collections.abc import Awaitable, Callable
+from datetime import timedelta
 
 from app.models.notification import Notification, NotificationSubscription
 from app.models.user import User, utcnow
@@ -13,6 +15,8 @@ from app.repositories.notification_repo import NotificationRepository
 from app.repositories.user_repo import UserRepository
 from app.schemas.notification import NOTIFY_LEVELS, SUBSCRIPTION_STATES, NotificationOut
 from app.services.errors import InvalidInputError, NotFoundError
+
+logger = logging.getLogger(__name__)
 
 # Push sink for real-time deltas (Epic 02 · slice b). The composition root wires
 # this to the connection manager; the service stays free of transport imports
@@ -78,10 +82,20 @@ class NotificationService:
         notifications: NotificationRepository,
         users: UserRepository | None = None,
         publisher: NotificationPublisher | None = None,
+        max_new_per_hour: int = 0,
     ) -> None:
         self._notifications = notifications
         self._users = users
         self._publisher = publisher
+        self._max_new_per_hour = max_new_per_hour  # 0 = unlimited
+
+    async def _rate_capped(self, user_id: int) -> bool:
+        """True when this user already hit the per-hour new-thread cap."""
+        if self._max_new_per_hour <= 0:
+            return False
+        since = utcnow() - timedelta(hours=1)
+        count = await self._notifications.count_created_since(user_id, since)
+        return count >= self._max_new_per_hour
 
     async def _publish(self, notification: Notification) -> None:
         """Best-effort real-time push of a created/collapsed notification."""
@@ -128,6 +142,17 @@ class NotificationService:
 
         existing = await self._notifications.get_by_subject(user_id, subject_key)
         if existing is None:
+            # Rate cap: a flood of *distinct* subjects can't explode the table.
+            # Collapsing (existing thread) is always allowed — it's bounded.
+            # Always-deliver reasons bypass the cap (never drop an alert/approval).
+            if not always_deliver and await self._rate_capped(user_id):
+                logger.warning(
+                    "notification rate cap hit for user %s (reason=%s, subject=%s)",
+                    user_id,
+                    reason,
+                    subject_key,
+                )
+                return None
             created = await self._notifications.add(
                 Notification(
                     user_id=user_id,
@@ -207,6 +232,14 @@ class NotificationService:
         if state not in SUBSCRIPTION_STATES:
             raise InvalidInputError("Estado de inscrição inválido.")
         return await self._notifications.upsert_subscription(user.id, subject_key, state)
+
+    async def prune_done(self, ttl_days: int) -> int:
+        """Retention: drop `done` notifications older than `ttl_days`. Returns the
+        count removed. ttl_days <= 0 keeps everything (no-op)."""
+        if ttl_days <= 0:
+            return 0
+        cutoff = utcnow() - timedelta(days=ttl_days)
+        return await self._notifications.prune_done_before(cutoff)
 
     async def _owned(self, user: User, notification_id: int) -> Notification:
         notification = await self._notifications.get(notification_id)

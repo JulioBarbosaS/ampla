@@ -1,7 +1,9 @@
+from datetime import timedelta
+
 import pytest
 
 from app.core.mentions import parse_mentions
-from app.models.user import User
+from app.models.user import User, utcnow
 from app.services.errors import InvalidInputError, NotFoundError
 from app.services.notification_service import NotificationService, should_deliver
 from tests.unit.fakes import FakeNotificationRepository, FakeUserRepository
@@ -186,6 +188,46 @@ class TestSubscriptions:
         service, _notifications, user = await self._service()
         with pytest.raises(InvalidInputError):
             await service.set_subscription(user, "dm:a:b", "watching")
+
+
+class TestRateCapAndRetention:
+    async def test_new_thread_cap_drops_excess_but_always_deliver_bypasses(self):
+        notifications = FakeNotificationRepository()
+        service = NotificationService(notifications=notifications, max_new_per_hour=2)
+
+        async def dm(key):
+            return await service.notify(
+                1, subject_type="dm", subject_key=key, reason="direct_message", title="t"
+            )
+
+        assert await dm("s1") is not None
+        assert await dm("s2") is not None
+        assert await dm("s3") is None  # third distinct subject is over the cap
+        # collapsing onto an existing thread is always allowed (bounded)
+        assert await dm("s1") is not None
+        # an always-deliver reason bypasses the cap even as a brand-new thread
+        urgent = await service.notify(
+            1, subject_type="mention", subject_key="s4", reason="mention", title="t"
+        )
+        assert urgent is not None
+
+    async def test_prune_done_removes_only_old_done(self):
+        notifications = FakeNotificationRepository()
+        service = NotificationService(notifications=notifications)
+        for key in ("a", "b", "c"):
+            await service.notify(
+                1, subject_type="dm", subject_key=key, reason="direct_message", title="t"
+            )
+        old_done, recent_done = notifications._items[1], notifications._items[2]
+        old_done.status = "done"
+        old_done.updated_at = utcnow() - timedelta(days=120)
+        recent_done.status = "done"
+        recent_done.updated_at = utcnow()
+
+        assert await service.prune_done(90) == 1  # only the stale done row
+        assert 1 not in notifications._items
+        assert 2 in notifications._items and 3 in notifications._items  # recent done + inbox kept
+        assert await service.prune_done(0) == 0  # ttl<=0 is a no-op
 
 
 class TestMentionParser:

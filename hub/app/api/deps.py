@@ -76,11 +76,14 @@ def _notification_publisher(manager):
     return publish
 
 
-def build_notification_service(session: AsyncSession, manager=None) -> NotificationService:
+def build_notification_service(
+    session: AsyncSession, settings, manager=None
+) -> NotificationService:
     return NotificationService(
         notifications=NotificationRepository(session),
         users=UserRepository(session),
         publisher=_notification_publisher(manager) if manager is not None else None,
+        max_new_per_hour=settings.notification_max_new_per_hour,
     )
 
 
@@ -90,7 +93,7 @@ def build_message_service(session: AsyncSession, settings, manager=None) -> Mess
         agents=AgentRepository(session),
         audit=AuditRepository(session),
         settings=settings,
-        notifications=build_notification_service(session, manager),
+        notifications=build_notification_service(session, settings, manager),
     )
 
 
@@ -137,7 +140,9 @@ def get_autorespond_service(session: AsyncSession = Depends(get_session)) -> Aut
 def get_notification_service(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> NotificationService:
-    return build_notification_service(session, request.app.state.manager)
+    return build_notification_service(
+        session, request.app.state.settings, request.app.state.manager
+    )
 
 
 async def get_current_user(
