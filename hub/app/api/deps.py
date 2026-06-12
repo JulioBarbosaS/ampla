@@ -66,17 +66,30 @@ def build_group_service(session: AsyncSession) -> GroupService:
     )
 
 
-def build_notification_service(session: AsyncSession) -> NotificationService:
-    return NotificationService(notifications=NotificationRepository(session))
+def _notification_publisher(manager):
+    """Adapts the connection manager into the abstract publisher the service
+    awaits — keeps NotificationService free of any transport import."""
+
+    async def publish(user_id: int, payload: dict) -> None:
+        await manager.notify_user(user_id, payload)
+
+    return publish
 
 
-def build_message_service(session: AsyncSession, settings) -> MessageService:
+def build_notification_service(session: AsyncSession, manager=None) -> NotificationService:
+    return NotificationService(
+        notifications=NotificationRepository(session),
+        publisher=_notification_publisher(manager) if manager is not None else None,
+    )
+
+
+def build_message_service(session: AsyncSession, settings, manager=None) -> MessageService:
     return MessageService(
         messages=MessageRepository(session),
         agents=AgentRepository(session),
         audit=AuditRepository(session),
         settings=settings,
-        notifications=build_notification_service(session),
+        notifications=build_notification_service(session, manager),
     )
 
 
@@ -109,7 +122,9 @@ def get_group_service(session: AsyncSession = Depends(get_session)) -> GroupServ
 def get_message_service(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> MessageService:
-    return build_message_service(session, request.app.state.settings)
+    return build_message_service(
+        session, request.app.state.settings, request.app.state.manager
+    )
 
 
 def get_admin_service(session: AsyncSession = Depends(get_session)) -> AdminService:
@@ -121,9 +136,9 @@ def get_autorespond_service(session: AsyncSession = Depends(get_session)) -> Aut
 
 
 def get_notification_service(
-    session: AsyncSession = Depends(get_session),
+    request: Request, session: AsyncSession = Depends(get_session)
 ) -> NotificationService:
-    return build_notification_service(session)
+    return build_notification_service(session, request.app.state.manager)
 
 
 async def get_current_user(

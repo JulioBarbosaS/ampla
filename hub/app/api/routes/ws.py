@@ -402,4 +402,4 @@ async def _run_observer_connection(ws: WebSocket, hello: HelloFrame) -> None:
 
 
 def _message_service(ws: WebSocket, session) -> MessageService:
-    return build_message_service(session, ws.app.state.settings)
+    return build_message_service(session, ws.app.state.settings, ws.app.state.manager)

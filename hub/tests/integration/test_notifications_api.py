@@ -1,7 +1,7 @@
 """User inbox (Epic 02 · slice a): generation from sends, the read endpoints,
 and strict per-user isolation."""
 
-from tests.helpers import auth, create_agent, do_setup, register_member
+from tests.helpers import auth, create_agent, do_setup, recv_until, register_member
 
 
 def _send(client, token, frm, to, body):
@@ -84,6 +84,28 @@ class TestTriageAndIsolation:
         # the inbox view no longer lists it
         inbox = client.get("/api/notifications?status=inbox", headers=auth(token)).json()
         assert inbox == []
+
+    def test_observer_receives_notification_then_read_deltas(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")
+        create_agent(client, token, "mobile-eduardo")
+        # panel observer (rides the session cookie set by do_setup)
+        with client.websocket_connect("/ws") as ws:
+            ws.send_json({"type": "hello"})
+            recv_until(ws, "hello_ack")
+
+            _send(client, token, "mobile-eduardo", "backend-julio", "oi")
+            frame = recv_until(ws, "notification")
+            assert frame["notification"]["reason"] == "direct_message"
+            nid = frame["notification"]["id"]
+
+            # triage in this "tab" → a read delta syncs others (badge + ids)
+            client.patch(
+                f"/api/notifications/{nid}", json={"unread": False}, headers=auth(token)
+            )
+            read = recv_until(ws, "notification_read")
+            assert read["ids"] == [nid]
+            assert read["unread_count"] == 0
 
     def test_cross_user_patch_is_404(self, client):
         admin = do_setup(client)

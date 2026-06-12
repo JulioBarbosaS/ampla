@@ -1,9 +1,11 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { agentsApi } from "../../lib/api/agents";
 import { messagesApi } from "../../lib/api/messages";
+import type { AppNotification } from "../../lib/api/types";
 import { connectObserver } from "../../lib/ws/observer";
 import { useAuthStore } from "../../stores/auth";
 import { useChatStore } from "../../stores/chat";
+import { useInboxStore } from "../../stores/inbox";
 import { useKillSwitchStore } from "../../stores/killSwitch";
 import { ChatWindow } from "./ChatWindow";
 import { Sidebar } from "./Sidebar";
@@ -23,6 +25,23 @@ export function ChatPage() {
     setActivity,
   } = useChatStore();
   const setAutoResponderEnabled = useKillSwitchStore((s) => s.setAutoResponderEnabled);
+
+  // Inbox deltas (Epic 02 · slice b). Handlers read/write the store via getState
+  // so they stay stable (no re-subscribe churn on the observer effect).
+  const onNotification = useCallback((n: AppNotification) => {
+    const s = useInboxStore.getState();
+    const was = s.items.find((i) => i.id === n.id);
+    s.upsert(n);
+    // count it once when it (re)enters the unread set — not on an already-unread bump
+    if (n.unread && !was?.unread) {
+      s.setUnreadCount(useInboxStore.getState().unreadCount + 1);
+    }
+  }, []);
+  const onNotificationRead = useCallback((ids: number[] | "all", unreadCount: number) => {
+    const s = useInboxStore.getState();
+    s.markRead(ids);
+    s.setUnreadCount(unreadCount);
+  }, []);
 
   // directory + initial perspective (the user's first agent)
   useEffect(() => {
@@ -50,6 +69,8 @@ export function ChatPage() {
       onDelivered: markDelivered,
       onActivity: setActivity,
       onKillSwitch: setAutoResponderEnabled,
+      onNotification,
+      onNotificationRead,
     });
   }, [
     authed,
@@ -60,6 +81,8 @@ export function ChatPage() {
     markDelivered,
     setActivity,
     setAutoResponderEnabled,
+    onNotification,
+    onNotificationRead,
   ]);
 
   // history of the selected conversation

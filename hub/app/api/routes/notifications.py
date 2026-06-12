@@ -1,10 +1,11 @@
 """Per-user inbox (Epic 02). Every route is scoped to the authenticated user."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 
 from app.api.deps import get_current_user, get_notification_service
 from app.models.user import User
 from app.schemas.notification import NotificationOut, NotificationPatch, UnreadCount
+from app.schemas.ws import NotificationReadFrame
 from app.services.notification_service import NotificationService
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
@@ -38,8 +39,12 @@ async def unread_count(
 async def triage(
     notification_id: int,
     body: NotificationPatch,
+    request: Request,
     user: User = Depends(get_current_user),
     svc: NotificationService = Depends(get_notification_service),
 ) -> NotificationOut:
     notification = await svc.triage(user, notification_id, unread=body.unread, status=body.status)
+    # Sync the badge + read-state to this user's other tabs/devices.
+    frame = NotificationReadFrame(ids=[notification_id], unread_count=await svc.unread_count(user))
+    await request.app.state.manager.notify_user(user.id, frame.model_dump(mode="json"))
     return NotificationOut.model_validate(notification)

@@ -104,6 +104,13 @@ class ConnectionManager:
         for obs in list(self._observers):
             await self._send_quietly(obs.ws, payload)
 
+    async def notify_user(self, user_id: int, payload: dict) -> None:
+        """Pushes an inbox delta to all of one user's panel observers (Epic 02).
+        Per-user — never fans out to other users' connections."""
+        for obs in list(self._observers):
+            if obs.user_id == user_id:
+                await self._send_quietly(obs.ws, payload)
+
     async def broadcast_kill_switch(self, payload: dict) -> None:
         """Global kill switch flip: every daemon (to gate auto-respond) AND every
         observer (to show a banner). Not sender-filtered — it's instance-wide."""

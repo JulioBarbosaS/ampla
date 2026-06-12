@@ -5,10 +5,18 @@ threads re-open only on high-signal reasons.
 Authorization: every read/mutate is scoped to the requesting user's own rows. A
 cross-user id is treated as not-found (never reveals another user's inbox)."""
 
+from collections.abc import Awaitable, Callable
+
 from app.models.notification import Notification
 from app.models.user import User, utcnow
 from app.repositories.notification_repo import NotificationRepository
+from app.schemas.notification import NotificationOut
 from app.services.errors import NotFoundError
+
+# Push sink for real-time deltas (Epic 02 · slice b). The composition root wires
+# this to the connection manager; the service stays free of transport imports
+# (dependency inversion — it only awaits an abstract callable).
+NotificationPublisher = Callable[[int, dict], Awaitable[None]]
 
 # Reason relevance (higher wins when a thread collapses). A thread that became a
 # `mention` stays one even as low-signal activity piles on (GitHub semantics).
@@ -38,8 +46,23 @@ MAX_LIMIT = 100
 
 
 class NotificationService:
-    def __init__(self, notifications: NotificationRepository) -> None:
+    def __init__(
+        self,
+        notifications: NotificationRepository,
+        publisher: NotificationPublisher | None = None,
+    ) -> None:
         self._notifications = notifications
+        self._publisher = publisher
+
+    async def _publish(self, notification: Notification) -> None:
+        """Best-effort real-time push of a created/collapsed notification."""
+        if self._publisher is None:
+            return
+        payload = {
+            "type": "notification",
+            "notification": NotificationOut.model_validate(notification).model_dump(mode="json"),
+        }
+        await self._publisher(notification.user_id, payload)
 
     async def notify(
         self,
@@ -57,7 +80,7 @@ class NotificationService:
         low-signal event hit a `done` thread (no resurface)."""
         existing = await self._notifications.get_by_subject(user_id, subject_key)
         if existing is None:
-            return await self._notifications.add(
+            created = await self._notifications.add(
                 Notification(
                     user_id=user_id,
                     subject_type=subject_type,
@@ -69,6 +92,8 @@ class NotificationService:
                     actor=actor,
                 )
             )
+            await self._publish(created)
+            return created
 
         if existing.status == "done" and reason not in _HIGH_SIGNAL:
             return None  # low-signal activity does not resurface a done thread
@@ -86,6 +111,7 @@ class NotificationService:
         existing.status = "inbox" if existing.status == "done" else existing.status
         existing.updated_at = utcnow()
         await self._notifications.save(existing)
+        await self._publish(existing)
         return existing
 
     async def list(

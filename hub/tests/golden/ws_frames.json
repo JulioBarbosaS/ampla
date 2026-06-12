@@ -157,6 +157,32 @@
     },
     "type": "message"
   },
+  "server.notification": {
+    "notification": {
+      "actor": "mobile-eduardo",
+      "agent_slug": "backend-julio",
+      "created_at": "2026-06-06T12:00:00Z",
+      "id": 1,
+      "last_read_at": null,
+      "link": "/?perspective=backend-julio&partner=mobile-eduardo&msg=1",
+      "reason": "direct_message",
+      "status": "inbox",
+      "subject_key": "dm:backend-julio:mobile-eduardo",
+      "subject_type": "dm",
+      "title": "mobile-eduardo enviou uma mensagem para backend-julio",
+      "unread": true,
+      "updated_at": "2026-06-06T12:00:00Z"
+    },
+    "type": "notification"
+  },
+  "server.notification_read": {
+    "ids": [
+      1,
+      2
+    ],
+    "type": "notification_read",
+    "unread_count": 3
+  },
   "server.ping": {
     "type": "ping"
   },

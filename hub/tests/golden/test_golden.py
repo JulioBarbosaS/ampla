@@ -17,6 +17,7 @@ from pathlib import Path
 
 from app.schemas.agent import AgentSettings
 from app.schemas.message import MessageOut
+from app.schemas.notification import NotificationOut
 from app.schemas.ws import (
     AgentActivityFrame,
     BroadcastResultFrame,
@@ -27,6 +28,8 @@ from app.schemas.ws import (
     HelloFrame,
     KillSwitchFrame,
     MessageDeliveryFrame,
+    NotificationFrame,
+    NotificationReadFrame,
     PingFrame,
     PresenceFrame,
     SettingsUpdateFrame,
@@ -172,5 +175,26 @@ def test_ws_frames_contract() -> None:
         "server.ping": PingFrame().model_dump(mode="json"),
         # global kill switch flip, broadcast to every daemon + observer
         "server.kill_switch": KillSwitchFrame(auto_responder_enabled=False).model_dump(mode="json"),
+        # inbox deltas (Epic 02 · slice b) — pushed to the owning user's observers
+        "server.notification": NotificationFrame(
+            notification=NotificationOut(
+                id=1,
+                subject_type="dm",
+                subject_key="dm:backend-julio:mobile-eduardo",
+                agent_slug="backend-julio",
+                reason="direct_message",
+                title="mobile-eduardo enviou uma mensagem para backend-julio",
+                link="/?perspective=backend-julio&partner=mobile-eduardo&msg=1",
+                actor="mobile-eduardo",
+                unread=True,
+                status="inbox",
+                created_at=datetime(2026, 6, 6, 12, 0, 0, tzinfo=UTC),
+                updated_at=datetime(2026, 6, 6, 12, 0, 0, tzinfo=UTC),
+                last_read_at=None,
+            )
+        ).model_dump(mode="json"),
+        "server.notification_read": NotificationReadFrame(ids=[1, 2], unread_count=3).model_dump(
+            mode="json"
+        ),
     }
     check_golden("ws_frames.json", frames)

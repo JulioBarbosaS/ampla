@@ -204,6 +204,35 @@ export const killSwitchFrameSchema = z.object({
   auto_responder_enabled: z.boolean(),
 });
 
+// Inbox deltas (Epic 02 · slice b). Panel-only frames — the daemon ignores them,
+// but the mirror must still accept the exact shapes the hub emits.
+export const notificationOutSchema = z.object({
+  id: z.number().int(),
+  subject_type: z.string(),
+  subject_key: z.string(),
+  agent_slug: z.string().nullable(),
+  reason: z.string(),
+  title: z.string(),
+  link: z.string(),
+  actor: z.string(),
+  unread: z.boolean(),
+  status: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  last_read_at: z.string().nullable(),
+});
+
+export const notificationFrameSchema = z.object({
+  type: z.literal("notification"),
+  notification: notificationOutSchema,
+});
+
+export const notificationReadFrameSchema = z.object({
+  type: z.literal("notification_read"),
+  ids: z.union([z.array(z.number().int()), z.literal("all")]),
+  unread_count: z.number().int(),
+});
+
 export const serverFrameSchema = z.discriminatedUnion("type", [
   helloAckFrameSchema,
   messageDeliveryFrameSchema,
@@ -215,6 +244,8 @@ export const serverFrameSchema = z.discriminatedUnion("type", [
   errorFrameSchema,
   pingFrameSchema,
   killSwitchFrameSchema,
+  notificationFrameSchema,
+  notificationReadFrameSchema,
 ]);
 export type ServerFrame = z.infer<typeof serverFrameSchema>;
 export type HelloAckFrame = z.infer<typeof helloAckFrameSchema>;

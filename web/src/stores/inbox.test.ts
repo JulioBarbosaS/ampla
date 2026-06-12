@@ -39,4 +39,23 @@ describe("inbox store", () => {
     expect(items[1]?.title).toBe("lido");
     expect(items[1]?.unread).toBe(false);
   });
+
+  it("upsert prepends a new notification and replaces an existing one", () => {
+    useInboxStore.getState().setItems([notif(1)]);
+    useInboxStore.getState().upsert(notif(2)); // new → prepend
+    expect(useInboxStore.getState().items.map((n) => n.id)).toEqual([2, 1]);
+    useInboxStore.getState().upsert(notif(1, { title: "atualizado" })); // existing → replace
+    const items = useInboxStore.getState().items;
+    expect(items.map((n) => n.id)).toEqual([2, 1]); // order preserved
+    expect(items.find((n) => n.id === 1)?.title).toBe("atualizado");
+  });
+
+  it("markRead clears unread on the given ids (or all)", () => {
+    useInboxStore.getState().setItems([notif(1), notif(2), notif(3)]);
+    useInboxStore.getState().markRead([2]);
+    expect(useInboxStore.getState().items.find((n) => n.id === 2)?.unread).toBe(false);
+    expect(useInboxStore.getState().items.find((n) => n.id === 1)?.unread).toBe(true);
+    useInboxStore.getState().markRead("all");
+    expect(useInboxStore.getState().items.every((n) => !n.unread)).toBe(true);
+  });
 });

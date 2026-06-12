@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, TypeAdapter
 
 from app.schemas.agent import AgentSettings
 from app.schemas.message import PRIORITY_PATTERN, TYPE_PATTERN, MessageOut
+from app.schemas.notification import NotificationOut
 
 # ---------- client → hub ----------
 
@@ -175,6 +176,23 @@ class KillSwitchFrame(BaseModel):
     auto_responder_enabled: bool
 
 
+class NotificationFrame(BaseModel):
+    """Hub→panel: a new or collapsed inbox notification for THIS user (Epic 02).
+    Pushed only to the owning user's observers; daemons ignore it."""
+
+    type: Literal["notification"] = "notification"
+    notification: NotificationOut
+
+
+class NotificationReadFrame(BaseModel):
+    """Hub→panel: read-state changed elsewhere (multi-tab/device sync). Carries
+    the affected ids (or "all") and the refreshed unread badge count."""
+
+    type: Literal["notification_read"] = "notification_read"
+    ids: list[int] | Literal["all"]
+    unread_count: int
+
+
 ServerFrame = (
     HelloAckFrame
     | MessageDeliveryFrame
@@ -186,4 +204,6 @@ ServerFrame = (
     | ErrorFrame
     | PingFrame
     | KillSwitchFrame
+    | NotificationFrame
+    | NotificationReadFrame
 )
