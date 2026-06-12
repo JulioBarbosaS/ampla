@@ -92,6 +92,18 @@ describe("InboxPage", () => {
     await waitFor(() => expect(notificationsApi.list).toHaveBeenCalledWith({ reason: "mention" }));
   });
 
+  it("submits the search box as a q qualifier", async () => {
+    renderInbox();
+    await screen.findByText(/enviou uma mensagem/);
+    await userEvent.type(screen.getByLabelText("Buscar no inbox"), "is:done from:bob");
+    await userEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    await waitFor(() =>
+      expect(notificationsApi.list).toHaveBeenCalledWith(
+        expect.objectContaining({ q: "is:done from:bob" }),
+      ),
+    );
+  });
+
   it("triages 'Concluir' through the API and reloads", async () => {
     renderInbox();
     const row = (await screen.findByText(/enviou uma mensagem/)).closest("li") as HTMLElement;

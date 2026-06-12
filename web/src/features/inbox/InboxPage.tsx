@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FormError } from "../../components/forms";
-import { notificationsApi } from "../../lib/api/notifications";
+import { type NotificationFilter, notificationsApi } from "../../lib/api/notifications";
 import type { AppNotification, NotificationStatus, NotifyLevel } from "../../lib/api/types";
 import { useInboxStore } from "../../stores/inbox";
 
@@ -42,6 +42,13 @@ const VIEWS: InboxView[] = [
 
 const filterOf = (key: string): InboxView["filter"] =>
   (VIEWS.find((v) => v.key === key) ?? VIEWS[0]).filter;
+
+/** The active query = the view's base filter + free search qualifiers (q). */
+function buildFilter(viewKey: string, q: string): NotificationFilter {
+  const base = filterOf(viewKey);
+  const trimmed = q.trim();
+  return trimmed ? { ...base, q: trimmed } : base;
+}
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -137,12 +144,14 @@ export function InboxPage() {
   const navigate = useNavigate();
   const { items, setItems, setUnreadCount } = useInboxStore();
   const [viewKey, setViewKey] = useState<string>("inbox");
+  const [searchInput, setSearchInput] = useState("");
+  const [appliedQ, setAppliedQ] = useState("");
   const [notifyLevel, setNotifyLevel] = useState<NotifyLevel>("mentions_and_direct");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(
-    (filter: InboxView["filter"]) => {
+    (filter: NotificationFilter) => {
       setLoading(true);
       Promise.all([notificationsApi.list(filter), notificationsApi.unreadCount()])
         .then(([list, count]) => {
@@ -155,7 +164,7 @@ export function InboxPage() {
     [setItems, setUnreadCount],
   );
 
-  useEffect(() => reload(filterOf(viewKey)), [viewKey, reload]);
+  useEffect(() => reload(buildFilter(viewKey, appliedQ)), [viewKey, appliedQ, reload]);
 
   useEffect(() => {
     notificationsApi
@@ -181,7 +190,7 @@ export function InboxPage() {
     setError(null);
     try {
       await notificationsApi.triage(n.id, patch);
-      reload(filterOf(viewKey)); // re-sync list (item may leave the current view) + badge
+      reload(buildFilter(viewKey, appliedQ)); // re-sync (item may leave the view) + badge
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao atualizar.");
     }
@@ -199,7 +208,7 @@ export function InboxPage() {
       // archive the current row in one gesture.
       await notificationsApi.subscribe(n.subject_key, "ignored");
       await notificationsApi.triage(n.id, { status: "done" });
-      reload(filterOf(viewKey));
+      reload(buildFilter(viewKey, appliedQ));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao ignorar conversa.");
     }
@@ -209,7 +218,7 @@ export function InboxPage() {
     setError(null);
     try {
       await notificationsApi.readAll();
-      reload(filterOf(viewKey));
+      reload(buildFilter(viewKey, appliedQ));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao marcar como lidas.");
     }
@@ -219,6 +228,40 @@ export function InboxPage() {
     <div className="mx-auto h-full max-w-3xl space-y-4 overflow-y-auto px-4 py-6">
       <h1 className="text-lg font-semibold text-zinc-100">Inbox</h1>
       <FormError message={error} />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setAppliedQ(searchInput);
+        }}
+        className="flex gap-2"
+      >
+        <input
+          type="search"
+          aria-label="Buscar no inbox"
+          placeholder="Buscar: is:unread reason:mention from:slug agent:slug…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600"
+        />
+        <button
+          type="submit"
+          className="rounded-md bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700"
+        >
+          Buscar
+        </button>
+        {appliedQ && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchInput("");
+              setAppliedQ("");
+            }}
+            className="rounded-md px-2.5 py-1.5 text-sm text-zinc-400 hover:text-zinc-50"
+          >
+            Limpar
+          </button>
+        )}
+      </form>
       <div className="flex flex-wrap items-center gap-1 gap-y-2">
         {VIEWS.map((v) => (
           <button

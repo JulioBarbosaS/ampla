@@ -13,10 +13,12 @@ export interface NotificationPatch {
   status?: NotificationStatus;
 }
 
-/** Canned-view filter (server-side query). Built-in views map onto these. */
+/** Canned-view filter (server-side query). Built-in views map onto these;
+ * `q` carries free GitHub-style qualifiers parsed by the hub. */
 export interface NotificationFilter {
   status?: NotificationStatus;
   reason?: string;
+  q?: string;
 }
 
 export const notificationsApi = {
@@ -24,6 +26,7 @@ export const notificationsApi = {
     const params = new URLSearchParams();
     if (filter?.status) params.set("status", filter.status);
     if (filter?.reason) params.set("reason", filter.reason);
+    if (filter?.q) params.set("q", filter.q);
     const qs = params.toString();
     return api.get<AppNotification[]>(`/api/notifications${qs ? `?${qs}` : ""}`);
   },
