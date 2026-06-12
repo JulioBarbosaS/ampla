@@ -414,7 +414,7 @@ export class AutoResponder {
         disallowedTools: guardrails.disallowedTools,
         settingsJson: guardrails.settingsJson,
         writable: settings.allow_write,
-        captureUsage: this.opts.captureUsage,
+        captureUsage: this.opts.captureUsage ?? false,
       });
     } catch (error) {
       return { kind: "failed", reason: error instanceof Error ? error.message : String(error) };
@@ -427,7 +427,10 @@ export class AutoResponder {
     // The run consumed tokens whether or not we end up sending the reply, so
     // count it against the daily budget before the secret filter can drop it.
     this.usage?.add(parsed.usage);
-    const usage = parsed.usage ?? undefined;
+    // Spread `usage` in only when present — never set it to undefined/null
+    // explicitly (exactOptionalPropertyTypes); the result stays {kind,reply}
+    // in text mode where there is no usage to report.
+    const usagePatch = parsed.usage ? { usage: parsed.usage } : {};
 
     if (!parsed.text) {
       return { kind: "failed", reason: "resposta vazia" };
@@ -436,9 +439,13 @@ export class AutoResponder {
     const scan = scanForSecrets(parsed.text);
     if (!scan.clean) {
       // Full block — never send a reply with a possible secret
-      return { kind: "blocked", reason: `filtro de segredos: ${scan.matches.join(", ")}`, usage };
+      return {
+        kind: "blocked",
+        reason: `filtro de segredos: ${scan.matches.join(", ")}`,
+        ...usagePatch,
+      };
     }
-    return { kind: "replied", reply: parsed.text, usage };
+    return { kind: "replied", reply: parsed.text, ...usagePatch };
   }
 
   private allowByRate(maxPerHour: number): boolean {
