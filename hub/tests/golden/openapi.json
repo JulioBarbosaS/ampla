@@ -1377,6 +1377,46 @@
         "title": "SetupStatus",
         "type": "object"
       },
+      "SubscriptionOut": {
+        "properties": {
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "subject_key": {
+            "title": "Subject Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_key",
+          "state"
+        ],
+        "title": "SubscriptionOut",
+        "type": "object"
+      },
+      "SubscriptionPut": {
+        "description": "Follow or mute a thread (per-thread override on the coarse level).",
+        "properties": {
+          "state": {
+            "pattern": "^(subscribed|ignored)$",
+            "title": "State",
+            "type": "string"
+          },
+          "subject_key": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Subject Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_key",
+          "state"
+        ],
+        "title": "SubscriptionPut",
+        "type": "object"
+      },
       "TokenResponse": {
         "properties": {
           "token": {
@@ -3161,6 +3201,52 @@
           }
         ],
         "summary": "Read All",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/notifications/subscription": {
+      "put": {
+        "operationId": "set_subscription_api_notifications_subscription_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionPut"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Subscription",
         "tags": [
           "notifications"
         ]

@@ -1,7 +1,7 @@
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.notification import Notification
+from app.models.notification import Notification, NotificationSubscription
 from app.models.user import utcnow
 
 
@@ -69,3 +69,33 @@ class NotificationRepository:
             .values(unread=False, last_read_at=utcnow())
         )
         await self._session.commit()
+
+    # ---- per-thread subscriptions (fine-grained subscribe/ignore) ----
+
+    async def get_subscription(
+        self, user_id: int, subject_key: str
+    ) -> NotificationSubscription | None:
+        result = await self._session.execute(
+            select(NotificationSubscription).where(
+                NotificationSubscription.user_id == user_id,
+                NotificationSubscription.subject_key == subject_key,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def upsert_subscription(
+        self, user_id: int, subject_key: str, state: str, reason: str | None = None
+    ) -> NotificationSubscription:
+        sub = await self.get_subscription(user_id, subject_key)
+        if sub is None:
+            sub = NotificationSubscription(
+                user_id=user_id, subject_key=subject_key, state=state, reason=reason
+            )
+            self._session.add(sub)
+        else:
+            sub.state = state
+            if reason is not None:
+                sub.reason = reason
+        await self._session.commit()
+        await self._session.refresh(sub)
+        return sub

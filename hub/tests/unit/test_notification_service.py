@@ -148,6 +148,46 @@ class TestDeliveryGate:
             await service.set_prefs(user, "loud")
 
 
+class TestSubscriptions:
+    async def _service(self):
+        notifications = FakeNotificationRepository()
+        users = FakeUserRepository()
+        user = User(email="s@amp.local", name="S", password_hash="x")
+        await users.add(user)
+        return NotificationService(notifications=notifications, users=users), notifications, user
+
+    async def test_ignored_thread_mutes_then_a_mention_resubscribes(self):
+        service, notifications, user = await self._service()
+        key = "dm:backend-julio:mobile-eduardo"
+        await service.set_subscription(user, key, "ignored")
+
+        # low-signal activity on an ignored thread is muted
+        muted = await service.notify(
+            user.id, subject_type="dm", subject_key=key, reason="direct_message", title="t"
+        )
+        assert muted is None
+        assert await service.unread_count(user) == 0
+
+        # an always-deliver reason lands AND re-subscribes the thread (safe-mute)
+        landed = await service.notify(
+            user.id, subject_type="mention", subject_key=key, reason="mention", title="t"
+        )
+        assert landed is not None
+        sub = await notifications.get_subscription(user.id, key)
+        assert sub.state == "subscribed"
+
+        # a follow-up DM now collapses in (delivered again — thread re-subscribed)
+        again = await service.notify(
+            user.id, subject_type="dm", subject_key=key, reason="direct_message", title="t2"
+        )
+        assert again is not None
+
+    async def test_set_subscription_validates_state(self):
+        service, _notifications, user = await self._service()
+        with pytest.raises(InvalidInputError):
+            await service.set_subscription(user, "dm:a:b", "watching")
+
+
 class TestMentionParser:
     def test_extracts_unique_slugs_in_order(self):
         assert parse_mentions("oi @backend-julio e @mobile-eduardo e de novo @backend-julio") == [

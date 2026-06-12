@@ -183,6 +183,56 @@ class TestPrefsAndDeliveryGate:
         items = client.get("/api/notifications", headers=auth(token)).json()
         assert [n["reason"] for n in items] == ["mention"]
 
+
+class TestSubscriptions:
+    def test_put_subscription_roundtrips_and_rejects_invalid(self, client):
+        token = do_setup(client)
+        subject = "dm:backend-julio:mobile-eduardo"
+        ok = client.put(
+            "/api/notifications/subscription",
+            json={"subject_key": subject, "state": "ignored"},
+            headers=auth(token),
+        )
+        assert ok.status_code == 200
+        assert ok.json() == {"subject_key": subject, "state": "ignored"}
+
+        bad = client.put(
+            "/api/notifications/subscription",
+            json={"subject_key": subject, "state": "watching"},
+            headers=auth(token),
+        )
+        assert bad.status_code == 422
+
+    def test_ignored_thread_mutes_dms_until_a_mention_resubscribes(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")
+        create_agent(client, token, "mobile-eduardo")
+        create_agent(client, token, "frontend-ze")
+        subject = "dm:backend-julio:mobile-eduardo"
+        client.put(
+            "/api/notifications/subscription",
+            json={"subject_key": subject, "state": "ignored"},
+            headers=auth(token),
+        )
+        # two DMs on the ignored thread are both muted (no rows)
+        _send(client, token, "mobile-eduardo", "backend-julio", "oi")
+        _send(client, token, "mobile-eduardo", "backend-julio", "de novo")
+        assert client.get("/api/notifications/unread-count", headers=auth(token)).json() == {
+            "unread_count": 0
+        }
+        # an @mention on that thread always lands and re-subscribes it
+        _send(client, token, "mobile-eduardo", "frontend-ze", "ei @backend-julio")
+        mentions = client.get("/api/notifications?reason=mention", headers=auth(token)).json()
+        assert len(mentions) == 1
+        assert mentions[0]["subject_key"] == subject
+        # prove the re-subscription: clear the badge, then a plain DM on that
+        # thread is delivered again (collapses in → unread bumps back to 1)
+        client.post("/api/notifications/read-all", headers=auth(token))
+        _send(client, token, "mobile-eduardo", "backend-julio", "voltou")
+        assert client.get("/api/notifications/unread-count", headers=auth(token)).json() == {
+            "unread_count": 1
+        }
+
     def test_cross_user_patch_is_404(self, client):
         admin = do_setup(client)
         member = register_member(client, admin)

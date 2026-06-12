@@ -1,5 +1,12 @@
 import { api } from "./client";
-import type { AppNotification, NotificationPrefs, NotificationStatus, NotifyLevel } from "./types";
+import type {
+  AppNotification,
+  NotificationPrefs,
+  NotificationStatus,
+  NotificationSubscription,
+  NotifyLevel,
+  SubscriptionState,
+} from "./types";
 
 export interface NotificationPatch {
   unread?: boolean;
@@ -27,4 +34,6 @@ export const notificationsApi = {
   getPrefs: () => api.get<NotificationPrefs>("/api/notifications/prefs"),
   setPrefs: (notify_level: NotifyLevel) =>
     api.patch<NotificationPrefs>("/api/notifications/prefs", { notify_level }),
+  subscribe: (subject_key: string, state: SubscriptionState) =>
+    api.put<NotificationSubscription>("/api/notifications/subscription", { subject_key, state }),
 };

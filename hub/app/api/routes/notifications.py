@@ -9,6 +9,8 @@ from app.schemas.notification import (
     NotificationPatch,
     NotificationPrefs,
     NotificationPrefsPatch,
+    SubscriptionOut,
+    SubscriptionPut,
     UnreadCount,
 )
 from app.schemas.ws import NotificationReadFrame
@@ -70,6 +72,16 @@ async def set_prefs(
     svc: NotificationService = Depends(get_notification_service),
 ) -> NotificationPrefs:
     return NotificationPrefs(notify_level=await svc.set_prefs(user, body.notify_level))
+
+
+@router.put("/subscription", response_model=SubscriptionOut)
+async def set_subscription(
+    body: SubscriptionPut,
+    user: User = Depends(get_current_user),
+    svc: NotificationService = Depends(get_notification_service),
+) -> SubscriptionOut:
+    sub = await svc.set_subscription(user, body.subject_key, body.state)
+    return SubscriptionOut.model_validate(sub)
 
 
 @router.patch("/{notification_id}", response_model=NotificationOut)

@@ -57,10 +57,12 @@ export function NotificationRow({
   n,
   onOpen,
   onTriage,
+  onIgnore,
 }: {
   n: AppNotification;
   onOpen: (n: AppNotification) => void;
   onTriage: (n: AppNotification, patch: { unread?: boolean; status?: NotificationStatus }) => void;
+  onIgnore: (n: AppNotification) => void;
 }) {
   const chip = REASON_CHIP[n.reason] ?? { label: n.reason, cls: "bg-zinc-800 text-zinc-300" };
   return (
@@ -118,6 +120,14 @@ export function NotificationRow({
             Concluir
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => onIgnore(n)}
+          title="Silenciar esta conversa e concluir"
+          className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400 hover:bg-zinc-700"
+        >
+          Ignorar
+        </button>
       </div>
     </li>
   );
@@ -182,6 +192,19 @@ export function InboxPage() {
     navigate(n.link || "/");
   }
 
+  async function ignoreThread(n: AppNotification) {
+    setError(null);
+    try {
+      // Mute the thread (future low-signal activity won't resurface it) and
+      // archive the current row in one gesture.
+      await notificationsApi.subscribe(n.subject_key, "ignored");
+      await notificationsApi.triage(n.id, { status: "done" });
+      reload(filterOf(viewKey));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao ignorar conversa.");
+    }
+  }
+
   async function readAll() {
     setError(null);
     try {
@@ -239,7 +262,13 @@ export function InboxPage() {
       ) : (
         <ul className="space-y-1.5">
           {items.map((n) => (
-            <NotificationRow key={n.id} n={n} onOpen={open} onTriage={triage} />
+            <NotificationRow
+              key={n.id}
+              n={n}
+              onOpen={open}
+              onTriage={triage}
+              onIgnore={ignoreThread}
+            />
           ))}
         </ul>
       )}

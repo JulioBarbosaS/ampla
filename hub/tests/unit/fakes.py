@@ -11,7 +11,7 @@ from app.models.autorespond_run import AutorespondRun
 from app.models.group import Group
 from app.models.hub_state import HubState
 from app.models.message import Message
-from app.models.notification import Notification
+from app.models.notification import Notification, NotificationSubscription
 from app.models.user import Invite, PasswordReset, User, utcnow
 
 
@@ -154,6 +154,8 @@ class FakeNotificationRepository:
     def __init__(self) -> None:
         self._items: dict[int, Notification] = {}
         self._seq = 0
+        self._subs: dict[tuple[int, str], NotificationSubscription] = {}
+        self._sub_seq = 0
 
     async def add(self, notification: Notification) -> Notification:
         self._seq += 1
@@ -211,6 +213,28 @@ class FakeNotificationRepository:
             if n.user_id == user_id and n.unread:
                 n.unread = False
                 n.last_read_at = utcnow()
+
+    async def get_subscription(
+        self, user_id: int, subject_key: str
+    ) -> NotificationSubscription | None:
+        return self._subs.get((user_id, subject_key))
+
+    async def upsert_subscription(
+        self, user_id: int, subject_key: str, state: str, reason: str | None = None
+    ) -> NotificationSubscription:
+        sub = self._subs.get((user_id, subject_key))
+        if sub is None:
+            self._sub_seq += 1
+            sub = NotificationSubscription(
+                user_id=user_id, subject_key=subject_key, state=state, reason=reason
+            )
+            sub.id = self._sub_seq
+            self._subs[(user_id, subject_key)] = sub
+            return sub
+        sub.state = state
+        if reason is not None:
+            sub.reason = reason
+        return sub
 
 
 class FakeInviteRepository:

@@ -59,6 +59,14 @@ export interface NotificationPrefs {
   notify_level: NotifyLevel;
 }
 
+/** Fine per-thread override on top of the coarse level. */
+export type SubscriptionState = "subscribed" | "ignored";
+
+export interface NotificationSubscription {
+  subject_key: string;
+  state: SubscriptionState;
+}
+
 export interface AppNotification {
   id: number;
   subject_type: string;

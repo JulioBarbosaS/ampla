@@ -20,6 +20,7 @@ vi.mock("../../lib/api/notifications", () => ({
     readAll: vi.fn(),
     getPrefs: vi.fn(),
     setPrefs: vi.fn(),
+    subscribe: vi.fn(),
   },
 }));
 
@@ -53,6 +54,10 @@ beforeEach(() => {
   vi.mocked(notificationsApi.readAll).mockResolvedValue({ unread_count: 0 });
   vi.mocked(notificationsApi.getPrefs).mockResolvedValue({ notify_level: "mentions_and_direct" });
   vi.mocked(notificationsApi.setPrefs).mockResolvedValue({ notify_level: "mute" });
+  vi.mocked(notificationsApi.subscribe).mockResolvedValue({
+    subject_key: "dm:backend-julio:mobile-eduardo",
+    state: "ignored",
+  });
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -91,6 +96,17 @@ describe("InboxPage", () => {
     renderInbox();
     const row = (await screen.findByText(/enviou uma mensagem/)).closest("li") as HTMLElement;
     await userEvent.click(within(row).getByRole("button", { name: "Concluir" }));
+    expect(notificationsApi.triage).toHaveBeenCalledWith(1, { status: "done" });
+  });
+
+  it("'Ignorar' mutes the thread and archives the row", async () => {
+    renderInbox();
+    const row = (await screen.findByText(/enviou uma mensagem/)).closest("li") as HTMLElement;
+    await userEvent.click(within(row).getByRole("button", { name: "Ignorar" }));
+    expect(notificationsApi.subscribe).toHaveBeenCalledWith(
+      "dm:backend-julio:mobile-eduardo",
+      "ignored",
+    );
     expect(notificationsApi.triage).toHaveBeenCalledWith(1, { status: "done" });
   });
 

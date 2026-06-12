@@ -40,3 +40,24 @@ class Notification(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
     last_read_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)
+
+
+class NotificationSubscription(Base):
+    """Fine-grained per-thread override on top of the coarse `notify_level`
+    (Epic 02, the GitHub two-layer subscription model). `ignored` mutes a thread
+    even when the coarse watch would deliver it; `subscribed` follows it.
+
+    Safe-mute: an always-deliver reason (mention / approval_requested /
+    security_alert) re-subscribes a muted thread — muting can never silence a
+    direct ping, a pending approval, or a security alert.
+    """
+
+    __tablename__ = "notification_subscriptions"
+    __table_args__ = (Index("ix_notif_subs_user_subject", "user_id", "subject_key", unique=True),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(index=True)
+    subject_key: Mapped[str] = mapped_column(String(120))
+    state: Mapped[str] = mapped_column(String(10))  # subscribed | ignored
+    reason: Mapped[str | None] = mapped_column(String(24), default=None)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

@@ -29,6 +29,9 @@ STATUSES = ("inbox", "saved", "done")
 # always-deliver reasons through; `mentions_and_direct` is the safe default.
 NOTIFY_LEVELS = ("all", "mentions_and_direct", "mute")
 
+# Fine per-thread override on top of the coarse level.
+SUBSCRIPTION_STATES = ("subscribed", "ignored")
+
 
 class NotificationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -67,3 +70,17 @@ class NotificationPrefs(BaseModel):
 
 class NotificationPrefsPatch(BaseModel):
     notify_level: str = Field(pattern=r"^(all|mentions_and_direct|mute)$")
+
+
+class SubscriptionPut(BaseModel):
+    """Follow or mute a thread (per-thread override on the coarse level)."""
+
+    subject_key: str = Field(min_length=1, max_length=120)
+    state: str = Field(pattern=r"^(subscribed|ignored)$")
+
+
+class SubscriptionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    subject_key: str
+    state: str

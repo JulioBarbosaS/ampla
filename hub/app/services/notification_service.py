@@ -7,11 +7,11 @@ cross-user id is treated as not-found (never reveals another user's inbox)."""
 
 from collections.abc import Awaitable, Callable
 
-from app.models.notification import Notification
+from app.models.notification import Notification, NotificationSubscription
 from app.models.user import User, utcnow
 from app.repositories.notification_repo import NotificationRepository
 from app.repositories.user_repo import UserRepository
-from app.schemas.notification import NOTIFY_LEVELS, NotificationOut
+from app.schemas.notification import NOTIFY_LEVELS, SUBSCRIPTION_STATES, NotificationOut
 from app.services.errors import InvalidInputError, NotFoundError
 
 # Push sink for real-time deltas (Epic 02 · slice b). The composition root wires
@@ -107,13 +107,24 @@ class NotificationService:
     ) -> Notification | None:
         """Creates or collapses a notification. Returns the row, or None when the
         delivery gate filters it out / a low-signal event hit a `done` thread."""
-        # Delivery gate: respect the recipient's notify_level (always-deliver
-        # reasons bypass it). A missing user fails safe to the default policy.
+        always_deliver = reason in _ALWAYS_DELIVER
+        # Coarse gate: respect the recipient's notify_level (always-deliver
+        # reasons pass it). A missing user fails safe to the default policy.
         if self._users is not None:
             recipient = await self._users.get_by_id(user_id)
             level = recipient.notify_level if recipient else DEFAULT_NOTIFY_LEVEL
             if not should_deliver(level, reason):
                 return None
+        # Fine gate: a per-thread `ignored` subscription mutes the thread, except
+        # for always-deliver reasons — which also re-subscribe it (safe-mute: a
+        # muted thread can never swallow a direct ping / approval / alert).
+        subscription = await self._notifications.get_subscription(user_id, subject_key)
+        if subscription is not None and subscription.state == "ignored":
+            if not always_deliver:
+                return None
+            await self._notifications.upsert_subscription(
+                user_id, subject_key, "subscribed", reason=reason
+            )
 
         existing = await self._notifications.get_by_subject(user_id, subject_key)
         if existing is None:
@@ -188,6 +199,14 @@ class NotificationService:
         user.notify_level = notify_level
         await self._users.save(user)
         return user.notify_level
+
+    async def set_subscription(
+        self, user: User, subject_key: str, state: str
+    ) -> NotificationSubscription:
+        """Follow (`subscribed`) or mute (`ignored`) a thread for this user."""
+        if state not in SUBSCRIPTION_STATES:
+            raise InvalidInputError("Estado de inscrição inválido.")
+        return await self._notifications.upsert_subscription(user.id, subject_key, state)
 
     async def _owned(self, user: User, notification_id: int) -> Notification:
         notification = await self._notifications.get(notification_id)
