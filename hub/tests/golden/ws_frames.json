@@ -132,6 +132,7 @@
       "max_auto_per_hour": 10,
       "max_auto_tokens_per_day": null,
       "mode": "inbox",
+      "require_approval": false,
       "trusted_senders": []
     },
     "type": "hello_ack"
@@ -206,6 +207,7 @@
       "max_auto_per_hour": 10,
       "max_auto_tokens_per_day": null,
       "mode": "inbox",
+      "require_approval": false,
       "trusted_senders": []
     },
     "type": "settings_update"

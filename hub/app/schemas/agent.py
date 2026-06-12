@@ -54,6 +54,10 @@ class AgentSettings(BaseModel):
     max_auto_tokens_per_day: int | None = Field(default=None, ge=1)
     max_auto_cost_usd_per_day: float | None = Field(default=None, ge=0)
 
+    # Human-in-the-loop approval (Epic 03 · 3.3): draft, don't send, until the
+    # owner approves. Only meaningful when mode=auto.
+    require_approval: bool = False
+
     @field_validator("denied_paths")
     @classmethod
     def _check_denied_paths(cls, v: list[str]) -> list[str]:
@@ -80,6 +84,7 @@ class AgentSettingsUpdate(BaseModel):
     # a positive value sets the daily ceiling.
     max_auto_tokens_per_day: int | None = Field(default=None, ge=0)
     max_auto_cost_usd_per_day: float | None = Field(default=None, ge=0)
+    require_approval: bool | None = None
 
     @field_validator("denied_paths")
     @classmethod
@@ -113,6 +118,7 @@ class AgentOut(BaseModel):
     auto_paused: bool
     max_auto_tokens_per_day: int | None
     max_auto_cost_usd_per_day: float | None
+    require_approval: bool
 
 
 class DirectoryEntry(BaseModel):

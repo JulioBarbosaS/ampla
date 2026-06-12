@@ -87,6 +87,18 @@ class TestSettings:
         assert agent.max_auto_per_hour == 5
         assert agent.auto_timeout_secs == 120  # not touched
 
+    async def test_toggle_require_approval(self, service):
+        await service.create(OWNER, AgentCreate(slug="backend-julio", display_name="B"))
+        agent = await service.update_settings(
+            OWNER, "backend-julio", AgentSettingsUpdate(require_approval=True)
+        )
+        assert agent.require_approval is True
+        # left untouched by an unrelated patch
+        agent = await service.update_settings(
+            OWNER, "backend-julio", AgentSettingsUpdate(mode="auto")
+        )
+        assert agent.require_approval is True
+
     async def test_allowlist_with_invalid_slug(self, service):
         await service.create(OWNER, AgentCreate(slug="backend-julio", display_name="B"))
         with pytest.raises(InvalidInputError):

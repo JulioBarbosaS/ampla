@@ -123,6 +123,9 @@ class AgentService:
         if patch.max_auto_cost_usd_per_day is not None:
             agent.max_auto_cost_usd_per_day = patch.max_auto_cost_usd_per_day or None
             changed["max_auto_cost_usd_per_day"] = agent.max_auto_cost_usd_per_day
+        if patch.require_approval is not None:
+            agent.require_approval = patch.require_approval
+            changed["require_approval"] = patch.require_approval
         await self._agents.save(agent)
         await self._audit.record(
             "settings_changed", actor=actor.email, detail={"slug": slug, "fields": list(changed)}

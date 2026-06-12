@@ -28,6 +28,9 @@ export const agentSettingsSchema = z.object({
   // usage (only bites when capture_usage is on).
   max_auto_tokens_per_day: z.number().int().nullable(),
   max_auto_cost_usd_per_day: z.number().nullable(),
+  // Human-in-the-loop approval (Epic 03 · 3.3): when true and mode=auto, the
+  // daemon drafts the reply and requests the owner's approval instead of sending.
+  require_approval: z.boolean(),
 });
 export type AgentSettings = z.infer<typeof agentSettingsSchema>;
 

@@ -50,6 +50,11 @@ class Agent(Base):
     max_auto_tokens_per_day: Mapped[int | None] = mapped_column(default=None)
     max_auto_cost_usd_per_day: Mapped[float | None] = mapped_column(Float, default=None)
 
+    # Human-in-the-loop approval (Epic 03 · 3.3): when true and mode=auto, the
+    # daemon DRAFTS the reply but does not send it — it requests the owner's
+    # approval first. (server_default lives in the migration, like the others.)
+    require_approval: Mapped[bool] = mapped_column(default=False)
+
 
 class AgentKey(Base):
     __tablename__ = "agent_keys"

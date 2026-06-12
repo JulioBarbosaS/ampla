@@ -186,6 +186,10 @@
             "title": "Mode",
             "type": "string"
           },
+          "require_approval": {
+            "title": "Require Approval",
+            "type": "boolean"
+          },
           "slug": {
             "title": "Slug",
             "type": "string"
@@ -220,7 +224,8 @@
           "trusted_senders",
           "auto_paused",
           "max_auto_tokens_per_day",
-          "max_auto_cost_usd_per_day"
+          "max_auto_cost_usd_per_day",
+          "require_approval"
         ],
         "title": "AgentOut",
         "type": "object"
@@ -389,6 +394,17 @@
               }
             ],
             "title": "Mode"
+          },
+          "require_approval": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Approval"
           },
           "trusted_senders": {
             "anyOf": [
