@@ -136,6 +136,9 @@ class NotificationService:
     async def unread_count(self, user: User) -> int:
         return await self._notifications.unread_count(user.id)
 
+    async def mark_all_read(self, user: User) -> None:
+        await self._notifications.mark_all_read(user.id)
+
     async def _owned(self, user: User, notification_id: int) -> Notification:
         notification = await self._notifications.get(notification_id)
         # Cross-user (or missing) id ⇒ not-found: never reveal another user's inbox.

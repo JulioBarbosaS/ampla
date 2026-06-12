@@ -100,12 +100,50 @@ class TestTriageAndIsolation:
             nid = frame["notification"]["id"]
 
             # triage in this "tab" → a read delta syncs others (badge + ids)
-            client.patch(
-                f"/api/notifications/{nid}", json={"unread": False}, headers=auth(token)
-            )
+            client.patch(f"/api/notifications/{nid}", json={"unread": False}, headers=auth(token))
             read = recv_until(ws, "notification_read")
             assert read["ids"] == [nid]
             assert read["unread_count"] == 0
+
+    def test_read_all_clears_unread_and_pushes_an_all_delta(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")
+        create_agent(client, token, "mobile-eduardo")
+        create_agent(client, token, "frontend-ze")
+        _send(client, token, "mobile-eduardo", "backend-julio", "um")
+        _send(client, token, "frontend-ze", "backend-julio", "dois")
+        assert client.get("/api/notifications/unread-count", headers=auth(token)).json() == {
+            "unread_count": 2
+        }
+        with client.websocket_connect("/ws") as ws:
+            ws.send_json({"type": "hello"})
+            recv_until(ws, "hello_ack")
+            resp = client.post("/api/notifications/read-all", headers=auth(token))
+            assert resp.json() == {"unread_count": 0}
+            delta = recv_until(ws, "notification_read")
+            assert delta["ids"] == "all"
+            assert delta["unread_count"] == 0
+        assert client.get("/api/notifications/unread-count", headers=auth(token)).json() == {
+            "unread_count": 0
+        }
+
+    def test_read_all_only_touches_own(self, client):
+        admin = do_setup(client)
+        member = register_member(client, admin)
+        create_agent(client, admin, "backend-julio")
+        create_agent(client, admin, "mobile-eduardo")
+        create_agent(client, member, "frontend-ze")
+        create_agent(client, member, "infra-ana")
+        _send(client, admin, "mobile-eduardo", "backend-julio", "p/ admin")
+        _send(client, member, "infra-ana", "frontend-ze", "p/ member")
+        # admin clears only their own inbox
+        client.post("/api/notifications/read-all", headers=auth(admin))
+        assert client.get("/api/notifications/unread-count", headers=auth(admin)).json() == {
+            "unread_count": 0
+        }
+        assert client.get("/api/notifications/unread-count", headers=auth(member)).json() == {
+            "unread_count": 1
+        }
 
     def test_cross_user_patch_is_404(self, client):
         admin = do_setup(client)

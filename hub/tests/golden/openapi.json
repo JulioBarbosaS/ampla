@@ -3042,6 +3042,32 @@
         ]
       }
     },
+    "/api/notifications/read-all": {
+      "post": {
+        "operationId": "read_all_api_notifications_read_all_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadCount"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Read All",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
     "/api/notifications/unread-count": {
       "get": {
         "operationId": "unread_count_api_notifications_unread_count_get",

@@ -205,6 +205,12 @@ class FakeNotificationRepository:
     async def unread_count(self, user_id: int) -> int:
         return sum(1 for n in self._items.values() if n.user_id == user_id and n.unread)
 
+    async def mark_all_read(self, user_id: int) -> None:
+        for n in self._items.values():
+            if n.user_id == user_id and n.unread:
+                n.unread = False
+                n.last_read_at = utcnow()
+
 
 class FakeInviteRepository:
     def __init__(self) -> None:

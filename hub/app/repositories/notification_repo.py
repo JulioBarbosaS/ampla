@@ -1,7 +1,8 @@
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification
+from app.models.user import utcnow
 
 
 class NotificationRepository:
@@ -59,3 +60,12 @@ class NotificationRepository:
             .where(Notification.user_id == user_id, Notification.unread.is_(True))
         )
         return int(result.scalar_one())
+
+    async def mark_all_read(self, user_id: int) -> None:
+        """Bulk-clear unread for one user (single UPDATE, never another user's)."""
+        await self._session.execute(
+            update(Notification)
+            .where(Notification.user_id == user_id, Notification.unread.is_(True))
+            .values(unread=False, last_read_at=utcnow())
+        )
+        await self._session.commit()

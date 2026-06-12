@@ -143,11 +143,21 @@ export function InboxPage() {
     navigate(n.link || "/");
   }
 
+  async function readAll() {
+    setError(null);
+    try {
+      await notificationsApi.readAll();
+      reload(view);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao marcar como lidas.");
+    }
+  }
+
   return (
     <div className="mx-auto h-full max-w-3xl space-y-4 overflow-y-auto px-4 py-6">
       <h1 className="text-lg font-semibold text-zinc-100">Inbox</h1>
       <FormError message={error} />
-      <div className="flex gap-1">
+      <div className="flex items-center gap-1">
         {VIEWS.map((v) => (
           <button
             key={v.key}
@@ -160,6 +170,13 @@ export function InboxPage() {
             {v.label}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={readAll}
+          className="ml-auto rounded-md px-2.5 py-1.5 text-xs text-zinc-400 hover:text-zinc-50"
+        >
+          Marcar todas como lidas
+        </button>
       </div>
       {loading && items.length === 0 ? (
         <p className="text-sm text-zinc-500">carregando…</p>

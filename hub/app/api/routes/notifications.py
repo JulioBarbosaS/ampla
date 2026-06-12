@@ -35,6 +35,18 @@ async def unread_count(
     return UnreadCount(unread_count=await svc.unread_count(user))
 
 
+@router.post("/read-all", response_model=UnreadCount)
+async def read_all(
+    request: Request,
+    user: User = Depends(get_current_user),
+    svc: NotificationService = Depends(get_notification_service),
+) -> UnreadCount:
+    await svc.mark_all_read(user)
+    frame = NotificationReadFrame(ids="all", unread_count=0)
+    await request.app.state.manager.notify_user(user.id, frame.model_dump(mode="json"))
+    return UnreadCount(unread_count=0)
+
+
 @router.patch("/{notification_id}", response_model=NotificationOut)
 async def triage(
     notification_id: int,

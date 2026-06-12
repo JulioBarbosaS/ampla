@@ -12,4 +12,5 @@ export const notificationsApi = {
   unreadCount: () => api.get<{ unread_count: number }>("/api/notifications/unread-count"),
   triage: (id: number, patch: NotificationPatch) =>
     api.patch<AppNotification>(`/api/notifications/${id}`, patch),
+  readAll: () => api.post<{ unread_count: number }>("/api/notifications/read-all", {}),
 };
