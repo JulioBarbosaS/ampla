@@ -137,6 +137,15 @@ def test_ws_frames_contract() -> None:
                 },
             }
         ),
+        # human-in-the-loop approval request (Epic 03 · 3.3) — no agent_id (anti-spoof)
+        "client.approval_request": _accepted_client_frame(
+            {
+                "type": "approval_request",
+                "trigger_message_id": 1,
+                "to": "mobile-eduardo",
+                "draft_body": "Sim: POST /api/v1/auth/password-reset",
+            }
+        ),
         "server.hello_ack": HelloAckFrame(
             agent_id="backend-julio",
             online=["backend-julio", "mobile-eduardo"],

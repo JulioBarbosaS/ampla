@@ -7,6 +7,7 @@ on `add` so the models behave as if persisted.
 from datetime import datetime
 
 from app.models.agent import Agent, AgentKey
+from app.models.approval import Approval
 from app.models.autorespond_run import AutorespondRun
 from app.models.group import Group
 from app.models.hub_state import HubState
@@ -254,6 +255,38 @@ class FakeNotificationRepository:
         if reason is not None:
             sub.reason = reason
         return sub
+
+
+class FakeApprovalRepository:
+    def __init__(self) -> None:
+        self._items: dict[int, Approval] = {}
+        self._seq = 0
+
+    async def add(self, approval: Approval) -> Approval:
+        self._seq += 1
+        approval.id = self._seq
+        _default(approval, "status", "pending")
+        _default(approval, "created_at", utcnow())
+        self._items[approval.id] = approval
+        return approval
+
+    async def save(self, approval: Approval) -> None:
+        self._items[approval.id] = approval
+
+    async def get(self, approval_id: int) -> Approval | None:
+        return self._items.get(approval_id)
+
+    async def list_for_agent(
+        self, agent_slug: str, *, status: str | None = None, limit: int = 50
+    ) -> list[Approval]:
+        found = [a for a in self._items.values() if a.agent_slug == agent_slug]
+        if status is not None:
+            found = [a for a in found if a.status == status]
+        found.sort(key=lambda a: (a.created_at, a.id), reverse=True)
+        return found[:limit]
+
+    async def list_pending_before(self, cutoff: datetime) -> list[Approval]:
+        return [a for a in self._items.values() if a.status == "pending" and a.created_at < cutoff]
 
 
 class FakeInviteRepository:

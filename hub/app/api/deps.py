@@ -13,6 +13,7 @@ from app.core.config import Settings
 from app.core.cookies import SESSION_COOKIE
 from app.models.user import User
 from app.repositories.agent_repo import AgentRepository
+from app.repositories.approval_repo import ApprovalRepository
 from app.repositories.audit_repo import AuditRepository
 from app.repositories.autorespond_repo import AutorespondRunRepository
 from app.repositories.group_repo import GroupRepository
@@ -23,6 +24,7 @@ from app.repositories.notification_repo import NotificationRepository
 from app.repositories.user_repo import UserRepository
 from app.services.admin_service import AdminService
 from app.services.agent_service import AgentService
+from app.services.approval_service import ApprovalService
 from app.services.auth_service import AuthService
 from app.services.autorespond_service import AutorespondService
 from app.services.group_service import GroupService
@@ -105,6 +107,15 @@ def build_autorespond_service(session: AsyncSession) -> AutorespondService:
     return AutorespondService(runs=AutorespondRunRepository(session))
 
 
+def build_approval_service(session: AsyncSession, settings, manager=None) -> ApprovalService:
+    return ApprovalService(
+        approvals=ApprovalRepository(session),
+        agents=AgentRepository(session),
+        audit=AuditRepository(session),
+        notifications=build_notification_service(session, settings, manager),
+    )
+
+
 def get_app_settings(request: Request) -> Settings:
     """The Settings the app was built with (tests inject their own — never the
     module-level get_settings cache)."""
@@ -135,6 +146,12 @@ def get_admin_service(session: AsyncSession = Depends(get_session)) -> AdminServ
 
 def get_autorespond_service(session: AsyncSession = Depends(get_session)) -> AutorespondService:
     return build_autorespond_service(session)
+
+
+def get_approval_service(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> ApprovalService:
+    return build_approval_service(session, request.app.state.settings, request.app.state.manager)
 
 
 def get_notification_service(

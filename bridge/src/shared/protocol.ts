@@ -134,13 +134,24 @@ export interface AutorespondReportFrame {
   record: AutorespondRecord;
 }
 
+/** Daemon→hub: a drafted auto-reply awaiting the owner's approval (Epic 03 ·
+ * 3.3). No agent_id — the hub attributes it to the authenticated socket
+ * (anti-spoof). Mirrors ApprovalRequestFrame. */
+export interface ApprovalRequestFrame {
+  type: "approval_request";
+  trigger_message_id: number | null;
+  to: string;
+  draft_body: string;
+}
+
 export type ClientFrame =
   | HelloFrame
   | SendMessageFrame
   | AckFrame
   | PongFrame
   | ActivityFrame
-  | AutorespondReportFrame;
+  | AutorespondReportFrame
+  | ApprovalRequestFrame;
 
 // ---------- hub → daemon ----------
 

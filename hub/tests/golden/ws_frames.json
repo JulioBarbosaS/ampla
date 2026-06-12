@@ -7,6 +7,12 @@
     "state": "responding",
     "type": "activity"
   },
+  "client.approval_request": {
+    "draft_body": "Sim: POST /api/v1/auth/password-reset",
+    "to": "mobile-eduardo",
+    "trigger_message_id": 1,
+    "type": "approval_request"
+  },
   "client.autorespond_report": {
     "record": {
       "cost_usd": null,

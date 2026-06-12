@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends, Query, Request
 
-from app.api.deps import get_agent_service, get_autorespond_service, get_current_user
+from app.api.deps import (
+    get_agent_service,
+    get_approval_service,
+    get_autorespond_service,
+    get_current_user,
+)
 from app.models.user import User
 from app.schemas.agent import (
     AgentCreate,
@@ -11,9 +16,11 @@ from app.schemas.agent import (
     AgentSettingsUpdate,
     DirectoryEntry,
 )
+from app.schemas.approval import ApprovalOut
 from app.schemas.autorespond import AutorespondRunOut
 from app.schemas.ws import SettingsUpdateFrame
 from app.services.agent_service import AgentService
+from app.services.approval_service import ApprovalService
 from app.services.autorespond_service import AutorespondService
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
@@ -84,6 +91,19 @@ async def autorespond_runs(
     await svc.get_owned(user, slug)  # owner/admin authz (raises otherwise)
     runs = await ar_svc.list_for_agent(slug, limit)
     return [AutorespondRunOut.model_validate(r) for r in runs]
+
+
+@router.get("/{slug}/approvals", response_model=list[ApprovalOut])
+async def list_approvals(
+    slug: str,
+    status: str | None = Query(default=None, pattern=r"^(pending|approved|rejected|edited)$"),
+    limit: int = Query(default=50, ge=1, le=100),
+    user: User = Depends(get_current_user),
+    svc: ApprovalService = Depends(get_approval_service),
+) -> list[ApprovalOut]:
+    # ApprovalService enforces owner/admin authz on the agent.
+    items = await svc.list_for_agent(user, slug, status=status, limit=limit)
+    return [ApprovalOut.model_validate(a) for a in items]
 
 
 @router.post("/{slug}/keys", response_model=AgentKeyCreated, status_code=201)

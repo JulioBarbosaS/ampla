@@ -17,6 +17,7 @@ from pydantic import ValidationError
 
 from app.api.deps import (
     build_agent_service,
+    build_approval_service,
     build_auth_service,
     build_autorespond_service,
     build_group_service,
@@ -30,6 +31,7 @@ from app.schemas.ws import (
     AckFrame,
     ActivityFrame,
     AgentActivityFrame,
+    ApprovalRequestFrame,
     AutorespondReportFrame,
     BroadcastResultFrame,
     DeliveredFrame,
@@ -217,6 +219,12 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
                 await _handle_autorespond_report(ws, slug, frame)
                 continue
 
+            # approval request: the agent drafted a reply but require_approval is
+            # on. Persist it under the authenticated slug + notify the owner.
+            if isinstance(frame, ApprovalRequestFrame):
+                await _handle_approval_request(ws, slug, frame)
+                continue
+
             if not isinstance(frame, SendMessageFrame):
                 await _send_error(ws, "bad_frame", "Frame inesperado.")
                 continue
@@ -314,6 +322,21 @@ async def _handle_autorespond_report(
     async def _persist():
         async with session_factory() as session:
             await build_autorespond_service(session).record_run(slug, frame.record)
+
+    await asyncio.shield(_persist())
+
+
+async def _handle_approval_request(ws: WebSocket, slug: str, frame: ApprovalRequestFrame) -> None:
+    """Persists a pending approval under the authenticated agent and notifies its
+    owner. Shielded so a mid-write disconnect doesn't half-apply the row."""
+    state = ws.app.state
+    session_factory = state.session_factory
+
+    async def _persist():
+        async with session_factory() as session:
+            await build_approval_service(session, state.settings, state.manager).create_request(
+                slug, frame.to, frame.draft_body, frame.trigger_message_id
+            )
 
     await asyncio.shield(_persist())
 

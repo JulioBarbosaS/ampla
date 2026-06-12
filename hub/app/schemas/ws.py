@@ -87,8 +87,28 @@ class AutorespondReportFrame(BaseModel):
     record: AutorespondRecord
 
 
+class ApprovalRequestFrame(BaseModel):
+    """Daemon→hub: the auto-responder drafted a reply but the agent has
+    require_approval on, so it asks the owner instead of sending (Epic 03 · 3.3).
+
+    No agent_id — the hub attributes it to the socket's AUTHENTICATED agent
+    (anti-spoof, like the autorespond report). The draft is already secret-filter
+    clean (the daemon scans before drafting); the hub stores it as plain text."""
+
+    type: Literal["approval_request"] = "approval_request"
+    trigger_message_id: int | None = None
+    to: str = Field(max_length=60)
+    draft_body: str = Field(min_length=1, max_length=16384)
+
+
 ClientFrame = Annotated[
-    HelloFrame | SendMessageFrame | AckFrame | PongFrame | ActivityFrame | AutorespondReportFrame,
+    HelloFrame
+    | SendMessageFrame
+    | AckFrame
+    | PongFrame
+    | ActivityFrame
+    | AutorespondReportFrame
+    | ApprovalRequestFrame,
     Field(discriminator="type"),
 ]
 client_frame_adapter: TypeAdapter[ClientFrame] = TypeAdapter(ClientFrame)
