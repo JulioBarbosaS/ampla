@@ -114,6 +114,22 @@ export class HubClient extends EventEmitter<HubClientEvents> {
     return true;
   }
 
+  /** Requests the owner's approval for a drafted auto-reply instead of sending
+   * it (Epic 03 · 3.3). The hub persists it under the authenticated agent and
+   * notifies the owner; on approval the hub sends server-side. */
+  sendApprovalRequest(triggerMessageId: number | null, to: string, draftBody: string): boolean {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const frame: ClientFrame = {
+      type: "approval_request",
+      trigger_message_id: triggerMessageId,
+      to,
+      draft_body: draftBody,
+    };
+    ws.send(JSON.stringify(frame));
+    return true;
+  }
+
   /** Confirms receipt of a message (at-least-once): the hub only marks it
    * `delivered` and notifies the sender after this ack. Always ack — even a
    * deduplicated message — otherwise the hub resends it on every reconnect. */

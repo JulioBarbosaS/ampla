@@ -180,8 +180,9 @@ export function createDaemon(
       if (signalsActivity) hub.sendActivity("idle");
     }
     // Transcript (Epic 03 · 3.1): report every genuine auto-respond attempt
-    // (mode=auto). Inbox-mode skips aren't runs, so they're not recorded.
-    if (settings.mode === "auto") {
+    // (mode=auto). Inbox-mode skips aren't runs; a needs_approval draft is
+    // audited as a pending approval (3.3), not as a transcript row.
+    if (settings.mode === "auto" && result.kind !== "needs_approval") {
       reportRun(message, settings, result, Date.now() - startedAt);
     }
     const replyOpts = {
@@ -220,6 +221,14 @@ export function createDaemon(
         );
         console.error(`[amp] resposta bloqueada (${result.reason}) — mensagem de ${message.from}`);
         break;
+      case "needs_approval":
+        // Don't send: ask the owner. The hub persists the pending approval,
+        // notifies the owner, and sends server-side once approved (3.3).
+        hub.sendApprovalRequest(message.id, message.from, result.draft);
+        console.error(
+          `[amp] resposta rascunhada aguardando aprovação do dono — mensagem de ${message.from}`,
+        );
+        break;
       case "failed":
         console.error(`[amp] auto-respond falhou (${result.reason}) — mensagem segue na inbox`);
         break;
@@ -234,7 +243,9 @@ export function createDaemon(
   function reportRun(
     message: WireMessage,
     settings: NonNullable<typeof hub.settings>,
-    result: Awaited<ReturnType<typeof responder.handle>>,
+    // needs_approval drafts are audited as approvals (3.3), never as transcript
+    // rows — the caller guards this, so the record's result enum stays exact.
+    result: Exclude<Awaited<ReturnType<typeof responder.handle>>, { kind: "needs_approval" }>,
     durationMs: number,
   ): void {
     const guardrails = buildGuardrails(settings, message.from);

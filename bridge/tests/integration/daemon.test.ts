@@ -95,6 +95,25 @@ describe("daemon ↔ hub", () => {
     expect(d.store.conversation("mobile-eduardo").some((m) => m.direction === "out")).toBe(true);
   });
 
+  it("requests approval instead of sending when require_approval is on", async () => {
+    const runner = vi.fn().mockResolvedValue("Sim: POST /api/v1/auth/password-reset");
+    hub.settings = { ...hub.settings, mode: "auto", require_approval: true };
+    await startDaemon(runner);
+
+    hub.pushMessage(AGENT, wireMessage(30, "mobile-eduardo", AGENT, "Existe endpoint de reset?"));
+    await waitFor(
+      () => hub.received.some((f) => f.type === "approval_request"),
+      5000,
+      "pedido de aprovação",
+    );
+    const req = hub.received.find((f) => f.type === "approval_request")!;
+    expect(req.to).toBe("mobile-eduardo");
+    expect(req.draft_body).toBe("Sim: POST /api/v1/auth/password-reset");
+    expect(req.trigger_message_id).toBe(30);
+    // the reply is NOT sent — it awaits the owner's decision
+    expect(hub.sentMessages()).toHaveLength(0);
+  });
+
   it("signals 'responding' then 'idle' around an auto-respond run", async () => {
     const runner = vi.fn().mockResolvedValue("resposta");
     hub.settings = { ...hub.settings, mode: "auto" };

@@ -120,6 +120,7 @@ export function buildGuardrails(settings: AgentSettings, sender: string): Guardr
 
 export type AutoRespondResult =
   | { kind: "replied"; reply: string; usage?: UsageDelta | null }
+  | { kind: "needs_approval"; draft: string; usage?: UsageDelta | null }
   | { kind: "skipped"; reason: "mode_inbox" | "rate_limited" | "budget_exceeded" }
   | { kind: "blocked"; reason: string; usage?: UsageDelta | null }
   | { kind: "failed"; reason: string };
@@ -444,6 +445,11 @@ export class AutoResponder {
         reason: `filtro de segredos: ${scan.matches.join(", ")}`,
         ...usagePatch,
       };
+    }
+    // Human-in-the-loop (Epic 03 · 3.3): the draft is clean, but require_approval
+    // means the owner decides before it goes out — draft, don't send.
+    if (settings.require_approval) {
+      return { kind: "needs_approval", draft: parsed.text, ...usagePatch };
     }
     return { kind: "replied", reply: parsed.text, ...usagePatch };
   }

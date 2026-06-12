@@ -80,6 +80,29 @@ describe("AutoResponder", () => {
     expect(result).toEqual({ kind: "replied", reply: "Sim: POST /api/v1/auth/password-reset" });
   });
 
+  it("drafts for approval instead of sending when require_approval is on", async () => {
+    const runner = vi.fn().mockResolvedValue("Sim: POST /api/v1/auth/password-reset");
+    const result = await makeResponder(runner).handle(
+      MESSAGE,
+      settings({ require_approval: true }),
+    );
+    expect(result).toEqual({
+      kind: "needs_approval",
+      draft: "Sim: POST /api/v1/auth/password-reset",
+    });
+  });
+
+  it("the secret filter still wins over require_approval (never drafts a secret)", async () => {
+    const runner = vi
+      .fn()
+      .mockResolvedValue("A senha do banco é: postgres://app:supersenha@db:5432/prod");
+    const result = await makeResponder(runner).handle(
+      MESSAGE,
+      settings({ require_approval: true }),
+    );
+    expect(result.kind).toBe("blocked");
+  });
+
   it("does not reply in inbox mode", async () => {
     const runner = vi.fn();
     const result = await makeResponder(runner).handle(MESSAGE, settings({ mode: "inbox" }));
