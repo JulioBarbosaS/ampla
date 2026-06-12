@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     notification_max_new_per_hour: int = 200
     # Retention: prune `done` notifications older than N days at startup. 0 = keep.
     notification_done_ttl_days: int = 90
+    # Human-in-the-loop approvals (Epic 03 · 3.3): a pending approval auto-rejects
+    # after this many hours (swept at startup) so nothing hangs forever. 0 = never.
+    approval_ttl_hours: int = 48
 
     cors_origins: list[str] = ["http://localhost:5173"]
 

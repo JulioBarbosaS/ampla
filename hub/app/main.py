@@ -11,11 +11,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from app.api.deps import build_notification_service
+from app.api.deps import build_approval_service, build_notification_service
 from app.api.errors import register_error_handlers
 from app.api.routes import (
     admin,
     agents,
+    approvals,
     auth,
     groups,
     invites,
@@ -67,6 +68,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     logger.info("retention: pruned %s done notifications", pruned)
             except Exception:
                 logger.warning("notification retention prune failed", exc_info=True)
+            # Auto-reject approvals left pending past the TTL (best-effort).
+            try:
+                expired = await build_approval_service(session, settings).expire_pending(
+                    settings.approval_ttl_hours
+                )
+                if expired:
+                    logger.info("expired %s stale pending approvals", expired)
+            except Exception:
+                logger.warning("approval expiry sweep failed", exc_info=True)
         yield
         await engine.dispose()
 
@@ -115,6 +125,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(messages.router)
     app.include_router(admin.router)
     app.include_router(notifications.router)
+    app.include_router(approvals.router)
     app.include_router(ws.router)
 
     @app.get("/api/health", tags=["health"])

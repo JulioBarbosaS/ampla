@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.cookies import SESSION_COOKIE
+from app.models.message import Message
 from app.models.user import User
 from app.repositories.agent_repo import AgentRepository
 from app.repositories.approval_repo import ApprovalRepository
@@ -22,6 +23,7 @@ from app.repositories.invite_repo import InviteRepository
 from app.repositories.message_repo import MessageRepository
 from app.repositories.notification_repo import NotificationRepository
 from app.repositories.user_repo import UserRepository
+from app.schemas.message import MessageOut
 from app.services.admin_service import AdminService
 from app.services.agent_service import AgentService
 from app.services.approval_service import ApprovalService
@@ -107,12 +109,36 @@ def build_autorespond_service(session: AsyncSession) -> AutorespondService:
     return AutorespondService(runs=AutorespondRunRepository(session))
 
 
+def _approval_sender(session: AsyncSession, settings, manager):
+    """Sends the approved reply AS the agent and delivers it — the same
+    persist + real-time push the REST /api/messages path uses. Keeps
+    ApprovalService free of any transport import."""
+    messages = build_message_service(session, settings, manager)
+
+    async def send_and_deliver(
+        from_slug: str, to_slug: str, body: str, in_reply_to: int | None
+    ) -> Message:
+        msg = await messages.send(
+            from_slug, to_slug, body, type="response", in_reply_to=in_reply_to
+        )
+        if manager is not None:
+            out = MessageOut.model_validate(msg)
+            frame = {"type": "message", "message": out.model_dump(mode="json", by_alias=True)}
+            if await manager.send_to_agent(to_slug, frame):
+                await messages.mark_delivered([msg.id])
+            await manager.notify_message(frame, from_slug, to_slug)
+        return msg
+
+    return send_and_deliver
+
+
 def build_approval_service(session: AsyncSession, settings, manager=None) -> ApprovalService:
     return ApprovalService(
         approvals=ApprovalRepository(session),
         agents=AgentRepository(session),
         audit=AuditRepository(session),
         notifications=build_notification_service(session, settings, manager),
+        sender=_approval_sender(session, settings, manager),
     )
 
 

@@ -424,6 +424,34 @@
         "title": "AgentSettingsUpdate",
         "type": "object"
       },
+      "ApprovalDecision": {
+        "description": "Owner's call on a pending approval. `approve` sends the draft as the\nagent; pass `body` to edit before sending (status becomes `edited`).",
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "maxLength": 16384,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "decision": {
+            "pattern": "^(approve|reject)$",
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "ApprovalDecision",
+        "type": "object"
+      },
       "ApprovalOut": {
         "properties": {
           "agent_slug": {
@@ -2263,6 +2291,63 @@
         "summary": "Update Settings",
         "tags": [
           "agents"
+        ]
+      }
+    },
+    "/api/approvals/{approval_id}/decision": {
+      "post": {
+        "operationId": "decide_api_approvals__approval_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "required": true,
+            "schema": {
+              "title": "Approval Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decide",
+        "tags": [
+          "approvals"
         ]
       }
     },
