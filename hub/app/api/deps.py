@@ -79,6 +79,7 @@ def _notification_publisher(manager):
 def build_notification_service(session: AsyncSession, manager=None) -> NotificationService:
     return NotificationService(
         notifications=NotificationRepository(session),
+        users=UserRepository(session),
         publisher=_notification_publisher(manager) if manager is not None else None,
     )
 
@@ -122,9 +123,7 @@ def get_group_service(session: AsyncSession = Depends(get_session)) -> GroupServ
 def get_message_service(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> MessageService:
-    return build_message_service(
-        session, request.app.state.settings, request.app.state.manager
-    )
+    return build_message_service(session, request.app.state.settings, request.app.state.manager)
 
 
 def get_admin_service(session: AsyncSession = Depends(get_session)) -> AdminService:

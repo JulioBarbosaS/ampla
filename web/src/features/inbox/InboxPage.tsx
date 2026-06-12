@@ -2,8 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FormError } from "../../components/forms";
 import { notificationsApi } from "../../lib/api/notifications";
-import type { AppNotification, NotificationStatus } from "../../lib/api/types";
+import type { AppNotification, NotificationStatus, NotifyLevel } from "../../lib/api/types";
 import { useInboxStore } from "../../stores/inbox";
+
+/** Delivery gate options (pt-BR for the operator). */
+const NOTIFY_LEVELS: { value: NotifyLevel; label: string }[] = [
+  { value: "all", label: "Tudo" },
+  { value: "mentions_and_direct", label: "Menções e diretos" },
+  { value: "mute", label: "Silenciar" },
+];
 
 /** Reason → chip. Plain, glanceable; an audit/triage surface. */
 const REASON_CHIP: Record<string, { label: string; cls: string }> = {
@@ -106,6 +113,7 @@ export function InboxPage() {
   const navigate = useNavigate();
   const { items, setItems, setUnreadCount } = useInboxStore();
   const [view, setView] = useState<NotificationStatus>("inbox");
+  const [notifyLevel, setNotifyLevel] = useState<NotifyLevel>("mentions_and_direct");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -124,6 +132,23 @@ export function InboxPage() {
   );
 
   useEffect(() => reload(view), [view, reload]);
+
+  useEffect(() => {
+    notificationsApi
+      .getPrefs()
+      .then((p) => setNotifyLevel(p.notify_level))
+      .catch(() => {});
+  }, []);
+
+  async function changeLevel(level: NotifyLevel) {
+    setNotifyLevel(level); // optimistic
+    setError(null);
+    try {
+      await notificationsApi.setPrefs(level);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao salvar preferência.");
+    }
+  }
 
   async function triage(
     n: AppNotification,
@@ -170,10 +195,25 @@ export function InboxPage() {
             {v.label}
           </button>
         ))}
+        <label className="ml-auto flex items-center gap-1.5 text-xs text-zinc-500">
+          Notificar:
+          <select
+            aria-label="Nível de notificação"
+            value={notifyLevel}
+            onChange={(e) => changeLevel(e.target.value as NotifyLevel)}
+            className="rounded-md border border-zinc-700 bg-zinc-900 px-1.5 py-1 text-xs text-zinc-200"
+          >
+            {NOTIFY_LEVELS.map((l) => (
+              <option key={l.value} value={l.value}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           type="button"
           onClick={readAll}
-          className="ml-auto rounded-md px-2.5 py-1.5 text-xs text-zinc-400 hover:text-zinc-50"
+          className="rounded-md px-2.5 py-1.5 text-xs text-zinc-400 hover:text-zinc-50"
         >
           Marcar todas como lidas
         </button>

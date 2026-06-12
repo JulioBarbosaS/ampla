@@ -25,6 +25,10 @@ REASONS = frozenset(
 
 STATUSES = ("inbox", "saved", "done")
 
+# Coarse delivery gate (the GitHub repo-watch analog). `mute` lets only the
+# always-deliver reasons through; `mentions_and_direct` is the safe default.
+NOTIFY_LEVELS = ("all", "mentions_and_direct", "mute")
+
 
 class NotificationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -53,3 +57,13 @@ class NotificationPatch(BaseModel):
 
 class UnreadCount(BaseModel):
     unread_count: int
+
+
+class NotificationPrefs(BaseModel):
+    """The user's coarse delivery preference (notify_level)."""
+
+    notify_level: str
+
+
+class NotificationPrefsPatch(BaseModel):
+    notify_level: str = Field(pattern=r"^(all|mentions_and_direct|mute)$")

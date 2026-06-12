@@ -52,6 +52,13 @@ export interface KillSwitchState {
 
 export type NotificationStatus = "inbox" | "saved" | "done";
 
+/** Coarse delivery gate (the GitHub repo-watch analog). */
+export type NotifyLevel = "all" | "mentions_and_direct" | "mute";
+
+export interface NotificationPrefs {
+  notify_level: NotifyLevel;
+}
+
 export interface AppNotification {
   id: number;
   subject_type: string;

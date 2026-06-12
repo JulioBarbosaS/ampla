@@ -10,8 +10,9 @@ from collections.abc import Awaitable, Callable
 from app.models.notification import Notification
 from app.models.user import User, utcnow
 from app.repositories.notification_repo import NotificationRepository
-from app.schemas.notification import NotificationOut
-from app.services.errors import NotFoundError
+from app.repositories.user_repo import UserRepository
+from app.schemas.notification import NOTIFY_LEVELS, NotificationOut
+from app.services.errors import InvalidInputError, NotFoundError
 
 # Push sink for real-time deltas (Epic 02 · slice b). The composition root wires
 # this to the connection manager; the service stays free of transport imports
@@ -44,14 +45,42 @@ _HIGH_SIGNAL = frozenset(
 
 MAX_LIMIT = 100
 
+DEFAULT_NOTIFY_LEVEL = "mentions_and_direct"
+
+# Always delivered, regardless of the recipient's notify_level (a muted inbox
+# must still surface a direct @mention, a pending approval, or a security
+# alert — silencing those would be a safety hole, not a convenience).
+_ALWAYS_DELIVER = frozenset({"mention", "approval_requested", "security_alert"})
+# The `mentions_and_direct` default adds direct/assigned/escalation on top.
+_DELIVER_AT_DEFAULT = _ALWAYS_DELIVER | {
+    "team_mention",
+    "direct_message",
+    "task_assigned",
+    "escalation",
+}
+
+
+def should_deliver(notify_level: str, reason: str) -> bool:
+    """The coarse delivery gate (Epic 02 · anti-spam). `all` delivers
+    everything; `mute` lets only always-deliver reasons through;
+    `mentions_and_direct` (and any unknown value — fail-safe) delivers direct
+    activity and mentions but filters broadcast/auto-respond noise."""
+    if notify_level == "all":
+        return True
+    if notify_level == "mute":
+        return reason in _ALWAYS_DELIVER
+    return reason in _DELIVER_AT_DEFAULT
+
 
 class NotificationService:
     def __init__(
         self,
         notifications: NotificationRepository,
+        users: UserRepository | None = None,
         publisher: NotificationPublisher | None = None,
     ) -> None:
         self._notifications = notifications
+        self._users = users
         self._publisher = publisher
 
     async def _publish(self, notification: Notification) -> None:
@@ -76,8 +105,16 @@ class NotificationService:
         actor: str = "",
         agent_slug: str | None = None,
     ) -> Notification | None:
-        """Creates or collapses a notification. Returns the row, or None when a
-        low-signal event hit a `done` thread (no resurface)."""
+        """Creates or collapses a notification. Returns the row, or None when the
+        delivery gate filters it out / a low-signal event hit a `done` thread."""
+        # Delivery gate: respect the recipient's notify_level (always-deliver
+        # reasons bypass it). A missing user fails safe to the default policy.
+        if self._users is not None:
+            recipient = await self._users.get_by_id(user_id)
+            level = recipient.notify_level if recipient else DEFAULT_NOTIFY_LEVEL
+            if not should_deliver(level, reason):
+                return None
+
         existing = await self._notifications.get_by_subject(user_id, subject_key)
         if existing is None:
             created = await self._notifications.add(
@@ -138,6 +175,19 @@ class NotificationService:
 
     async def mark_all_read(self, user: User) -> None:
         await self._notifications.mark_all_read(user.id)
+
+    def get_prefs(self, user: User) -> str:
+        """The user's coarse delivery preference (already loaded on `user`)."""
+        return user.notify_level
+
+    async def set_prefs(self, user: User, notify_level: str) -> str:
+        if notify_level not in NOTIFY_LEVELS:
+            raise InvalidInputError("Nível de notificação inválido.")
+        if self._users is None:  # pragma: no cover — always wired via deps
+            raise InvalidInputError("Preferências indisponíveis.")
+        user.notify_level = notify_level
+        await self._users.save(user)
+        return user.notify_level
 
     async def _owned(self, user: User, notification_id: int) -> Notification:
         notification = await self._notifications.get(notification_id)

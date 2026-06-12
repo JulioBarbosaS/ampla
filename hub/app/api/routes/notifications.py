@@ -4,7 +4,13 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.api.deps import get_current_user, get_notification_service
 from app.models.user import User
-from app.schemas.notification import NotificationOut, NotificationPatch, UnreadCount
+from app.schemas.notification import (
+    NotificationOut,
+    NotificationPatch,
+    NotificationPrefs,
+    NotificationPrefsPatch,
+    UnreadCount,
+)
 from app.schemas.ws import NotificationReadFrame
 from app.services.notification_service import NotificationService
 
@@ -45,6 +51,25 @@ async def read_all(
     frame = NotificationReadFrame(ids="all", unread_count=0)
     await request.app.state.manager.notify_user(user.id, frame.model_dump(mode="json"))
     return UnreadCount(unread_count=0)
+
+
+# Declared before /{notification_id} so "prefs" never tries to match the int
+# path param (it would 422 instead of falling through).
+@router.get("/prefs", response_model=NotificationPrefs)
+async def get_prefs(
+    user: User = Depends(get_current_user),
+    svc: NotificationService = Depends(get_notification_service),
+) -> NotificationPrefs:
+    return NotificationPrefs(notify_level=svc.get_prefs(user))
+
+
+@router.patch("/prefs", response_model=NotificationPrefs)
+async def set_prefs(
+    body: NotificationPrefsPatch,
+    user: User = Depends(get_current_user),
+    svc: NotificationService = Depends(get_notification_service),
+) -> NotificationPrefs:
+    return NotificationPrefs(notify_level=await svc.set_prefs(user, body.notify_level))
 
 
 @router.patch("/{notification_id}", response_model=NotificationOut)

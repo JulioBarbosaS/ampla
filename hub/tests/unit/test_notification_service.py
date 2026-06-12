@@ -2,9 +2,9 @@ import pytest
 
 from app.core.mentions import parse_mentions
 from app.models.user import User
-from app.services.errors import NotFoundError
-from app.services.notification_service import NotificationService
-from tests.unit.fakes import FakeNotificationRepository
+from app.services.errors import InvalidInputError, NotFoundError
+from app.services.notification_service import NotificationService, should_deliver
+from tests.unit.fakes import FakeNotificationRepository, FakeUserRepository
 
 
 def make_user(user_id: int) -> User:
@@ -91,6 +91,61 @@ class TestReadAndIsolation:
         await _notify(service, 1, subject_key="thread:1")
         await _notify(service, 2, subject_key="thread:1")
         assert len(await service.list(make_user(1))) == 1
+
+
+class TestDeliveryGate:
+    def test_should_deliver_matrix(self):
+        # `all` lets everything through
+        assert should_deliver("all", "broadcast") is True
+        assert should_deliver("all", "system") is True
+        # the default delivers direct activity + mentions, filters the rest
+        assert should_deliver("mentions_and_direct", "direct_message") is True
+        assert should_deliver("mentions_and_direct", "mention") is True
+        assert should_deliver("mentions_and_direct", "task_assigned") is True
+        assert should_deliver("mentions_and_direct", "broadcast") is False
+        assert should_deliver("mentions_and_direct", "autorespond_completed") is False
+        # `mute` lets only the always-deliver reasons through
+        assert should_deliver("mute", "direct_message") is False
+        assert should_deliver("mute", "broadcast") is False
+        assert should_deliver("mute", "mention") is True
+        assert should_deliver("mute", "approval_requested") is True
+        assert should_deliver("mute", "security_alert") is True
+        # an unknown level fails safe to the default policy
+        assert should_deliver("bogus", "direct_message") is True
+        assert should_deliver("bogus", "broadcast") is False
+
+    async def test_notify_respects_recipient_level(self):
+        notifications = FakeNotificationRepository()
+        users = FakeUserRepository()
+        muted = User(email="m@amp.local", name="M", password_hash="x")
+        muted.notify_level = "mute"
+        await users.add(muted)
+        service = NotificationService(notifications=notifications, users=users)
+
+        suppressed = await service.notify(
+            muted.id, subject_type="dm", subject_key="dm:a:b", reason="direct_message", title="t"
+        )
+        assert suppressed is None  # a DM is gated out for a muted recipient
+        assert await service.unread_count(muted) == 0
+
+        delivered = await service.notify(
+            muted.id, subject_type="mention", subject_key="dm:a:c", reason="mention", title="t"
+        )
+        assert delivered is not None  # a mention always lands
+        assert await service.unread_count(muted) == 1
+
+    async def test_get_and_set_prefs(self):
+        notifications = FakeNotificationRepository()
+        users = FakeUserRepository()
+        user = User(email="p@amp.local", name="P", password_hash="x")
+        await users.add(user)
+        service = NotificationService(notifications=notifications, users=users)
+
+        assert service.get_prefs(user) == "mentions_and_direct"  # default
+        assert await service.set_prefs(user, "mute") == "mute"
+        assert service.get_prefs(user) == "mute"
+        with pytest.raises(InvalidInputError):
+            await service.set_prefs(user, "loud")
 
 
 class TestMentionParser:

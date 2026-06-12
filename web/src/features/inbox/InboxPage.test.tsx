@@ -13,7 +13,14 @@ vi.mock("react-router-dom", async (orig) => ({
 }));
 
 vi.mock("../../lib/api/notifications", () => ({
-  notificationsApi: { list: vi.fn(), unreadCount: vi.fn(), triage: vi.fn(), readAll: vi.fn() },
+  notificationsApi: {
+    list: vi.fn(),
+    unreadCount: vi.fn(),
+    triage: vi.fn(),
+    readAll: vi.fn(),
+    getPrefs: vi.fn(),
+    setPrefs: vi.fn(),
+  },
 }));
 
 import { notificationsApi } from "../../lib/api/notifications";
@@ -44,6 +51,8 @@ beforeEach(() => {
   vi.mocked(notificationsApi.unreadCount).mockResolvedValue({ unread_count: 1 });
   vi.mocked(notificationsApi.triage).mockResolvedValue(notif({ unread: false }));
   vi.mocked(notificationsApi.readAll).mockResolvedValue({ unread_count: 0 });
+  vi.mocked(notificationsApi.getPrefs).mockResolvedValue({ notify_level: "mentions_and_direct" });
+  vi.mocked(notificationsApi.setPrefs).mockResolvedValue({ notify_level: "mute" });
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -91,6 +100,15 @@ describe("InboxPage", () => {
     await screen.findByText(/enviou uma mensagem/);
     await userEvent.click(screen.getByRole("button", { name: "Marcar todas como lidas" }));
     expect(notificationsApi.readAll).toHaveBeenCalled();
+  });
+
+  it("loads the delivery level and changes it via prefs", async () => {
+    renderInbox();
+    await screen.findByText(/enviou uma mensagem/);
+    const select = screen.getByLabelText("Nível de notificação") as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe("mentions_and_direct"));
+    await userEvent.selectOptions(select, "mute");
+    expect(notificationsApi.setPrefs).toHaveBeenCalledWith("mute");
   });
 
   it("shows the inbox-zero empty state", async () => {

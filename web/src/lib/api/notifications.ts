@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { AppNotification, NotificationStatus } from "./types";
+import type { AppNotification, NotificationPrefs, NotificationStatus, NotifyLevel } from "./types";
 
 export interface NotificationPatch {
   unread?: boolean;
@@ -13,4 +13,7 @@ export const notificationsApi = {
   triage: (id: number, patch: NotificationPatch) =>
     api.patch<AppNotification>(`/api/notifications/${id}`, patch),
   readAll: () => api.post<{ unread_count: number }>("/api/notifications/read-all", {}),
+  getPrefs: () => api.get<NotificationPrefs>("/api/notifications/prefs"),
+  setPrefs: (notify_level: NotifyLevel) =>
+    api.patch<NotificationPrefs>("/api/notifications/prefs", { notify_level }),
 };

@@ -1129,6 +1129,34 @@
         "title": "NotificationPatch",
         "type": "object"
       },
+      "NotificationPrefs": {
+        "description": "The user's coarse delivery preference (notify_level).",
+        "properties": {
+          "notify_level": {
+            "title": "Notify Level",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notify_level"
+        ],
+        "title": "NotificationPrefs",
+        "type": "object"
+      },
+      "NotificationPrefsPatch": {
+        "properties": {
+          "notify_level": {
+            "pattern": "^(all|mentions_and_direct|mute)$",
+            "title": "Notify Level",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notify_level"
+        ],
+        "title": "NotificationPrefsPatch",
+        "type": "object"
+      },
       "PasswordChange": {
         "properties": {
           "current_password": {
@@ -3037,6 +3065,76 @@
           }
         ],
         "summary": "List Notifications",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/notifications/prefs": {
+      "get": {
+        "operationId": "get_prefs_api_notifications_prefs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPrefs"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Prefs",
+        "tags": [
+          "notifications"
+        ]
+      },
+      "patch": {
+        "operationId": "set_prefs_api_notifications_prefs_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPrefsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPrefs"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Prefs",
         "tags": [
           "notifications"
         ]

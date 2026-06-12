@@ -18,6 +18,8 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(120))
     password_hash: Mapped[str] = mapped_column(String(120))
     role: Mapped[str] = mapped_column(String(10), default="member")  # admin | member
+    # Notification delivery gate (Epic 02 · anti-spam): all | mentions_and_direct | mute.
+    notify_level: Mapped[str] = mapped_column(String(16), default="mentions_and_direct")
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     # Incremental lockout (Threat 2): consecutive failed attempts and the block

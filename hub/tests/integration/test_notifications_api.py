@@ -145,6 +145,44 @@ class TestTriageAndIsolation:
             "unread_count": 1
         }
 
+
+class TestPrefsAndDeliveryGate:
+    def test_prefs_default_then_patch_roundtrips(self, client):
+        token = do_setup(client)
+        assert client.get("/api/notifications/prefs", headers=auth(token)).json() == {
+            "notify_level": "mentions_and_direct"
+        }
+        patched = client.patch(
+            "/api/notifications/prefs", json={"notify_level": "mute"}, headers=auth(token)
+        )
+        assert patched.json() == {"notify_level": "mute"}
+        assert client.get("/api/notifications/prefs", headers=auth(token)).json() == {
+            "notify_level": "mute"
+        }
+
+    def test_prefs_rejects_an_invalid_level(self, client):
+        token = do_setup(client)
+        resp = client.patch(
+            "/api/notifications/prefs", json={"notify_level": "loud"}, headers=auth(token)
+        )
+        assert resp.status_code == 422
+
+    def test_mute_suppresses_a_dm_but_a_mention_still_lands(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")
+        create_agent(client, token, "mobile-eduardo")
+        create_agent(client, token, "frontend-ze")
+        client.patch("/api/notifications/prefs", json={"notify_level": "mute"}, headers=auth(token))
+        # a plain DM to my agent is gated out while muted
+        _send(client, token, "mobile-eduardo", "backend-julio", "oi")
+        assert client.get("/api/notifications/unread-count", headers=auth(token)).json() == {
+            "unread_count": 0
+        }
+        # the DM to frontend-ze is suppressed too, but the @mention always lands
+        _send(client, token, "mobile-eduardo", "frontend-ze", "ei @backend-julio")
+        items = client.get("/api/notifications", headers=auth(token)).json()
+        assert [n["reason"] for n in items] == ["mention"]
+
     def test_cross_user_patch_is_404(self, client):
         admin = do_setup(client)
         member = register_member(client, admin)

@@ -91,6 +91,7 @@ class FakeUserRepository:
         self._seq += 1
         user.id = self._seq
         _default(user, "role", "member")
+        _default(user, "notify_level", "mentions_and_direct")
         _default(user, "failed_logins", 0)
         _default(user, "created_at", utcnow())
         self._users[user.id] = user
