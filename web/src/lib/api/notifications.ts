@@ -6,9 +6,20 @@ export interface NotificationPatch {
   status?: NotificationStatus;
 }
 
+/** Canned-view filter (server-side query). Built-in views map onto these. */
+export interface NotificationFilter {
+  status?: NotificationStatus;
+  reason?: string;
+}
+
 export const notificationsApi = {
-  list: (status?: NotificationStatus) =>
-    api.get<AppNotification[]>(`/api/notifications${status ? `?status=${status}` : ""}`),
+  list: (filter?: NotificationFilter) => {
+    const params = new URLSearchParams();
+    if (filter?.status) params.set("status", filter.status);
+    if (filter?.reason) params.set("reason", filter.reason);
+    const qs = params.toString();
+    return api.get<AppNotification[]>(`/api/notifications${qs ? `?${qs}` : ""}`);
+  },
   unreadCount: () => api.get<{ unread_count: number }>("/api/notifications/unread-count"),
   triage: (id: number, patch: NotificationPatch) =>
     api.patch<AppNotification>(`/api/notifications/${id}`, patch),

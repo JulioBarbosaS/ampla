@@ -23,11 +23,25 @@ const REASON_CHIP: Record<string, { label: string; cls: string }> = {
   autorespond_blocked: { label: "auto bloqueada", cls: "bg-red-900/50 text-red-300" },
 };
 
-const VIEWS: { key: NotificationStatus; label: string }[] = [
-  { key: "inbox", label: "Inbox" },
-  { key: "saved", label: "Salvos" },
-  { key: "done", label: "Concluídos" },
+/** Built-in views: triage states + canned reason filters (the server already
+ * accepts `?status=`/`?reason=`). */
+type InboxView = {
+  key: string;
+  label: string;
+  filter: { status?: NotificationStatus; reason?: string };
+};
+
+const VIEWS: InboxView[] = [
+  { key: "inbox", label: "Inbox", filter: { status: "inbox" } },
+  { key: "saved", label: "Salvos", filter: { status: "saved" } },
+  { key: "done", label: "Concluídos", filter: { status: "done" } },
+  { key: "mentions", label: "Menções", filter: { reason: "mention" } },
+  { key: "approvals", label: "Aprovações", filter: { reason: "approval_requested" } },
+  { key: "tasks", label: "Tarefas", filter: { reason: "task_assigned" } },
 ];
+
+const filterOf = (key: string): InboxView["filter"] =>
+  (VIEWS.find((v) => v.key === key) ?? VIEWS[0]).filter;
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -112,15 +126,15 @@ export function NotificationRow({
 export function InboxPage() {
   const navigate = useNavigate();
   const { items, setItems, setUnreadCount } = useInboxStore();
-  const [view, setView] = useState<NotificationStatus>("inbox");
+  const [viewKey, setViewKey] = useState<string>("inbox");
   const [notifyLevel, setNotifyLevel] = useState<NotifyLevel>("mentions_and_direct");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(
-    (status: NotificationStatus) => {
+    (filter: InboxView["filter"]) => {
       setLoading(true);
-      Promise.all([notificationsApi.list(status), notificationsApi.unreadCount()])
+      Promise.all([notificationsApi.list(filter), notificationsApi.unreadCount()])
         .then(([list, count]) => {
           setItems(list);
           setUnreadCount(count.unread_count);
@@ -131,7 +145,7 @@ export function InboxPage() {
     [setItems, setUnreadCount],
   );
 
-  useEffect(() => reload(view), [view, reload]);
+  useEffect(() => reload(filterOf(viewKey)), [viewKey, reload]);
 
   useEffect(() => {
     notificationsApi
@@ -157,7 +171,7 @@ export function InboxPage() {
     setError(null);
     try {
       await notificationsApi.triage(n.id, patch);
-      reload(view); // re-sync list (item may leave the current view) + badge
+      reload(filterOf(viewKey)); // re-sync list (item may leave the current view) + badge
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao atualizar.");
     }
@@ -172,7 +186,7 @@ export function InboxPage() {
     setError(null);
     try {
       await notificationsApi.readAll();
-      reload(view);
+      reload(filterOf(viewKey));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao marcar como lidas.");
     }
@@ -182,14 +196,14 @@ export function InboxPage() {
     <div className="mx-auto h-full max-w-3xl space-y-4 overflow-y-auto px-4 py-6">
       <h1 className="text-lg font-semibold text-zinc-100">Inbox</h1>
       <FormError message={error} />
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1 gap-y-2">
         {VIEWS.map((v) => (
           <button
             key={v.key}
             type="button"
-            onClick={() => setView(v.key)}
+            onClick={() => setViewKey(v.key)}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              view === v.key ? "bg-zinc-800 text-zinc-50" : "text-zinc-400 hover:text-zinc-50"
+              viewKey === v.key ? "bg-zinc-800 text-zinc-50" : "text-zinc-400 hover:text-zinc-50"
             }`}
           >
             {v.label}

@@ -70,14 +70,21 @@ describe("InboxPage", () => {
     renderInbox();
     expect(await screen.findByText(/enviou uma mensagem/)).toBeInTheDocument();
     expect(screen.getByText("mensagem")).toBeInTheDocument(); // dm reason chip
-    expect(notificationsApi.list).toHaveBeenCalledWith("inbox");
+    expect(notificationsApi.list).toHaveBeenCalledWith({ status: "inbox" });
   });
 
   it("switches to the Saved view", async () => {
     renderInbox();
     await screen.findByText(/enviou uma mensagem/);
     await userEvent.click(screen.getByRole("button", { name: "Salvos" }));
-    await waitFor(() => expect(notificationsApi.list).toHaveBeenCalledWith("saved"));
+    await waitFor(() => expect(notificationsApi.list).toHaveBeenCalledWith({ status: "saved" }));
+  });
+
+  it("filters by the @Menções canned view (reason filter)", async () => {
+    renderInbox();
+    await screen.findByText(/enviou uma mensagem/);
+    await userEvent.click(screen.getByRole("button", { name: "Menções" }));
+    await waitFor(() => expect(notificationsApi.list).toHaveBeenCalledWith({ reason: "mention" }));
   });
 
   it("triages 'Concluir' through the API and reloads", async () => {
