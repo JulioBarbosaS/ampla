@@ -62,11 +62,15 @@ function relativeTime(iso: string): string {
 
 export function NotificationRow({
   n,
+  selected,
+  onSelect,
   onOpen,
   onTriage,
   onIgnore,
 }: {
   n: AppNotification;
+  selected: boolean;
+  onSelect: (n: AppNotification, checked: boolean) => void;
   onOpen: (n: AppNotification) => void;
   onTriage: (n: AppNotification, patch: { unread?: boolean; status?: NotificationStatus }) => void;
   onIgnore: (n: AppNotification) => void;
@@ -78,6 +82,13 @@ export function NotificationRow({
         n.unread ? "border-zinc-700 bg-zinc-900/60" : "border-zinc-800/60 bg-transparent"
       }`}
     >
+      <input
+        type="checkbox"
+        aria-label={`Selecionar: ${n.title}`}
+        checked={selected}
+        onChange={(e) => onSelect(n, e.target.checked)}
+        className="mt-1.5 shrink-0"
+      />
       {n.unread && (
         <span
           aria-hidden="true"
@@ -147,6 +158,7 @@ export function InboxPage() {
   const [searchInput, setSearchInput] = useState("");
   const [appliedQ, setAppliedQ] = useState("");
   const [notifyLevel, setNotifyLevel] = useState<NotifyLevel>("mentions_and_direct");
+  const [selected, setSelected] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -172,6 +184,79 @@ export function InboxPage() {
       .then((p) => setNotifyLevel(p.notify_level))
       .catch(() => {});
   }, []);
+
+  function toggleSelect(n: AppNotification, checked: boolean) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(n.id);
+      else next.delete(n.id);
+      return next;
+    });
+  }
+
+  const bulkTriage = useCallback(
+    async (patch: { unread?: boolean; status?: NotificationStatus }) => {
+      if (selected.size === 0) return;
+      setError(null);
+      try {
+        await Promise.all([...selected].map((id) => notificationsApi.triage(id, patch)));
+        setSelected(new Set());
+        reload(buildFilter(viewKey, appliedQ));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Falha ao atualizar.");
+      }
+    },
+    [selected, viewKey, appliedQ, reload],
+  );
+
+  const bulkIgnore = useCallback(async () => {
+    if (selected.size === 0) return;
+    setError(null);
+    const targets = items.filter((n) => selected.has(n.id));
+    try {
+      await Promise.all(
+        targets.map(async (n) => {
+          await notificationsApi.subscribe(n.subject_key, "ignored");
+          await notificationsApi.triage(n.id, { status: "done" });
+        }),
+      );
+      setSelected(new Set());
+      reload(buildFilter(viewKey, appliedQ));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao ignorar.");
+    }
+  }, [selected, items, viewKey, appliedQ, reload]);
+
+  // Keyboard triage on the current selection (E=concluir, ⇧I=lida, ⇧U=não
+  // lida, ⇧M=ignorar). Ignored while typing in a text field/search.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (selected.size === 0) return;
+      const el = document.activeElement as HTMLElement | null;
+      const tag = el?.tagName.toLowerCase();
+      const type = (el as HTMLInputElement | null)?.type;
+      const typing =
+        tag === "textarea" ||
+        (tag === "input" && !["checkbox", "radio", "button", "submit"].includes(type ?? ""));
+      if (typing) return;
+      const k = e.key.toLowerCase();
+      if (k === "e" && !e.shiftKey) {
+        e.preventDefault();
+        void bulkTriage({ status: "done" });
+      } else if (e.shiftKey && k === "i") {
+        e.preventDefault();
+        void bulkTriage({ unread: false });
+      } else if (e.shiftKey && k === "u") {
+        e.preventDefault();
+        void bulkTriage({ unread: true });
+      } else if (e.shiftKey && k === "m") {
+        e.preventDefault();
+        void bulkIgnore();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [selected, bulkTriage, bulkIgnore]);
 
   async function changeLevel(level: NotifyLevel) {
     setNotifyLevel(level); // optimistic
@@ -232,6 +317,7 @@ export function InboxPage() {
         onSubmit={(e) => {
           e.preventDefault();
           setAppliedQ(searchInput);
+          setSelected(new Set());
         }}
         className="flex gap-2"
       >
@@ -255,6 +341,7 @@ export function InboxPage() {
             onClick={() => {
               setSearchInput("");
               setAppliedQ("");
+              setSelected(new Set());
             }}
             className="rounded-md px-2.5 py-1.5 text-sm text-zinc-400 hover:text-zinc-50"
           >
@@ -267,7 +354,10 @@ export function InboxPage() {
           <button
             key={v.key}
             type="button"
-            onClick={() => setViewKey(v.key)}
+            onClick={() => {
+              setViewKey(v.key);
+              setSelected(new Set());
+            }}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               viewKey === v.key ? "bg-zinc-800 text-zinc-50" : "text-zinc-400 hover:text-zinc-50"
             }`}
@@ -298,6 +388,42 @@ export function InboxPage() {
           Marcar todas como lidas
         </button>
       </div>
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-sm">
+          <span className="text-zinc-300">{selected.size} selecionada(s)</span>
+          <button
+            type="button"
+            onClick={() => bulkTriage({ unread: false })}
+            className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300 hover:bg-zinc-700"
+          >
+            Marcar lidas
+          </button>
+          <button
+            type="button"
+            onClick={() => bulkTriage({ status: "done" })}
+            className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-emerald-300 hover:bg-zinc-700"
+          >
+            Concluir selecionadas
+          </button>
+          <button
+            type="button"
+            onClick={() => bulkIgnore()}
+            className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400 hover:bg-zinc-700"
+          >
+            Ignorar selecionadas
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelected(new Set())}
+            className="rounded px-2 py-0.5 text-xs text-zinc-500 hover:text-zinc-200"
+          >
+            Limpar seleção
+          </button>
+          <span className="ml-auto hidden text-xs text-zinc-600 sm:inline">
+            E concluir · ⇧I lida · ⇧U não lida · ⇧M ignorar
+          </span>
+        </div>
+      )}
       {loading && items.length === 0 ? (
         <p className="text-sm text-zinc-500">carregando…</p>
       ) : items.length === 0 ? (
@@ -308,6 +434,8 @@ export function InboxPage() {
             <NotificationRow
               key={n.id}
               n={n}
+              selected={selected.has(n.id)}
+              onSelect={toggleSelect}
               onOpen={open}
               onTriage={triage}
               onIgnore={ignoreThread}

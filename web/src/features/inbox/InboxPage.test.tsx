@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -144,6 +144,31 @@ describe("InboxPage", () => {
     await waitFor(() => expect(select.value).toBe("mentions_and_direct"));
     await userEvent.selectOptions(select, "mute");
     expect(notificationsApi.setPrefs).toHaveBeenCalledWith("mute");
+  });
+
+  it("bulk-concludes the selected rows", async () => {
+    vi.mocked(notificationsApi.list).mockResolvedValue([
+      notif({ id: 1 }),
+      notif({ id: 2, title: "segundo aviso", subject_key: "dm:a:b" }),
+    ]);
+    renderInbox();
+    await screen.findByText(/segundo aviso/);
+    const checks = screen.getAllByRole("checkbox");
+    await userEvent.click(checks[0]);
+    await userEvent.click(checks[1]);
+    await userEvent.click(screen.getByRole("button", { name: "Concluir selecionadas" }));
+    expect(notificationsApi.triage).toHaveBeenCalledWith(1, { status: "done" });
+    expect(notificationsApi.triage).toHaveBeenCalledWith(2, { status: "done" });
+  });
+
+  it("keyboard 'e' concludes the current selection", async () => {
+    renderInbox();
+    await screen.findByText(/enviou uma mensagem/);
+    await userEvent.click(screen.getByRole("checkbox", { name: /Selecionar/ }));
+    fireEvent.keyDown(document, { key: "e" });
+    await waitFor(() =>
+      expect(notificationsApi.triage).toHaveBeenCalledWith(1, { status: "done" }),
+    );
   });
 
   it("shows the inbox-zero empty state", async () => {
