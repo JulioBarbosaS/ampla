@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, Query, Request
 
 from app.api.deps import get_current_user, get_notification_service
+from app.core.notification_query import parse_filter_query
 from app.models.user import User
 from app.schemas.notification import (
     NotificationOut,
@@ -25,12 +26,23 @@ async def list_notifications(
     unread: bool | None = None,
     reason: str | None = Query(default=None, max_length=24),
     agent: str | None = Query(default=None, max_length=60),
+    q: str | None = Query(default=None, max_length=200),
     limit: int = Query(default=50, ge=1, le=100),
     user: User = Depends(get_current_user),
     svc: NotificationService = Depends(get_notification_service),
 ) -> list[NotificationOut]:
+    # `q` qualifiers (is:/reason:/agent:/from:) take precedence; explicit params
+    # fill the fields the query string didn't set.
+    f = parse_filter_query(q)
     items = await svc.list(
-        user, status=status, unread=unread, reason=reason, agent_slug=agent, limit=limit
+        user,
+        status=f.status or status,
+        unread=f.unread if f.unread is not None else unread,
+        reason=f.reason or reason,
+        agent_slug=f.agent_slug or agent,
+        actor=f.actor,
+        subject_type=f.subject_type,
+        limit=limit,
     )
     return [NotificationOut.model_validate(n) for n in items]
 

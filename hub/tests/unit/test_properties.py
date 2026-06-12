@@ -10,8 +10,10 @@ import re
 from hypothesis import given
 from hypothesis import strategies as st
 
+from app.core.notification_query import ParsedFilter, parse_filter_query
 from app.core.ratelimit import SlidingWindowLimiter, TokenBucket
 from app.schemas.agent import SLUG_PATTERN
+from app.schemas.notification import REASONS
 from app.schemas.ws import SendMessageFrame, client_frame_adapter
 
 _SLUG_RE = re.compile(SLUG_PATTERN)
@@ -113,3 +115,28 @@ def test_send_frame_roundtrip_serializes_and_returns_identical(
     )
     parsed = client_frame_adapter.validate_json(frame.model_dump_json())
     assert parsed == frame
+
+
+# ---------------------------------------------------------------- filter parser
+
+
+@given(query=st.text(max_size=200))
+def test_filter_parser_never_crashes_on_junk(query):
+    """Invariant: ANY string parses to a ParsedFilter — never raises. The worst
+    a malformed query can do is match nothing."""
+    result = parse_filter_query(query)
+    assert isinstance(result, ParsedFilter)
+
+
+@given(
+    status=st.sampled_from(["inbox", "saved", "done"]),
+    reason=st.sampled_from(sorted(REASONS)),
+    agent=st.from_regex(SLUG_PATTERN, fullmatch=True),
+    sender=st.from_regex(SLUG_PATTERN, fullmatch=True),
+)
+def test_known_qualifiers_round_trip_into_fields(status, reason, agent, sender):
+    parsed = parse_filter_query(f"is:{status} reason:{reason} agent:{agent} from:{sender}")
+    assert parsed.status == status
+    assert parsed.reason == reason
+    assert parsed.agent_slug == agent
+    assert parsed.actor == sender

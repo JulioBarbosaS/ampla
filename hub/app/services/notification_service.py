@@ -195,6 +195,8 @@ class NotificationService:
         unread: bool | None = None,
         reason: str | None = None,
         agent_slug: str | None = None,
+        actor: str | None = None,
+        subject_type: str | None = None,
         limit: int = 50,
     ) -> list[Notification]:
         return await self._notifications.list_for_user(
@@ -203,6 +205,8 @@ class NotificationService:
             unread=unread,
             reason=reason,
             agent_slug=agent_slug,
+            actor=actor,
+            subject_type=subject_type,
             limit=min(max(limit, 1), MAX_LIMIT),
         )
 

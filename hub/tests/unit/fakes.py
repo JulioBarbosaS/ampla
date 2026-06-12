@@ -191,6 +191,8 @@ class FakeNotificationRepository:
         unread: bool | None = None,
         reason: str | None = None,
         agent_slug: str | None = None,
+        actor: str | None = None,
+        subject_type: str | None = None,
         limit: int = 50,
     ) -> list[Notification]:
         found = [n for n in self._items.values() if n.user_id == user_id]
@@ -202,6 +204,10 @@ class FakeNotificationRepository:
             found = [n for n in found if n.reason == reason]
         if agent_slug is not None:
             found = [n for n in found if n.agent_slug == agent_slug]
+        if actor is not None:
+            found = [n for n in found if n.actor == actor]
+        if subject_type is not None:
+            found = [n for n in found if n.subject_type == subject_type]
         found.sort(key=lambda n: (n.updated_at, n.id), reverse=True)
         return found[:limit]
 

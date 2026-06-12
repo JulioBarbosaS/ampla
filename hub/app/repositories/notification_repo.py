@@ -41,6 +41,8 @@ class NotificationRepository:
         unread: bool | None = None,
         reason: str | None = None,
         agent_slug: str | None = None,
+        actor: str | None = None,
+        subject_type: str | None = None,
         limit: int = 50,
     ) -> list[Notification]:
         stmt = select(Notification).where(Notification.user_id == user_id)
@@ -52,6 +54,10 @@ class NotificationRepository:
             stmt = stmt.where(Notification.reason == reason)
         if agent_slug is not None:
             stmt = stmt.where(Notification.agent_slug == agent_slug)
+        if actor is not None:
+            stmt = stmt.where(Notification.actor == actor)
+        if subject_type is not None:
+            stmt = stmt.where(Notification.subject_type == subject_type)
         stmt = stmt.order_by(Notification.updated_at.desc(), Notification.id.desc()).limit(limit)
         return list((await self._session.execute(stmt)).scalars())
 

@@ -70,6 +70,30 @@ class TestGeneration:
         assert [n["reason"] for n in member_items] == ["direct_message"]
 
 
+class TestFilterQuery:
+    def test_q_qualifiers_filter_the_list(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")
+        create_agent(client, token, "mobile-eduardo")
+        create_agent(client, token, "frontend-ze")
+        _send(client, token, "mobile-eduardo", "backend-julio", "um dm")
+        # mention for backend-julio (+ a dm for frontend-ze)
+        _send(client, token, "mobile-eduardo", "frontend-ze", "ei @backend-julio")
+
+        # reason qualifier
+        mentions = client.get("/api/notifications?q=reason:mention", headers=auth(token)).json()
+        assert [n["reason"] for n in mentions] == ["mention"]
+        # subject_type via the is: shortcut
+        dms = client.get("/api/notifications?q=is:dm", headers=auth(token)).json()
+        assert dms and all(n["subject_type"] == "dm" for n in dms)
+        # from: maps to the actor (sender) column — all three come from mobile-eduardo
+        from_me = client.get("/api/notifications?q=from:mobile-eduardo", headers=auth(token)).json()
+        assert from_me and all(n["actor"] == "mobile-eduardo" for n in from_me)
+        # junk never errors (matches nothing meaningful → still 200, full list)
+        junk = client.get("/api/notifications?q=%20%20garbage%20", headers=auth(token))
+        assert junk.status_code == 200
+
+
 class TestTriageAndIsolation:
     def test_mark_read_and_set_status(self, client):
         token = do_setup(client)
