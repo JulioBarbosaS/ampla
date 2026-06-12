@@ -1,5 +1,13 @@
 import { api } from "./client";
-import type { Agent, AgentKey, AgentKeyCreated, AutorespondRun, DirectoryEntry } from "./types";
+import type {
+  Agent,
+  AgentKey,
+  AgentKeyCreated,
+  Approval,
+  ApprovalStatus,
+  AutorespondRun,
+  DirectoryEntry,
+} from "./types";
 
 export interface SettingsPatch {
   mode?: "inbox" | "auto";
@@ -18,6 +26,7 @@ export interface SettingsPatch {
   // 0 clears the cap (unlimited); a positive value sets the daily ceiling.
   max_auto_tokens_per_day?: number;
   max_auto_cost_usd_per_day?: number;
+  require_approval?: boolean;
 }
 
 export const agentsApi = {
@@ -33,4 +42,8 @@ export const agentsApi = {
     api.delete<AgentKey>(`/api/agents/${slug}/keys/${keyId}`),
   autorespondRuns: (slug: string, limit = 50) =>
     api.get<AutorespondRun[]>(`/api/agents/${slug}/autorespond-runs?limit=${limit}`),
+  approvals: (slug: string, status: ApprovalStatus = "pending") =>
+    api.get<Approval[]>(`/api/agents/${slug}/approvals?status=${status}`),
+  decideApproval: (id: number, decision: "approve" | "reject", body?: string) =>
+    api.post<Approval>(`/api/approvals/${id}/decision`, body ? { decision, body } : { decision }),
 };

@@ -7,6 +7,7 @@ import { groupsApi } from "../../lib/api/groups";
 import type { Agent, AgentKey, Group } from "../../lib/api/types";
 import { connectToken } from "../../lib/connect";
 import { PresenceDot } from "../chat/Sidebar";
+import { AgentApprovals } from "./AgentApprovals";
 import { AutorespondRuns } from "./AutorespondRuns";
 
 export function AgentCard({
@@ -66,6 +67,8 @@ export function AgentCard({
         max_auto_tokens_per_day: Number(data.get("max_auto_tokens_per_day")) || 0,
         max_auto_cost_usd_per_day: Number(data.get("max_auto_cost_usd_per_day")) || 0,
         instructions: String(data.get("instructions") ?? ""),
+        // human-in-the-loop: draft the reply, don't send until the owner approves
+        require_approval: data.get("require_approval") === "on",
         // sensitive-paths block and trusted senders live in the danger zone below
         allow_write: data.get("allow_write") === "on",
         block_hidden_files: data.get("block_hidden_files") === "on",
@@ -288,6 +291,15 @@ pnpm daemon   # deixe rodando`;
             className={inputClass}
           />
         </label>
+        <label className="flex items-center gap-2 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            name="require_approval"
+            defaultChecked={agent.require_approval ?? false}
+            className="accent-emerald-500"
+          />
+          Exigir minha aprovação antes de enviar (rascunha e aguarda)
+        </label>
         <fieldset className="space-y-2 rounded-md border border-zinc-800 p-2.5">
           <legend className="px-1 text-xs text-zinc-500">
             Restrições de arquivo (auto-respond)
@@ -343,6 +355,7 @@ pnpm daemon   # deixe rodando`;
         <FormError message={error} />
       </form>
 
+      <AgentApprovals slug={agent.slug} />
       <AutorespondRuns slug={agent.slug} />
 
       <div className="mt-4 border-t border-zinc-800 pt-3">

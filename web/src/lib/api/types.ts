@@ -31,6 +31,22 @@ export interface AgentSettings {
   // Daily auto-respond budget (Epic 03 · 3.4). null = unlimited.
   max_auto_tokens_per_day: number | null;
   max_auto_cost_usd_per_day: number | null;
+  // Human-in-the-loop approval (Epic 03 · 3.3): draft, don't send, until approved.
+  require_approval: boolean;
+}
+
+export type ApprovalStatus = "pending" | "approved" | "rejected" | "edited";
+
+export interface Approval {
+  id: number;
+  agent_slug: string;
+  trigger_message_id: number | null;
+  to_agent: string;
+  draft_body: string;
+  status: ApprovalStatus;
+  decided_by: number | null;
+  decided_at: string | null;
+  created_at: string;
 }
 
 export interface Agent extends AgentSettings {
