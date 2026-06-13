@@ -1,8 +1,9 @@
 import pytest
+from pydantic import ValidationError
 
 from app.core.security import AGENT_KEY_PREFIX
 from app.models.user import User
-from app.schemas.agent import AgentCreate, AgentSettingsUpdate
+from app.schemas.agent import AgentCreate, AgentSettingsUpdate, AutoSchedule, ScheduleWindow
 from app.services.agent_service import AgentService
 from app.services.errors import (
     ConflictError,
@@ -87,6 +88,24 @@ class TestSettings:
         assert agent.max_auto_per_hour == 5
         assert agent.auto_timeout_secs == 120  # not touched
 
+    async def test_auto_schedule_apply_and_clear(self, service):
+        await service.create(OWNER, AgentCreate(slug="backend-julio", display_name="B"))
+        sched = AutoSchedule(
+            tz="America/Sao_Paulo",
+            windows=[ScheduleWindow(days=[1, 2, 3, 4, 5], start="09:00", end="18:00")],
+        )
+        agent = await service.update_settings(
+            OWNER, "backend-julio", AgentSettingsUpdate(auto_schedule=sched)
+        )
+        assert agent.auto_schedule == {
+            "tz": "America/Sao_Paulo",
+            "windows": [{"days": [1, 2, 3, 4, 5], "start": "09:00", "end": "18:00"}],
+        }
+        agent = await service.update_settings(
+            OWNER, "backend-julio", AgentSettingsUpdate(clear_auto_schedule=True)
+        )
+        assert agent.auto_schedule is None
+
     async def test_toggle_require_approval(self, service):
         await service.create(OWNER, AgentCreate(slug="backend-julio", display_name="B"))
         agent = await service.update_settings(
@@ -125,6 +144,31 @@ class TestSettings:
         )
         event = next(e for e in audit.events if e[0] == "settings_changed")
         assert "segredo interno" not in str(event[2])  # content does not leak to the audit
+
+
+class TestScheduleValidation:
+    def test_rejects_invalid_timezone(self):
+        with pytest.raises(ValidationError):
+            AutoSchedule(
+                tz="Mars/Olympus",
+                windows=[ScheduleWindow(days=[1], start="09:00", end="18:00")],
+            )
+
+    def test_rejects_bad_time_format(self):
+        with pytest.raises(ValidationError):
+            ScheduleWindow(days=[1], start="9:00", end="18:00")  # not zero-padded HH:MM
+
+    def test_rejects_start_after_end(self):
+        with pytest.raises(ValidationError):
+            ScheduleWindow(days=[1], start="18:00", end="09:00")
+
+    def test_rejects_weekday_out_of_range(self):
+        with pytest.raises(ValidationError):
+            ScheduleWindow(days=[8], start="09:00", end="18:00")
+
+    def test_requires_at_least_one_window(self):
+        with pytest.raises(ValidationError):
+            AutoSchedule(tz="UTC", windows=[])
 
 
 class TestKeys:

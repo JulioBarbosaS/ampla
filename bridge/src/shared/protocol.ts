@@ -7,6 +7,19 @@ import { z } from "zod";
 
 // ---------- agent settings (source of truth: hub) ----------
 
+/** Availability window / DND (Epic 04 · 4.2). null = always-on. */
+export const autoScheduleSchema = z.object({
+  tz: z.string(),
+  windows: z.array(
+    z.object({
+      days: z.array(z.number().int()), // ISO weekdays 1=Mon..7=Sun
+      start: z.string(), // HH:MM
+      end: z.string(),
+    }),
+  ),
+});
+export type AutoSchedule = z.infer<typeof autoScheduleSchema>;
+
 export const agentSettingsSchema = z.object({
   mode: z.enum(["inbox", "auto"]),
   allowed_senders: z.array(z.string()).nullable(),
@@ -31,6 +44,9 @@ export const agentSettingsSchema = z.object({
   // Human-in-the-loop approval (Epic 03 · 3.3): when true and mode=auto, the
   // daemon drafts the reply and requests the owner's approval instead of sending.
   require_approval: z.boolean(),
+  // Availability window / DND (Epic 04 · 4.2): null = always-on; otherwise the
+  // daemon only auto-responds inside the windows (in the schedule's tz).
+  auto_schedule: autoScheduleSchema.nullable(),
 });
 export type AgentSettings = z.infer<typeof agentSettingsSchema>;
 

@@ -55,6 +55,11 @@ class Agent(Base):
     # approval first. (server_default lives in the migration, like the others.)
     require_approval: Mapped[bool] = mapped_column(default=False)
 
+    # Availability window / DND (Epic 04 · 4.2): null = always-on. When set, the
+    # daemon only auto-responds inside the windows (in the schedule's tz),
+    # otherwise behaves like inbox. Shape validated by the AutoSchedule schema.
+    auto_schedule: Mapped[dict | None] = mapped_column(JSON, default=None)
+
 
 class AgentKey(Base):
     __tablename__ = "agent_keys"

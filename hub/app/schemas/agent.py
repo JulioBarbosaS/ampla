@@ -1,9 +1,52 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 MAX_DENIED_PATHS = 50
 MAX_DENIED_PATH_LEN = 200
+
+# Availability schedule (Epic 04 · 4.2)
+_HHMM_PATTERN = r"^([01]\d|2[0-3]):[0-5]\d$"
+MAX_SCHEDULE_WINDOWS = 14
+
+
+class ScheduleWindow(BaseModel):
+    """One recurring availability window. days are ISO weekdays (1=Mon..7=Sun);
+    start/end are HH:MM in the schedule's timezone, same-day (start < end)."""
+
+    days: list[int] = Field(min_length=1, max_length=7)
+    start: str = Field(pattern=_HHMM_PATTERN)
+    end: str = Field(pattern=_HHMM_PATTERN)
+
+    @field_validator("days")
+    @classmethod
+    def _check_days(cls, v: list[int]) -> list[int]:
+        if any(d < 1 or d > 7 for d in v):
+            raise ValueError("days devem estar entre 1 (seg) e 7 (dom).")
+        return sorted(set(v))
+
+    @model_validator(mode="after")
+    def _check_order(self) -> "ScheduleWindow":
+        if self.start >= self.end:
+            raise ValueError("start deve ser antes de end (mesmo dia, HH:MM).")
+        return self
+
+
+class AutoSchedule(BaseModel):
+    """Auto-respond availability: only inside these windows, in `tz`."""
+
+    tz: str = Field(min_length=1, max_length=64)
+    windows: list[ScheduleWindow] = Field(min_length=1, max_length=MAX_SCHEDULE_WINDOWS)
+
+    @field_validator("tz")
+    @classmethod
+    def _check_tz(cls, v: str) -> str:
+        try:
+            ZoneInfo(v)
+        except Exception:  # noqa: BLE001 — any failure = not a valid IANA tz
+            raise ValueError("Timezone IANA inválida.") from None
+        return v
 
 
 def _clean_denied_paths(value: list[str]) -> list[str]:
@@ -58,6 +101,9 @@ class AgentSettings(BaseModel):
     # owner approves. Only meaningful when mode=auto.
     require_approval: bool = False
 
+    # Availability window / DND (Epic 04 · 4.2): null = always-on.
+    auto_schedule: AutoSchedule | None = None
+
     @field_validator("denied_paths")
     @classmethod
     def _check_denied_paths(cls, v: list[str]) -> list[str]:
@@ -85,6 +131,10 @@ class AgentSettingsUpdate(BaseModel):
     max_auto_tokens_per_day: int | None = Field(default=None, ge=0)
     max_auto_cost_usd_per_day: float | None = Field(default=None, ge=0)
     require_approval: bool | None = None
+    # null = unchanged; set to apply a schedule. clear_auto_schedule wipes it
+    # (back to always-on), since null can't mean both "unchanged" and "always".
+    auto_schedule: AutoSchedule | None = None
+    clear_auto_schedule: bool = False
 
     @field_validator("denied_paths")
     @classmethod
@@ -119,6 +169,7 @@ class AgentOut(BaseModel):
     max_auto_tokens_per_day: int | None
     max_auto_cost_usd_per_day: float | None
     require_approval: bool
+    auto_schedule: AutoSchedule | None
 
 
 class DirectoryEntry(BaseModel):

@@ -6,6 +6,7 @@ import {
   buildPrompt,
   type ClaudeRunner,
   parseClaudeOutput,
+  withinSchedule,
 } from "../../src/daemon/auto-responder.js";
 import type { DailyUsageTracker, UsageDelta } from "../../src/daemon/usage-tracker.js";
 import type { AgentSettings, WireMessage } from "../../src/shared/protocol.js";
@@ -55,6 +56,7 @@ function settings(overrides: Partial<AgentSettings> = {}): AgentSettings {
     max_auto_tokens_per_day: null,
     max_auto_cost_usd_per_day: null,
     require_approval: false,
+    auto_schedule: null,
     ...overrides,
   };
 }
@@ -72,6 +74,27 @@ function makeResponder(
     extra.usage,
   );
 }
+
+describe("withinSchedule (availability window)", () => {
+  const schedule = {
+    tz: "UTC",
+    windows: [{ days: [1, 2, 3, 4, 5], start: "09:00", end: "18:00" }],
+  };
+  it("is inside on a weekday during the window", () => {
+    expect(withinSchedule(schedule, Date.UTC(2024, 0, 1, 10, 0, 0))).toBe(true); // Mon 10:00
+  });
+  it("is outside after the window closes", () => {
+    expect(withinSchedule(schedule, Date.UTC(2024, 0, 1, 20, 0, 0))).toBe(false); // Mon 20:00
+  });
+  it("is outside on an excluded day", () => {
+    expect(withinSchedule(schedule, Date.UTC(2024, 0, 6, 10, 0, 0))).toBe(false); // Sat 10:00
+  });
+  it("fails open on an unknown timezone (never silently mutes)", () => {
+    expect(withinSchedule({ ...schedule, tz: "Not/AZone" }, Date.UTC(2024, 0, 1, 20, 0, 0))).toBe(
+      true,
+    );
+  });
+});
 
 describe("AutoResponder", () => {
   it("replies when in auto mode", async () => {
@@ -101,6 +124,39 @@ describe("AutoResponder", () => {
       settings({ require_approval: true }),
     );
     expect(result.kind).toBe("blocked");
+  });
+
+  it("skips outside the availability window (outside_hours)", async () => {
+    const runner = vi.fn().mockResolvedValue("ok");
+    const outside = Date.UTC(2024, 0, 1, 20, 0, 0); // Mon 20:00 UTC — after 18:00
+    const responder = makeResponder(runner, () => outside);
+    const result = await responder.handle(
+      MESSAGE,
+      settings({
+        auto_schedule: {
+          tz: "UTC",
+          windows: [{ days: [1, 2, 3, 4, 5], start: "09:00", end: "18:00" }],
+        },
+      }),
+    );
+    expect(result).toEqual({ kind: "skipped", reason: "outside_hours" });
+    expect(runner).not.toHaveBeenCalled();
+  });
+
+  it("runs inside the availability window", async () => {
+    const runner = vi.fn().mockResolvedValue("oi");
+    const inside = Date.UTC(2024, 0, 1, 10, 0, 0); // Mon 10:00 UTC — inside
+    const responder = makeResponder(runner, () => inside);
+    const result = await responder.handle(
+      MESSAGE,
+      settings({
+        auto_schedule: {
+          tz: "UTC",
+          windows: [{ days: [1, 2, 3, 4, 5], start: "09:00", end: "18:00" }],
+        },
+      }),
+    );
+    expect(result.kind).toBe("replied");
   });
 
   it("does not reply in inbox mode", async () => {

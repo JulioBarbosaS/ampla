@@ -9,7 +9,7 @@
  */
 
 import { spawn } from "node:child_process";
-import type { AgentSettings, WireMessage } from "../shared/protocol.js";
+import type { AgentSettings, AutoSchedule, WireMessage } from "../shared/protocol.js";
 import { scanForSecrets } from "./secret-filter.js";
 import type { DailyUsageTracker, UsageDelta } from "./usage-tracker.js";
 
@@ -121,9 +121,44 @@ export function buildGuardrails(settings: AgentSettings, sender: string): Guardr
 export type AutoRespondResult =
   | { kind: "replied"; reply: string; usage?: UsageDelta | null }
   | { kind: "needs_approval"; draft: string; usage?: UsageDelta | null }
-  | { kind: "skipped"; reason: "mode_inbox" | "rate_limited" | "budget_exceeded" }
+  | { kind: "skipped"; reason: "mode_inbox" | "rate_limited" | "budget_exceeded" | "outside_hours" }
   | { kind: "blocked"; reason: string; usage?: UsageDelta | null }
   | { kind: "failed"; reason: string };
+
+const ISO_WEEKDAY: Record<string, number> = {
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+  Sun: 7,
+};
+
+/** True if `nowMs` falls inside any of the schedule's windows, evaluated in the
+ * schedule's IANA timezone (Epic 04 · 4.2). An unknown tz fails OPEN (we never
+ * silently mute an agent because of a bad tz string). */
+export function withinSchedule(schedule: AutoSchedule, nowMs: number): boolean {
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: schedule.tz,
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date(nowMs));
+  } catch {
+    return true; // bad tz → don't mute
+  }
+  const weekday = parts.find((p) => p.type === "weekday")?.value ?? "";
+  const hour = parts.find((p) => p.type === "hour")?.value ?? "00";
+  const minute = parts.find((p) => p.type === "minute")?.value ?? "00";
+  const day = ISO_WEEKDAY[weekday];
+  if (day === undefined) return true;
+  const hm = `${hour}:${minute}`;
+  return schedule.windows.some((w) => w.days.includes(day) && w.start <= hm && hm < w.end);
+}
 
 /** Parses the raw `claude -p` output. In text mode (capture off) the stdout IS
  * the reply. In JSON mode (--output-format json) we extract `result` + `usage`;
@@ -385,6 +420,11 @@ export class AutoResponder {
   ): Promise<AutoRespondResult> {
     if (settings.mode !== "auto") {
       return { kind: "skipped", reason: "mode_inbox" };
+    }
+    // Availability window / DND (Epic 04 · 4.2): outside the configured hours
+    // behave like inbox — enqueue + notify, never run claude -p.
+    if (settings.auto_schedule && !withinSchedule(settings.auto_schedule, this.now())) {
+      return { kind: "skipped", reason: "outside_hours" };
     }
     // Daily budget (anti-abuse): caps the blast radius of a message flood even
     // within the hourly limit. Only bites when usage is being captured — the

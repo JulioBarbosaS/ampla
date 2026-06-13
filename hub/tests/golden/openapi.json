@@ -120,6 +120,16 @@
             "title": "Auto Paused",
             "type": "boolean"
           },
+          "auto_schedule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutoSchedule"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "auto_timeout_secs": {
             "title": "Auto Timeout Secs",
             "type": "integer"
@@ -225,7 +235,8 @@
           "auto_paused",
           "max_auto_tokens_per_day",
           "max_auto_cost_usd_per_day",
-          "require_approval"
+          "require_approval",
+          "auto_schedule"
         ],
         "title": "AgentOut",
         "type": "object"
@@ -269,6 +280,16 @@
             ],
             "title": "Auto Paused"
           },
+          "auto_schedule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutoSchedule"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "auto_timeout_secs": {
             "anyOf": [
               {
@@ -307,6 +328,11 @@
           "clear_allowed_senders": {
             "default": false,
             "title": "Clear Allowed Senders",
+            "type": "boolean"
+          },
+          "clear_auto_schedule": {
+            "default": false,
+            "title": "Clear Auto Schedule",
             "type": "boolean"
           },
           "confine_to_dir": {
@@ -568,6 +594,32 @@
           "created_at"
         ],
         "title": "AuditOut",
+        "type": "object"
+      },
+      "AutoSchedule": {
+        "description": "Auto-respond availability: only inside these windows, in `tz`.",
+        "properties": {
+          "tz": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Tz",
+            "type": "string"
+          },
+          "windows": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleWindow"
+            },
+            "maxItems": 14,
+            "minItems": 1,
+            "title": "Windows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tz",
+          "windows"
+        ],
+        "title": "AutoSchedule",
         "type": "object"
       },
       "AutorespondRunOut": {
@@ -1403,6 +1455,37 @@
           "role"
         ],
         "title": "RoleUpdate",
+        "type": "object"
+      },
+      "ScheduleWindow": {
+        "description": "One recurring availability window. days are ISO weekdays (1=Mon..7=Sun);\nstart/end are HH:MM in the schedule's timezone, same-day (start < end).",
+        "properties": {
+          "days": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 7,
+            "minItems": 1,
+            "title": "Days",
+            "type": "array"
+          },
+          "end": {
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "days",
+          "start",
+          "end"
+        ],
+        "title": "ScheduleWindow",
         "type": "object"
       },
       "SendMessageRequest": {

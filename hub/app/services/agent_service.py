@@ -126,6 +126,12 @@ class AgentService:
         if patch.require_approval is not None:
             agent.require_approval = patch.require_approval
             changed["require_approval"] = patch.require_approval
+        if patch.clear_auto_schedule:
+            agent.auto_schedule = None
+            changed["auto_schedule"] = None
+        elif patch.auto_schedule is not None:
+            agent.auto_schedule = patch.auto_schedule.model_dump(mode="json")
+            changed["auto_schedule"] = True
         await self._agents.save(agent)
         await self._audit.record(
             "settings_changed", actor=actor.email, detail={"slug": slug, "fields": list(changed)}
