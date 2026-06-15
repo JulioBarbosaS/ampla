@@ -7,6 +7,7 @@ import type {
   ApprovalStatus,
   AutorespondRun,
   AutoSchedule,
+  Delegation,
   DirectoryEntry,
   EscalateOutcome,
 } from "./types";
@@ -56,4 +57,6 @@ export const agentsApi = {
     api.post<Approval>(`/api/approvals/${id}/decision`, body ? { decision, body } : { decision }),
   applyPreset: (slug: string, preset_id: number) =>
     api.post<Agent>(`/api/agents/${slug}/apply-preset`, { preset_id }),
+  delegations: (slug: string, limit = 50) =>
+    api.get<Delegation[]>(`/api/agents/${slug}/delegations?limit=${limit}`),
 };

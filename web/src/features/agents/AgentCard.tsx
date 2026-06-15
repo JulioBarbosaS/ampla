@@ -8,6 +8,7 @@ import type { Agent, AgentKey, Group } from "../../lib/api/types";
 import { connectToken } from "../../lib/connect";
 import { PresenceDot } from "../chat/Sidebar";
 import { AgentApprovals } from "./AgentApprovals";
+import { AgentDelegations } from "./AgentDelegations";
 import { AgentEscalation } from "./AgentEscalation";
 import { AgentPresets } from "./AgentPresets";
 import { AgentSchedule } from "./AgentSchedule";
@@ -362,6 +363,7 @@ pnpm daemon   # deixe rodando`;
       <AgentSchedule slug={agent.slug} schedule={agent.auto_schedule} onChanged={onChanged} />
       <AgentEscalation slug={agent.slug} escalateOn={agent.escalate_on} onChanged={onChanged} />
       <AgentApprovals slug={agent.slug} />
+      <AgentDelegations slug={agent.slug} />
       <AutorespondRuns slug={agent.slug} />
 
       <div className="mt-4 border-t border-zinc-800 pt-3">

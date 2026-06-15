@@ -75,6 +75,21 @@ export interface Preset {
   created_at: string;
 }
 
+export type DelegationStatus = "open" | "completed" | "declined";
+
+/** An agent-to-agent task hand-off (Epic 04 · 4.4). */
+export interface Delegation {
+  id: number;
+  from_agent: string;
+  to_agent: string;
+  task: string;
+  root_message_id: number | null;
+  result_message_id: number | null;
+  status: DelegationStatus;
+  created_at: string;
+  updated_at: string;
+}
+
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "edited";
 
 export interface Approval {
