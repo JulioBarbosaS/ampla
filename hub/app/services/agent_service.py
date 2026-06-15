@@ -132,6 +132,9 @@ class AgentService:
         elif patch.auto_schedule is not None:
             agent.auto_schedule = patch.auto_schedule.model_dump(mode="json")
             changed["auto_schedule"] = True
+        if patch.escalate_on is not None:
+            agent.escalate_on = patch.escalate_on
+            changed["escalate_on"] = patch.escalate_on
         await self._agents.save(agent)
         await self._audit.record(
             "settings_changed", actor=actor.email, detail={"slug": slug, "fields": list(changed)}

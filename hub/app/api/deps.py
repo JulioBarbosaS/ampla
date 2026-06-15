@@ -115,8 +115,20 @@ def build_admin_service(session: AsyncSession) -> AdminService:
     return AdminService(state=HubStateRepository(session), audit=AuditRepository(session))
 
 
-def build_autorespond_service(session: AsyncSession) -> AutorespondService:
-    return AutorespondService(runs=AutorespondRunRepository(session))
+def build_autorespond_service(
+    session: AsyncSession, settings=None, manager=None
+) -> AutorespondService:
+    # agents + notifications power escalation (Epic 04 · 4.3). The read routes
+    # build it without settings/manager (no escalation needed there); the WS
+    # record_run path passes both so escalations push to the owner in real time.
+    notifications = (
+        build_notification_service(session, settings, manager) if settings is not None else None
+    )
+    return AutorespondService(
+        runs=AutorespondRunRepository(session),
+        agents=AgentRepository(session),
+        notifications=notifications,
+    )
 
 
 def _approval_sender(session: AsyncSession, settings, manager):

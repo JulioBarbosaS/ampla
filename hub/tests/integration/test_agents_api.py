@@ -128,6 +128,37 @@ class TestSettings:
         assert cleared["max_auto_tokens_per_day"] is None
         assert cleared["max_auto_cost_usd_per_day"] == 1.5  # untouched
 
+    def test_escalate_on_defaults_and_round_trips(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")
+        body = client.get("/api/agents/backend-julio", headers=auth(token)).json()
+        assert body["escalate_on"] == ["failed", "blocked"]  # safe default
+
+        updated = client.patch(
+            "/api/agents/backend-julio/settings",
+            json={"escalate_on": ["failed", "outside_hours", "failed"]},  # dupes collapse
+            headers=auth(token),
+        ).json()
+        assert updated["escalate_on"] == ["failed", "outside_hours"]
+
+        # [] explicitly disables escalation
+        off = client.patch(
+            "/api/agents/backend-julio/settings",
+            json={"escalate_on": []},
+            headers=auth(token),
+        ).json()
+        assert off["escalate_on"] == []
+
+    def test_escalate_on_invalid_outcome_422(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")
+        response = client.patch(
+            "/api/agents/backend-julio/settings",
+            json={"escalate_on": ["replied"]},  # not an escalatable outcome
+            headers=auth(token),
+        )
+        assert response.status_code == 422
+
     def test_denied_paths_over_limit_422(self, client):
         token = do_setup(client)
         create_agent(client, token, "backend-julio")

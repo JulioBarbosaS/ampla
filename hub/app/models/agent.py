@@ -60,6 +60,15 @@ class Agent(Base):
     # otherwise behaves like inbox. Shape validated by the AutoSchedule schema.
     auto_schedule: Mapped[dict | None] = mapped_column(JSON, default=None)
 
+    # Escalation routing (Epic 04 · 4.3): which auto-respond outcomes route the
+    # trigger message to the owner's Inbox (reason `escalation`) instead of being
+    # silently dropped. This is a HUB-SIDE policy — the daemon reports every run
+    # and the hub decides escalation from the report — so it is deliberately NOT
+    # part of the WS AgentSettings (the daemon never needs it). Default escalates
+    # hard failures; [] = never escalate. (server_default in the migration, like
+    # the other JSON guardrail columns.)
+    escalate_on: Mapped[list[str]] = mapped_column(JSON, default=lambda: ["failed", "blocked"])
+
 
 class AgentKey(Base):
     __tablename__ = "agent_keys"

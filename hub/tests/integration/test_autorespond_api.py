@@ -92,3 +92,33 @@ class TestTranscript:
         assert len(all_runs) == 1
         # a member cannot see the instance-wide transcript
         assert client.get("/api/admin/autorespond-runs", headers=auth(member)).status_code == 403
+
+
+class TestEscalation:
+    """A non-answer routes the trigger to the owner's Inbox (Epic 04 · 4.3) —
+    exercises the full WS → record_run → notification path (deps wiring)."""
+
+    def test_failed_run_escalates_to_the_owner_inbox(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")  # escalate_on defaults to failed+blocked
+        key = create_key(client, token, "backend-julio")
+        _report(
+            client,
+            "backend-julio",
+            key,
+            {**SAMPLE_RECORD, "result": "failed", "reason": "timeout", "reply_preview": ""},
+        )
+
+        notes = client.get("/api/notifications", headers=auth(token)).json()
+        escalations = [n for n in notes if n["reason"] == "escalation"]
+        assert len(escalations) == 1
+        assert escalations[0]["agent_slug"] == "backend-julio"
+
+    def test_replied_run_does_not_escalate(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-julio")
+        key = create_key(client, token, "backend-julio")
+        _report(client, "backend-julio", key, SAMPLE_RECORD)  # result=replied
+
+        notes = client.get("/api/notifications", headers=auth(token)).json()
+        assert [n for n in notes if n["reason"] == "escalation"] == []

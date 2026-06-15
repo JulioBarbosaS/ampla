@@ -58,6 +58,24 @@ def _clean_denied_paths(value: list[str]) -> list[str]:
     return cleaned
 
 
+# Escalation outcomes (Epic 04 · 4.3) — the auto-respond results the owner may
+# route to their Inbox. These mirror the daemon's reported result/reason: a
+# `failed`/`blocked` run, or a `skipped` run whose reason is one of these. The
+# model's explicit `__ESCALATE__` sentinel always escalates and is therefore NOT
+# user-configurable (not listed here).
+ESCALATE_OUTCOMES = ("failed", "blocked", "rate_limited", "budget_exceeded", "outside_hours")
+
+
+def _clean_escalate_on(value: list[str]) -> list[str]:
+    cleaned: list[str] = []
+    for item in value:
+        if item not in ESCALATE_OUTCOMES:
+            raise ValueError(f"Outcome de escalação inválido: {item!r}.")
+        if item not in cleaned:
+            cleaned.append(item)
+    return cleaned
+
+
 # Public agent slug (docs/ARCHITECTURE.md · Security · Cross-cutting)
 SLUG_PATTERN = r"^[a-z][a-z0-9-]{1,48}[a-z0-9]$"
 
@@ -135,11 +153,19 @@ class AgentSettingsUpdate(BaseModel):
     # (back to always-on), since null can't mean both "unchanged" and "always".
     auto_schedule: AutoSchedule | None = None
     clear_auto_schedule: bool = False
+    # null = unchanged; [] explicitly disables escalation. Values validated
+    # against ESCALATE_OUTCOMES (Epic 04 · 4.3).
+    escalate_on: list[str] | None = None
 
     @field_validator("denied_paths")
     @classmethod
     def _check_denied_paths(cls, v: list[str] | None) -> list[str] | None:
         return None if v is None else _clean_denied_paths(v)
+
+    @field_validator("escalate_on")
+    @classmethod
+    def _check_escalate_on(cls, v: list[str] | None) -> list[str] | None:
+        return None if v is None else _clean_escalate_on(v)
 
 
 class AgentCreate(BaseModel):
@@ -170,6 +196,7 @@ class AgentOut(BaseModel):
     max_auto_cost_usd_per_day: float | None
     require_approval: bool
     auto_schedule: AutoSchedule | None
+    escalate_on: list[str]
 
 
 class DirectoryEntry(BaseModel):

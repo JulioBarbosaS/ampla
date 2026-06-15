@@ -315,13 +315,17 @@ async def _handle_ack(ws: WebSocket, recipient_slug: str, message_id: int) -> No
 async def _handle_autorespond_report(
     ws: WebSocket, slug: str, frame: AutorespondReportFrame
 ) -> None:
-    """Persists an auto-respond run record under the authenticated agent. Shielded
-    so a mid-write disconnect doesn't leave the row half-applied."""
-    session_factory = ws.app.state.session_factory
+    """Persists an auto-respond run record under the authenticated agent and, if
+    the outcome warrants it, escalates the trigger message to the owner's Inbox
+    (Epic 04 · 4.3). Shielded so a mid-write disconnect doesn't half-apply it."""
+    state = ws.app.state
+    session_factory = state.session_factory
 
     async def _persist():
         async with session_factory() as session:
-            await build_autorespond_service(session).record_run(slug, frame.record)
+            await build_autorespond_service(session, state.settings, state.manager).record_run(
+                slug, frame.record
+            )
 
     await asyncio.shield(_persist())
 

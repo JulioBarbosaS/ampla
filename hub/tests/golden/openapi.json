@@ -162,6 +162,13 @@
             "title": "Display Name",
             "type": "string"
           },
+          "escalate_on": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Escalate On",
+            "type": "array"
+          },
           "instructions": {
             "title": "Instructions",
             "type": "string"
@@ -236,7 +243,8 @@
           "max_auto_tokens_per_day",
           "max_auto_cost_usd_per_day",
           "require_approval",
-          "auto_schedule"
+          "auto_schedule",
+          "escalate_on"
         ],
         "title": "AgentOut",
         "type": "object"
@@ -359,6 +367,20 @@
               }
             ],
             "title": "Denied Paths"
+          },
+          "escalate_on": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Escalate On"
           },
           "instructions": {
             "anyOf": [
