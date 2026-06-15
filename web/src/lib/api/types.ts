@@ -89,11 +89,24 @@ export interface Approval {
   created_at: string;
 }
 
+/** Auto-respond outcomes that can be routed to the owner's Inbox (Epic 04 · 4.3).
+ * Mirrors the hub's ESCALATE_OUTCOMES. The `__ESCALATE__` sentinel always
+ * escalates and is not user-configurable, so it is not listed here. */
+export type EscalateOutcome =
+  | "failed"
+  | "blocked"
+  | "rate_limited"
+  | "budget_exceeded"
+  | "outside_hours";
+
 export interface Agent extends AgentSettings {
   slug: string;
   user_id: number;
   display_name: string;
   created_at: string;
+  // Escalation routing (Epic 04 · 4.3): hub-side policy (not in the WS settings),
+  // so it lives on the agent record, not in AgentSettings.
+  escalate_on: EscalateOutcome[];
 }
 
 export interface DirectoryEntry {

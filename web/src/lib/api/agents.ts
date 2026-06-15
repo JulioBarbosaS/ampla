@@ -8,6 +8,7 @@ import type {
   AutorespondRun,
   AutoSchedule,
   DirectoryEntry,
+  EscalateOutcome,
 } from "./types";
 
 export interface SettingsPatch {
@@ -31,6 +32,9 @@ export interface SettingsPatch {
   // Availability window / DND (Epic 04 · 4.2). Set to apply; clear to go always-on.
   auto_schedule?: AutoSchedule;
   clear_auto_schedule?: boolean;
+  // Escalation routing (Epic 04 · 4.3): which auto-respond outcomes reach the
+  // owner's Inbox. [] disables escalation.
+  escalate_on?: EscalateOutcome[];
 }
 
 export const agentsApi = {
