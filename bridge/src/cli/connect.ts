@@ -185,7 +185,8 @@ export async function run(argv: string[]): Promise<void> {
       stdio: "inherit",
     });
   } else {
-    console.error(`→ rode:  ${daemonCmd}`);
+    console.error(`→ rode:  amp ${decoded.agent_id} on`);
+    console.error(`   (ou:  ${daemonCmd})`);
   }
 }
 
