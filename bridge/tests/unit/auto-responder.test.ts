@@ -126,6 +126,28 @@ describe("AutoResponder", () => {
     expect(result.kind).toBe("blocked");
   });
 
+  it("escalates when the model emits the __ESCALATE__ sentinel (sends nothing)", async () => {
+    const runner = vi.fn().mockResolvedValue("  __ESCALATE__  "); // trims to exactly the sentinel
+    const result = await makeResponder(runner).handle(MESSAGE, settings());
+    expect(result).toEqual({ kind: "skipped", reason: "escalate" });
+  });
+
+  it("the sentinel wins over require_approval (a hand-off is not a draft)", async () => {
+    const runner = vi.fn().mockResolvedValue("__ESCALATE__");
+    const result = await makeResponder(runner).handle(
+      MESSAGE,
+      settings({ require_approval: true }),
+    );
+    expect(result).toEqual({ kind: "skipped", reason: "escalate" });
+  });
+
+  it("a reply that merely mentions the sentinel still sends (exact-match only)", async () => {
+    const reply = "Para escalar, o modelo responde apenas __ESCALATE__.";
+    const runner = vi.fn().mockResolvedValue(reply);
+    const result = await makeResponder(runner).handle(MESSAGE, settings());
+    expect(result).toEqual({ kind: "replied", reply });
+  });
+
   it("skips outside the availability window (outside_hours)", async () => {
     const runner = vi.fn().mockResolvedValue("ok");
     const outside = Date.UTC(2024, 0, 1, 20, 0, 0); // Mon 20:00 UTC — after 18:00

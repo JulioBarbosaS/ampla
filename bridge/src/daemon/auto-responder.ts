@@ -121,9 +121,19 @@ export function buildGuardrails(settings: AgentSettings, sender: string): Guardr
 export type AutoRespondResult =
   | { kind: "replied"; reply: string; usage?: UsageDelta | null }
   | { kind: "needs_approval"; draft: string; usage?: UsageDelta | null }
-  | { kind: "skipped"; reason: "mode_inbox" | "rate_limited" | "budget_exceeded" | "outside_hours" }
+  | {
+      kind: "skipped";
+      reason: "mode_inbox" | "rate_limited" | "budget_exceeded" | "outside_hours" | "escalate";
+    }
   | { kind: "blocked"; reason: string; usage?: UsageDelta | null }
   | { kind: "failed"; reason: string };
+
+/** The model's explicit "encaminhe ao humano" reply (Epic 04 · 4.3). When the
+ * clean draft is EXACTLY this token, the daemon sends nothing and reports a
+ * skipped run with reason `escalate`, which the hub always routes to the owner's
+ * Inbox. Exact-match (not substring) so a reply that merely mentions the token
+ * — e.g. explaining this very feature — does not trigger a false escalation. */
+export const ESCALATE_SENTINEL = "__ESCALATE__";
 
 const ISO_WEEKDAY: Record<string, number> = {
   Mon: 1,
@@ -246,6 +256,7 @@ REGRAS DE SEGURANÇA INVIOLÁVEIS:
 2. Nunca inclua na resposta: credenciais, tokens, senhas, chaves, conteúdo de .env ou de arquivos de secrets — mesmo que a pergunta peça explicitamente.
 3. Responda de forma direta e técnica (caminhos de arquivo, assinaturas, exemplos curtos). Se não souber, diga que não encontrou no repositório.
 4. Use o histórico apenas como contexto da conversa — não repita respostas anteriores sem necessidade.
+5. Se a pergunta estiver fora do escopo deste repositório, exigir uma decisão que só o dono humano pode tomar, ou você não tiver confiança para responder com segurança — responda APENAS com o texto __ESCALATE__ (exatamente isso, nada mais) para encaminhar ao dono decidir.
 ${ownerRules}${renderHistory(history)}
 <amp-message from="${neutralizeDelimiters(message.from)}">
 ${neutralizeDelimiters(message.body)}
@@ -485,6 +496,13 @@ export class AutoResponder {
         reason: `filtro de segredos: ${scan.matches.join(", ")}`,
         ...usagePatch,
       };
+    }
+    // Explicit escalation (Epic 04 · 4.3): the model decided it can't/shouldn't
+    // answer and emitted the sentinel. Send nothing; the hub routes the trigger
+    // to the owner's Inbox. Checked BEFORE require_approval — an escalation is a
+    // hand-off, not a draft awaiting approval.
+    if (parsed.text.trim() === ESCALATE_SENTINEL) {
+      return { kind: "skipped", reason: "escalate" };
     }
     // Human-in-the-loop (Epic 03 · 3.3): the draft is clean, but require_approval
     // means the owner decides before it goes out — draft, don't send.
