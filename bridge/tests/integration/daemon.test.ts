@@ -95,6 +95,20 @@ describe("daemon ↔ hub", () => {
     expect(d.store.conversation("mobile-eduardo").some((m) => m.direction === "out")).toBe(true);
   });
 
+  it("escalation (__ESCALATE__) sends the sender a red alert notice", async () => {
+    const runner = vi.fn().mockResolvedValue("__ESCALATE__");
+    hub.settings = { ...hub.settings, mode: "auto" };
+    await startDaemon(runner);
+
+    hub.pushMessage(AGENT, wireMessage(40, "mobile-eduardo", AGENT, "decida isso por mim"));
+    await waitFor(() => hub.sentMessages().length === 1, 5000, "aviso de escalação");
+
+    const frame = hub.received.find((f) => f.type === "message" && f.to === "mobile-eduardo")!;
+    expect(frame.msg_type).toBe("alert"); // rendered red in the panel
+    expect(String(frame.body)).toContain(AUTO_REPLY_PREFIX);
+    expect(String(frame.body)).toContain("dono de @backend-julio");
+  });
+
   it("requests approval instead of sending when require_approval is on", async () => {
     const runner = vi.fn().mockResolvedValue("Sim: POST /api/v1/auth/password-reset");
     hub.settings = { ...hub.settings, mode: "auto", require_approval: true };

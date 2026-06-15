@@ -47,6 +47,17 @@ export const MAX_AUTO_REPLIES_PER_THREAD = 5;
 const FULL_TRANSCRIPT = process.env.AMP_AUTORESPOND_FULL_TRANSCRIPT === "1";
 export const REPLY_PREVIEW_MAX = FULL_TRANSCRIPT ? 4000 : 280;
 
+/** Notice sent back to the sender when an auto-respond escalates (the model
+ * emitted __ESCALATE__: it couldn't/shouldn't answer). Explains why nothing
+ * came back and points to the owner. Sent as an `alert` so the panel shows it in
+ * red (Epic 04 · 4.3). */
+export function escalationNotice(agentId: string): string {
+  return (
+    "Não consegui responder a esta mensagem automaticamente. " +
+    `Encaminhei ao dono de @${agentId} — para uma resposta, fale diretamente com o responsável pelo agente.`
+  );
+}
+
 export interface Daemon {
   hub: HubClient;
   store: MessageStore;
@@ -233,7 +244,17 @@ export function createDaemon(
         console.error(`[amp] auto-respond falhou (${result.reason}) — mensagem segue na inbox`);
         break;
       case "skipped":
-        break; // inbox mode or rate limit: message stays in the inbox for the owner
+        // The model escalated (__ESCALATE__): tell the sender why nothing came
+        // back and to reach the owner. Sent as an `alert` (rendered red in the
+        // panel); other skips (rate/budget/hours/inbox) just leave it in the inbox.
+        if (result.reason === "escalate") {
+          hub.send(message.from, AUTO_REPLY_PREFIX + escalationNotice(config.agent_id), {
+            msgType: "alert",
+            priority: message.priority,
+            inReplyTo: message.id,
+          });
+        }
+        break;
     }
   }
 
