@@ -160,6 +160,16 @@ export interface ApprovalRequestFrame {
   draft_body: string;
 }
 
+/** Daemon→hub: an interactive agent delegates a task to another agent (Epic 04 ·
+ * 4.4). No from_agent — attributed to the authenticated socket (anti-spoof). The
+ * hub turns it into a task message + a delegations row. Mirrors DelegateFrame. */
+export interface DelegateFrame {
+  type: "delegate";
+  to: string;
+  task: string;
+  context: string;
+}
+
 export type ClientFrame =
   | HelloFrame
   | SendMessageFrame
@@ -167,7 +177,8 @@ export type ClientFrame =
   | PongFrame
   | ActivityFrame
   | AutorespondReportFrame
-  | ApprovalRequestFrame;
+  | ApprovalRequestFrame
+  | DelegateFrame;
 
 // ---------- hub → daemon ----------
 

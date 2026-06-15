@@ -101,6 +101,20 @@ class ApprovalRequestFrame(BaseModel):
     draft_body: str = Field(min_length=1, max_length=16384)
 
 
+class DelegateFrame(BaseModel):
+    """Daemon→hub: an interactive agent delegates a task to another agent
+    (Epic 04 · 4.4). No from_agent — the hub attributes it to the socket's
+    AUTHENTICATED agent (anti-spoof, like the approval/report frames). The hub
+    turns it into a `task` message (so it flows through the normal routing /
+    allowlist / threading) plus a delegations row. `context` is untrusted to the
+    delegate and reaches it delimited inside the task body."""
+
+    type: Literal["delegate"] = "delegate"
+    to: str = Field(max_length=60)
+    task: str = Field(min_length=1, max_length=2000)
+    context: str = Field(default="", max_length=16384)
+
+
 ClientFrame = Annotated[
     HelloFrame
     | SendMessageFrame
@@ -108,7 +122,8 @@ ClientFrame = Annotated[
     | PongFrame
     | ActivityFrame
     | AutorespondReportFrame
-    | ApprovalRequestFrame,
+    | ApprovalRequestFrame
+    | DelegateFrame,
     Field(discriminator="type"),
 ]
 client_frame_adapter: TypeAdapter[ClientFrame] = TypeAdapter(ClientFrame)

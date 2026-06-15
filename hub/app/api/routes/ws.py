@@ -20,6 +20,7 @@ from app.api.deps import (
     build_approval_service,
     build_auth_service,
     build_autorespond_service,
+    build_delegation_service,
     build_group_service,
     build_message_service,
 )
@@ -34,6 +35,7 @@ from app.schemas.ws import (
     ApprovalRequestFrame,
     AutorespondReportFrame,
     BroadcastResultFrame,
+    DelegateFrame,
     DeliveredFrame,
     ErrorFrame,
     GroupInfo,
@@ -225,6 +227,16 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
                 await _handle_approval_request(ws, slug, frame)
                 continue
 
+            # delegate: an interactive agent hands a task to another agent (Epic 04
+            # · 4.4). It creates a real task message, so it counts against the
+            # token bucket like any send.
+            if isinstance(frame, DelegateFrame):
+                if not bucket.allow():
+                    await _send_error(ws, "rate_limited", "Limite de mensagens excedido.")
+                    continue
+                await _handle_delegate(ws, slug, frame)
+                continue
+
             if not isinstance(frame, SendMessageFrame):
                 await _send_error(ws, "bad_frame", "Frame inesperado.")
                 continue
@@ -343,6 +355,27 @@ async def _handle_approval_request(ws: WebSocket, slug: str, frame: ApprovalRequ
             )
 
     await asyncio.shield(_persist())
+
+
+async def _handle_delegate(ws: WebSocket, slug: str, frame: DelegateFrame) -> None:
+    """An interactive agent delegates a task to another agent (Epic 04 · 4.4).
+    The service sends the task AS the authenticated delegator (allowlist + routing
+    enforced) and records the delegation. Shielded so a mid-write disconnect
+    doesn't half-apply it. A domain error (self-delegate, too many open) goes back
+    as an error frame."""
+    state = ws.app.state
+    session_factory = state.session_factory
+
+    async def _persist():
+        async with session_factory() as session:
+            return await build_delegation_service(session, state.settings, state.manager).delegate(
+                slug, frame.to, frame.task, frame.context
+            )
+
+    try:
+        await asyncio.shield(_persist())
+    except DomainError as exc:
+        await _send_error(ws, exc.code, exc.detail)
 
 
 async def _handle_broadcast(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -> None:

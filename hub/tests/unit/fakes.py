@@ -9,6 +9,7 @@ from datetime import datetime
 from app.models.agent import Agent, AgentKey
 from app.models.approval import Approval
 from app.models.autorespond_run import AutorespondRun
+from app.models.delegation import Delegation
 from app.models.group import Group
 from app.models.guardrail_preset import GuardrailPreset
 from app.models.hub_state import HubState
@@ -288,6 +289,47 @@ class FakeApprovalRepository:
 
     async def list_pending_before(self, cutoff: datetime) -> list[Approval]:
         return [a for a in self._items.values() if a.status == "pending" and a.created_at < cutoff]
+
+
+class FakeDelegationRepository:
+    def __init__(self) -> None:
+        self._items: dict[int, Delegation] = {}
+        self._seq = 0
+
+    async def add(self, delegation: Delegation) -> Delegation:
+        self._seq += 1
+        delegation.id = self._seq
+        _default(delegation, "status", "open")
+        _default(delegation, "created_at", utcnow())
+        _default(delegation, "updated_at", utcnow())
+        self._items[delegation.id] = delegation
+        return delegation
+
+    async def save(self, delegation: Delegation) -> None:
+        self._items[delegation.id] = delegation
+
+    async def count_open_from(self, from_agent: str) -> int:
+        return sum(
+            1 for d in self._items.values() if d.from_agent == from_agent and d.status == "open"
+        )
+
+    async def find_open_for_reply(
+        self, *, delegator: str, delegate: str, root_message_id: int
+    ) -> Delegation | None:
+        for d in self._items.values():
+            if (
+                d.from_agent == delegator
+                and d.to_agent == delegate
+                and d.root_message_id == root_message_id
+                and d.status == "open"
+            ):
+                return d
+        return None
+
+    async def list_for_agent(self, agent_slug: str, *, limit: int = 50) -> list[Delegation]:
+        found = [d for d in self._items.values() if agent_slug in (d.from_agent, d.to_agent)]
+        found.sort(key=lambda d: (d.created_at, d.id), reverse=True)
+        return found[:limit]
 
 
 class FakeGuardrailPresetRepository:

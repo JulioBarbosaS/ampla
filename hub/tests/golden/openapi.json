@@ -896,6 +896,75 @@
         "title": "ConversationPartner",
         "type": "object"
       },
+      "DelegationOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "from_agent": {
+            "title": "From Agent",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "result_message_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Message Id"
+          },
+          "root_message_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Message Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task": {
+            "title": "Task",
+            "type": "string"
+          },
+          "to_agent": {
+            "title": "To Agent",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "from_agent",
+          "to_agent",
+          "task",
+          "root_message_id",
+          "result_message_id",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DelegationOut",
+        "type": "object"
+      },
       "DirectoryEntry": {
         "description": "Public view of an agent for the team directory.",
         "properties": {
@@ -2428,6 +2497,69 @@
           }
         ],
         "summary": "Autorespond Runs",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/api/agents/{slug}/delegations": {
+      "get": {
+        "operationId": "list_delegations_api_agents__slug__delegations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DelegationOut"
+                  },
+                  "title": "Response List Delegations Api Agents  Slug  Delegations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Delegations",
         "tags": [
           "agents"
         ]

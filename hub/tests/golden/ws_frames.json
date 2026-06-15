@@ -43,6 +43,12 @@
     "to": "@frontend-team",
     "type": "message"
   },
+  "client.delegate": {
+    "context": "ver auth.py",
+    "task": "Revisar o fluxo de login",
+    "to": "mobile-eduardo",
+    "type": "delegate"
+  },
   "client.hello": {
     "agent_id": "backend-julio",
     "key": "amp_abababababababababababababababababababababababababababababababab",

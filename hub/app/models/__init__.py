@@ -2,6 +2,7 @@ from app.models.agent import Agent, AgentKey
 from app.models.approval import Approval
 from app.models.audit import AuditLog
 from app.models.autorespond_run import AutorespondRun
+from app.models.delegation import Delegation
 from app.models.group import Group, GroupMember
 from app.models.guardrail_preset import GuardrailPreset
 from app.models.hub_state import HubState
@@ -15,6 +16,7 @@ __all__ = [
     "Approval",
     "AuditLog",
     "AutorespondRun",
+    "Delegation",
     "Group",
     "GroupMember",
     "GuardrailPreset",

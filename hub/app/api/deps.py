@@ -17,6 +17,7 @@ from app.repositories.agent_repo import AgentRepository
 from app.repositories.approval_repo import ApprovalRepository
 from app.repositories.audit_repo import AuditRepository
 from app.repositories.autorespond_repo import AutorespondRunRepository
+from app.repositories.delegation_repo import DelegationRepository
 from app.repositories.group_repo import GroupRepository
 from app.repositories.guardrail_preset_repo import GuardrailPresetRepository
 from app.repositories.hub_state_repo import HubStateRepository
@@ -30,6 +31,7 @@ from app.services.agent_service import AgentService
 from app.services.approval_service import ApprovalService
 from app.services.auth_service import AuthService
 from app.services.autorespond_service import AutorespondService
+from app.services.delegation_service import DelegationService
 from app.services.group_service import GroupService
 from app.services.message_service import MessageService
 from app.services.notification_service import NotificationService
@@ -100,6 +102,8 @@ def build_message_service(session: AsyncSession, settings, manager=None) -> Mess
         audit=AuditRepository(session),
         settings=settings,
         notifications=build_notification_service(session, settings, manager),
+        # delegations lets a reply close a delegated task (Epic 04 · 4.4).
+        delegations=DelegationRepository(session),
     )
 
 
@@ -164,6 +168,36 @@ def build_approval_service(session: AsyncSession, settings, manager=None) -> App
     )
 
 
+def _delegation_sender(session: AsyncSession, settings, manager):
+    """Sends the delegated task AS the delegator (type=task) and dispatches it —
+    the same persist + real-time push the message path uses — so it reaches the
+    delegate's daemon and triggers its auto-respond. Keeps DelegationService free
+    of any transport import. Raises PermissionDeniedError on the delegate's
+    allowlist block, which the service turns into a `declined` delegation."""
+    messages = build_message_service(session, settings, manager)
+
+    async def send_task(from_slug: str, to_slug: str, body: str) -> Message:
+        msg = await messages.send(from_slug, to_slug, body, type="task")
+        if manager is not None:
+            out = MessageOut.model_validate(msg)
+            frame = {"type": "message", "message": out.model_dump(mode="json", by_alias=True)}
+            if await manager.send_to_agent(to_slug, frame):
+                await messages.mark_delivered([msg.id])
+            await manager.notify_message(frame, from_slug, to_slug)
+        return msg
+
+    return send_task
+
+
+def build_delegation_service(session: AsyncSession, settings, manager=None) -> DelegationService:
+    return DelegationService(
+        delegations=DelegationRepository(session),
+        agents=AgentRepository(session),
+        audit=AuditRepository(session),
+        sender=_delegation_sender(session, settings, manager),
+    )
+
+
 def get_app_settings(request: Request) -> Settings:
     """The Settings the app was built with (tests inject their own — never the
     module-level get_settings cache)."""
@@ -212,6 +246,12 @@ def get_notification_service(
     return build_notification_service(
         session, request.app.state.settings, request.app.state.manager
     )
+
+
+def get_delegation_service(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> DelegationService:
+    return build_delegation_service(session, request.app.state.settings, request.app.state.manager)
 
 
 async def get_current_user(

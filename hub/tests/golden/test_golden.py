@@ -146,6 +146,14 @@ def test_ws_frames_contract() -> None:
                 "draft_body": "Sim: POST /api/v1/auth/password-reset",
             }
         ),
+        "client.delegate": _accepted_client_frame(
+            {
+                "type": "delegate",
+                "to": "mobile-eduardo",
+                "task": "Revisar o fluxo de login",
+                "context": "ver auth.py",
+            }
+        ),
         "server.hello_ack": HelloAckFrame(
             agent_id="backend-julio",
             online=["backend-julio", "mobile-eduardo"],

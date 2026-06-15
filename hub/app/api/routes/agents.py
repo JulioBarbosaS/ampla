@@ -5,6 +5,7 @@ from app.api.deps import (
     get_approval_service,
     get_autorespond_service,
     get_current_user,
+    get_delegation_service,
     get_preset_service,
 )
 from app.models.user import User
@@ -19,11 +20,13 @@ from app.schemas.agent import (
 )
 from app.schemas.approval import ApprovalOut
 from app.schemas.autorespond import AutorespondRunOut
+from app.schemas.delegation import DelegationOut
 from app.schemas.preset import ApplyPreset
 from app.schemas.ws import SettingsUpdateFrame
 from app.services.agent_service import AgentService
 from app.services.approval_service import ApprovalService
 from app.services.autorespond_service import AutorespondService
+from app.services.delegation_service import DelegationService
 from app.services.preset_service import PresetService
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
@@ -110,6 +113,19 @@ async def autorespond_runs(
     await svc.get_owned(user, slug)  # owner/admin authz (raises otherwise)
     runs = await ar_svc.list_for_agent(slug, limit)
     return [AutorespondRunOut.model_validate(r) for r in runs]
+
+
+@router.get("/{slug}/delegations", response_model=list[DelegationOut])
+async def list_delegations(
+    slug: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    user: User = Depends(get_current_user),
+    svc: AgentService = Depends(get_agent_service),
+    deleg_svc: DelegationService = Depends(get_delegation_service),
+) -> list[DelegationOut]:
+    await svc.get_owned(user, slug)  # owner/admin authz (raises otherwise)
+    items = await deleg_svc.list_for_agent(slug, limit=limit)
+    return [DelegationOut.model_validate(d) for d in items]
 
 
 @router.get("/{slug}/approvals", response_model=list[ApprovalOut])

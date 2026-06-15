@@ -10,6 +10,7 @@ from app.models.message import Message
 from app.models.user import User, utcnow
 from app.repositories.agent_repo import AgentRepository
 from app.repositories.audit_repo import AuditRepository
+from app.repositories.delegation_repo import DelegationRepository
 from app.repositories.message_repo import MessageRepository
 from app.schemas.message import ConversationPartner, MessageOut
 from app.services.errors import (
@@ -33,12 +34,14 @@ class MessageService:
         audit: AuditRepository,
         settings: Settings,
         notifications: NotificationService | None = None,
+        delegations: DelegationRepository | None = None,
     ) -> None:
         self._messages = messages
         self._agents = agents
         self._audit = audit
         self._settings = settings
         self._notifications = notifications
+        self._delegations = delegations
 
     async def send(
         self,
@@ -96,7 +99,48 @@ class MessageService:
             )
         )
         await self._generate_notifications(message, recipient)
+        # A reply may answer a delegated task (Epic 04 · 4.4) — close the loop.
+        if in_reply_to is not None:
+            await self._maybe_complete_delegation(message)
         return message
+
+    async def _maybe_complete_delegation(self, message: Message) -> None:
+        """If this reply answers a delegated task (delegate → delegator, in the
+        delegated thread), mark the delegation completed and notify the delegator.
+        Best-effort: the reply is already committed, so a failure here must never
+        propagate and drop it."""
+        if self._delegations is None or message.thread_id is None:
+            return
+        try:
+            delegation = await self._delegations.find_open_for_reply(
+                delegator=message.to_agent,
+                delegate=message.from_agent,
+                root_message_id=message.thread_id,
+            )
+            if delegation is None:
+                return
+            delegation.status = "completed"
+            delegation.result_message_id = message.id
+            delegation.updated_at = utcnow()
+            await self._delegations.save(delegation)
+            if self._notifications is not None:
+                delegator = await self._agents.get(delegation.from_agent)
+                if delegator is not None:
+                    await self._notifications.notify(
+                        delegator.user_id,
+                        subject_type="dm",
+                        subject_key=f"dm:{delegation.from_agent}:{delegation.to_agent}",
+                        reason="task_assigned",
+                        title=f"{delegation.to_agent} respondeu à tarefa que você delegou",
+                        link=(
+                            f"/?perspective={delegation.from_agent}"
+                            f"&partner={delegation.to_agent}&msg={message.id}"
+                        ),
+                        actor=delegation.to_agent,
+                        agent_slug=delegation.from_agent,
+                    )
+        except Exception:
+            logger.warning("delegation completion failed for message %s", message.id, exc_info=True)
 
     async def _generate_notifications(self, message: Message, recipient: Agent) -> None:
         """Inbox notifications (Epic 02) as a side effect of a send. Best-effort:
