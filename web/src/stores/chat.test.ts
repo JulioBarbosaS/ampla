@@ -117,4 +117,21 @@ describe("chat store", () => {
     store.addMessage(msg(1, "backend-julio", "mobile-eduardo"));
     expect(() => store.markDelivered(999)).not.toThrow();
   });
+
+  it("addMessage syncs delivered_at from a re-mirror of a message we already have", () => {
+    const store = useChatStore.getState();
+    const key = conversationKey("backend-julio", "mobile-eduardo");
+    store.addMessage(msg(1, "backend-julio", "mobile-eduardo")); // our POST: delivered_at null
+    expect(useChatStore.getState().conversations[key]![0].delivered_at).toBeNull();
+
+    // the hub re-mirrors the SAME message after the recipient acks (delivered set)
+    store.addMessage({
+      ...msg(1, "backend-julio", "mobile-eduardo"),
+      delivered_at: "2026-06-15T12:00:00Z",
+    });
+
+    const conversation = useChatStore.getState().conversations[key]!;
+    expect(conversation).toHaveLength(1); // still deduped (no duplicate bubble)
+    expect(conversation[0].delivered_at).toBe("2026-06-15T12:00:00Z"); // but now "entregue"
+  });
 });

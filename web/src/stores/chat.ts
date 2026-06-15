@@ -105,8 +105,20 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => {
       const key = conversationKey(message.from, message.to);
       const existing = state.conversations[key] ?? [];
-      if (existing.some((m) => m.id === message.id)) {
-        return state; // dedup (echo of our own POST via observer)
+      const idx = existing.findIndex((m) => m.id === message.id);
+      if (idx !== -1) {
+        // We already have this message (echo of our own POST, or a re-mirror).
+        // Sync a delivery stamp the local copy is missing: after the recipient
+        // acks, the hub re-mirrors the message with delivered_at set — and that
+        // re-mirror is how THIS observer learns "entregue" (the `delivered`
+        // frame goes to the sender's daemon, not to the panel). Without this the
+        // bubble would stay "pendente" until a manual refresh.
+        if (message.delivered_at && !existing[idx].delivered_at) {
+          const updated = [...existing];
+          updated[idx] = { ...existing[idx], delivered_at: message.delivered_at };
+          return { conversations: { ...state.conversations, [key]: updated } };
+        }
+        return state; // no new information
       }
       return {
         conversations: { ...state.conversations, [key]: [...existing, message] },
