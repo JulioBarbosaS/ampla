@@ -130,6 +130,18 @@ export class HubClient extends EventEmitter<HubClientEvents> {
     return true;
   }
 
+  /** Delegates a task to another agent (Epic 04 · 4.4). The hub creates a
+   * delegations row + a task message to the delegate, attributed to this
+   * authenticated agent. Only reachable from an interactive session (the
+   * auto-responder runs with --strict-mcp-config and has no ampla MCP). */
+  sendDelegate(to: string, task: string, context: string): boolean {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const frame: ClientFrame = { type: "delegate", to, task, context };
+    ws.send(JSON.stringify(frame));
+    return true;
+  }
+
   /** Confirms receipt of a message (at-least-once): the hub only marks it
    * `delivered` and notifies the sender after this ack. Always ack — even a
    * deduplicated message — otherwise the hub resends it on every reconnect. */

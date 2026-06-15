@@ -75,10 +75,11 @@ afterAll(async () => {
 });
 
 describe("MCP smoke: real client ↔ real server ↔ daemon", () => {
-  it("tools/list exposes the six amp_* tools", async () => {
+  it("tools/list exposes the amp_* tools", async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual([
+      "amp_delegate",
       "amp_groups",
       "amp_history",
       "amp_inbox",
@@ -125,5 +126,20 @@ describe("MCP smoke: real client ↔ real server ↔ daemon", () => {
       arguments: { to: "x", body: "vazio?" }, // 'x' violates the recipient regex
     })) as { isError?: boolean; content: Array<{ type: string; text?: string }> };
     expect(res.isError).toBe(true);
+  });
+
+  it("amp_delegate routes a delegate frame through the daemon socket to the hub", async () => {
+    const res = payload(
+      await client.callTool({
+        name: "amp_delegate",
+        arguments: { to: PEER, task: "Revisar o login", context: "ver auth.py" },
+      }),
+    ) as { delegated: boolean; to: string };
+    expect(res.delegated).toBe(true);
+    await waitFor(
+      () => hub.sentDelegations().some((d) => d.to === PEER && d.task === "Revisar o login"),
+      5000,
+      "delegação chegou ao hub via MCP",
+    );
   });
 });

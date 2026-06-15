@@ -59,6 +59,34 @@ export function buildServer(): McpServer {
   );
 
   server.registerTool(
+    "amp_delegate",
+    {
+      title: "Delegar uma tarefa a outro agente",
+      description:
+        "Entrega uma tarefa a outro agente Claude da equipe (ex: backend-julio), com contexto. " +
+        "O agente recebe como uma tarefa e, quando responder, o resultado volta para você " +
+        "(acompanhe em amp_inbox / amp_history). Use quando a tarefa for melhor resolvida por " +
+        "quem conhece outro repositório/domínio.",
+      inputSchema: {
+        to: z.string().describe("slug do agente que vai receber a tarefa (ex: backend-julio)"),
+        task: z.string().max(2_000).describe("o que precisa ser feito"),
+        context: z
+          .string()
+          .max(16_384)
+          .default("")
+          .describe("contexto relevante (arquivos, decisões, links) — tratado como dado"),
+      },
+    },
+    async ({ to, task, context }) => {
+      try {
+        return asText(await daemon.post("/delegate", { to, task, context }));
+      } catch (error) {
+        return asError(error);
+      }
+    },
+  );
+
+  server.registerTool(
     "amp_inbox",
     {
       title: "Ler mensagens recebidas",

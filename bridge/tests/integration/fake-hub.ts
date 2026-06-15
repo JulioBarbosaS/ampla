@@ -134,6 +134,13 @@ export class FakeHub {
       .map((f) => f.record as Record<string, unknown>);
   }
 
+  /** `delegate` frames the daemon sent to the hub (Epic 04 · 4.4). */
+  sentDelegations(): Array<{ to: string; task: string; context: string }> {
+    return this.received
+      .filter((f) => f.type === "delegate")
+      .map((f) => ({ to: String(f.to), task: String(f.task), context: String(f.context) }));
+  }
+
   async stop(): Promise<void> {
     for (const ws of this.sockets.values()) ws.terminate();
     await new Promise<void>((resolve) => this.wss?.close(() => resolve()));

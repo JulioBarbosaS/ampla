@@ -22,6 +22,18 @@ const sendBodySchema = z.object({
   in_reply_to: z.number().int().optional(),
 });
 
+// Delegation target is a single agent (never a group/@all) — handing a task off
+// to "everyone" makes no sense (Epic 04 · 4.4).
+const delegateBodySchema = z.object({
+  to: z
+    .string()
+    .min(3)
+    .max(50)
+    .regex(/^[a-z][a-z0-9-]*$/, "destinatário inválido (use o slug de um agente)"),
+  task: z.string().min(1).max(2_000),
+  context: z.string().max(16_384).default(""),
+});
+
 export interface LocalApiDeps {
   agentId: string;
   hub: HubClient;
@@ -77,6 +89,39 @@ export function buildLocalApi({ agentId, hub, store }: LocalApiDeps): FastifyIns
       broadcast: isBroadcast,
       recipient_online: isBroadcast ? null : hub.onlineAgents().includes(to),
     };
+  });
+
+  api.post("/delegate", async (request, reply) => {
+    const parsed = delegateBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(422).send({ error: parsed.error.issues[0]?.message ?? "inválido" });
+    }
+    const { to, task, context } = parsed.data;
+    if (to === agentId) {
+      return reply.code(422).send({ error: "Não dá para delegar para o próprio agente." });
+    }
+    if (!hub.connected) {
+      return reply.code(503).send({ error: "Daemon desconectado do hub." });
+    }
+    hub.sendDelegate(to, task, context);
+    // Mirror the hand-off into the local history (like /send) so amp_history with
+    // the delegate shows the outgoing task. The hub is the source of truth.
+    const body = context.trim() ? `${task.trim()}\n\nContexto:\n${context.trim()}` : task.trim();
+    store.append({
+      id: null,
+      from: agentId,
+      to,
+      body,
+      type: "task",
+      priority: "normal",
+      group: null,
+      thread_id: null,
+      in_reply_to: null,
+      ts: new Date().toISOString(),
+      direction: "out",
+      read: true,
+    });
+    return { delegated: true, to, recipient_online: hub.onlineAgents().includes(to) };
   });
 
   api.get("/inbox", async (request) => {

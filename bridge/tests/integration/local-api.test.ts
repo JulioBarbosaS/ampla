@@ -79,6 +79,46 @@ describe("daemon local API (consumed by the MCP)", () => {
     expect(offline.statusCode).toBe(503);
   });
 
+  it("POST /delegate sends a delegate frame and records the task locally", async () => {
+    const response = await daemon.api.inject({
+      method: "POST",
+      url: "/delegate",
+      payload: { to: "mobile-eduardo", task: "Revisar o login", context: "ver auth.py" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ delegated: true, to: "mobile-eduardo" });
+
+    await waitFor(() => hub.sentDelegations().length === 1, 5000, "frame de delegação no hub");
+    expect(hub.sentDelegations()[0]).toEqual({
+      to: "mobile-eduardo",
+      task: "Revisar o login",
+      context: "ver auth.py",
+    });
+    // the outgoing task is mirrored into the local history (task + context)
+    const history = await daemon.api.inject({
+      method: "GET",
+      url: "/history?with=mobile-eduardo",
+    });
+    expect(history.json().messages).toHaveLength(1);
+    expect(history.json().messages[0].type).toBe("task");
+  });
+
+  it("POST /delegate rejects a group target and self-delegation (422)", async () => {
+    const group = await daemon.api.inject({
+      method: "POST",
+      url: "/delegate",
+      payload: { to: "@frontend-team", task: "x" },
+    });
+    expect(group.statusCode).toBe(422);
+
+    const toSelf = await daemon.api.inject({
+      method: "POST",
+      url: "/delegate",
+      payload: { to: AGENT, task: "x" },
+    });
+    expect(toSelf.statusCode).toBe(422);
+  });
+
   it("GET /inbox returns unread messages and marks them read by default", async () => {
     hub.pushMessage(AGENT, wireMessage(21, "mobile-eduardo", AGENT, "primeira"));
     await waitFor(() => daemon.store.unreadCount() === 1, 5000, "mensagem na inbox");
