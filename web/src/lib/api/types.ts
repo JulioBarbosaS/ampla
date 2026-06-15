@@ -33,6 +33,21 @@ export interface AgentSettings {
   max_auto_cost_usd_per_day: number | null;
   // Human-in-the-loop approval (Epic 03 · 3.3): draft, don't send, until approved.
   require_approval: boolean;
+  // Availability window / DND (Epic 04 · 4.2): null = always-on.
+  auto_schedule: AutoSchedule | null;
+}
+
+/** Recurring availability window. days are ISO weekdays (1=Mon..7=Sun);
+ * start/end are HH:MM in the schedule's timezone. */
+export interface ScheduleWindow {
+  days: number[];
+  start: string;
+  end: string;
+}
+
+export interface AutoSchedule {
+  tz: string;
+  windows: ScheduleWindow[];
 }
 
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "edited";

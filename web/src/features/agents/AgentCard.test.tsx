@@ -42,6 +42,7 @@ const AGENT: Agent = {
   max_auto_tokens_per_day: null,
   max_auto_cost_usd_per_day: null,
   require_approval: false,
+  auto_schedule: null,
 };
 
 const GROUPS: Group[] = [

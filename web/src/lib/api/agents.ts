@@ -6,6 +6,7 @@ import type {
   Approval,
   ApprovalStatus,
   AutorespondRun,
+  AutoSchedule,
   DirectoryEntry,
 } from "./types";
 
@@ -27,6 +28,9 @@ export interface SettingsPatch {
   max_auto_tokens_per_day?: number;
   max_auto_cost_usd_per_day?: number;
   require_approval?: boolean;
+  // Availability window / DND (Epic 04 · 4.2). Set to apply; clear to go always-on.
+  auto_schedule?: AutoSchedule;
+  clear_auto_schedule?: boolean;
 }
 
 export const agentsApi = {

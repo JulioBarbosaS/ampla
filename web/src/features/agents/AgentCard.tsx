@@ -8,6 +8,7 @@ import type { Agent, AgentKey, Group } from "../../lib/api/types";
 import { connectToken } from "../../lib/connect";
 import { PresenceDot } from "../chat/Sidebar";
 import { AgentApprovals } from "./AgentApprovals";
+import { AgentSchedule } from "./AgentSchedule";
 import { AutorespondRuns } from "./AutorespondRuns";
 
 export function AgentCard({
@@ -355,6 +356,7 @@ pnpm daemon   # deixe rodando`;
         <FormError message={error} />
       </form>
 
+      <AgentSchedule slug={agent.slug} schedule={agent.auto_schedule} onChanged={onChanged} />
       <AgentApprovals slug={agent.slug} />
       <AutorespondRuns slug={agent.slug} />
 
