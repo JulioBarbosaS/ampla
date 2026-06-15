@@ -85,6 +85,9 @@ export function MessageBubble({
   });
   const badge = PRIORITY_BADGE[message.priority];
   const isAuto = message.body.startsWith(AUTO_PREFIX);
+  // Alerts (e.g. the auto-respond escalation notice — Epic 04 · 4.3) render red
+  // so a "couldn't answer, ask the owner" notice stands out from normal chat.
+  const isAlert = message.type === "alert";
   const text = stripAuto(message.body);
   const isQuestion = message.type === "request" || message.type === "task";
   const expiry = expiryInfo(message.expires_at, message.delivered_at);
@@ -95,13 +98,20 @@ export function MessageBubble({
       {mine && replyBtn}
       <div
         className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm ${
-          mine
-            ? "rounded-br-sm bg-emerald-700 text-white"
-            : "rounded-bl-sm bg-zinc-800 text-zinc-100"
+          isAlert
+            ? "border border-red-500/50 bg-red-950/50 text-red-100"
+            : mine
+              ? "rounded-br-sm bg-emerald-700 text-white"
+              : "rounded-bl-sm bg-zinc-800 text-zinc-100"
         }`}
       >
-        {(badge || isAuto || message.group || expiry) && (
+        {(badge || isAuto || isAlert || message.group || expiry) && (
           <div className="mb-1 flex flex-wrap items-center gap-1">
+            {isAlert && (
+              <span className="inline-block rounded bg-red-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-red-200">
+                ⚠ aviso
+              </span>
+            )}
             {badge && (
               <span
                 className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${badge}`}

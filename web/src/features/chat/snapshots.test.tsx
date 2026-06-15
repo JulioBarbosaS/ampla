@@ -63,6 +63,17 @@ describe("snapshots", () => {
     expect(container.firstChild).toMatchSnapshot();
   });
 
+  it("MessageBubble alert (escalation notice) renders red with a warning badge", () => {
+    const alert: Message = {
+      ...MESSAGE,
+      type: "alert",
+      body: "[auto] Não consegui responder a esta mensagem automaticamente. Encaminhei ao dono…",
+    };
+    const { container } = render(<MessageBubble message={alert} mine={false} />);
+    expect(container.textContent).toContain("⚠ aviso");
+    expect(container.innerHTML).toContain("bg-red-950"); // red alert bubble styling
+  });
+
   it("Sidebar with team and presence", () => {
     const { container } = render(<Sidebar />);
     expect(container.firstChild).toMatchSnapshot();
