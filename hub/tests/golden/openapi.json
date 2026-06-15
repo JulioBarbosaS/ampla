@@ -450,6 +450,19 @@
         "title": "AgentSettingsUpdate",
         "type": "object"
       },
+      "ApplyPreset": {
+        "properties": {
+          "preset_id": {
+            "title": "Preset Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "preset_id"
+        ],
+        "title": "ApplyPreset",
+        "type": "object"
+      },
       "ApprovalDecision": {
         "description": "Owner's call on a pending approval. `approve` sends the draft as the\nagent; pass `body` to edit before sending (status becomes `edited`).",
         "properties": {
@@ -1392,6 +1405,189 @@
         "title": "PasswordResetRequest",
         "type": "object"
       },
+      "PresetCreate": {
+        "properties": {
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/PresetSettings"
+          }
+        },
+        "required": [
+          "name",
+          "settings"
+        ],
+        "title": "PresetCreate",
+        "type": "object"
+      },
+      "PresetOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/PresetSettings"
+          }
+        },
+        "required": [
+          "id",
+          "owner_id",
+          "name",
+          "settings",
+          "created_at"
+        ],
+        "title": "PresetOut",
+        "type": "object"
+      },
+      "PresetSettings": {
+        "description": "The guardrail/auto subset a preset carries (Epic 04 · 4.1). Applying copies\nthese onto the agent. allowed_senders/auto_schedule stay per-agent.",
+        "properties": {
+          "allow_write": {
+            "default": false,
+            "title": "Allow Write",
+            "type": "boolean"
+          },
+          "auto_paused": {
+            "default": false,
+            "title": "Auto Paused",
+            "type": "boolean"
+          },
+          "auto_timeout_secs": {
+            "default": 120,
+            "maximum": 600.0,
+            "minimum": 10.0,
+            "title": "Auto Timeout Secs",
+            "type": "integer"
+          },
+          "block_hidden_files": {
+            "default": true,
+            "title": "Block Hidden Files",
+            "type": "boolean"
+          },
+          "block_sensitive_paths": {
+            "default": true,
+            "title": "Block Sensitive Paths",
+            "type": "boolean"
+          },
+          "confine_to_dir": {
+            "default": true,
+            "title": "Confine To Dir",
+            "type": "boolean"
+          },
+          "denied_paths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Denied Paths",
+            "type": "array"
+          },
+          "max_auto_cost_usd_per_day": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Auto Cost Usd Per Day"
+          },
+          "max_auto_per_hour": {
+            "default": 10,
+            "maximum": 120.0,
+            "minimum": 1.0,
+            "title": "Max Auto Per Hour",
+            "type": "integer"
+          },
+          "max_auto_tokens_per_day": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Auto Tokens Per Day"
+          },
+          "mode": {
+            "default": "inbox",
+            "pattern": "^(inbox|auto)$",
+            "title": "Mode",
+            "type": "string"
+          },
+          "require_approval": {
+            "default": false,
+            "title": "Require Approval",
+            "type": "boolean"
+          },
+          "trusted_senders": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Trusted Senders",
+            "type": "array"
+          }
+        },
+        "title": "PresetSettings",
+        "type": "object"
+      },
+      "PresetUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "settings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PresetSettings"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "PresetUpdate",
+        "type": "object"
+      },
       "ProfileUpdate": {
         "description": "Self-service profile edit. Email is the login identity — not editable here.",
         "properties": {
@@ -2010,6 +2206,63 @@
           }
         ],
         "summary": "Get Agent",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/api/agents/{slug}/apply-preset": {
+      "post": {
+        "operationId": "apply_preset_api_agents__slug__apply_preset_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyPreset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Apply Preset",
         "tags": [
           "agents"
         ]
@@ -3001,6 +3254,175 @@
         "summary": "Remove Member",
         "tags": [
           "groups"
+        ]
+      }
+    },
+    "/api/guardrail-presets": {
+      "get": {
+        "operationId": "list_presets_api_guardrail_presets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PresetOut"
+                  },
+                  "title": "Response List Presets Api Guardrail Presets Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Presets",
+        "tags": [
+          "presets"
+        ]
+      },
+      "post": {
+        "operationId": "create_preset_api_guardrail_presets_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresetCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Preset",
+        "tags": [
+          "presets"
+        ]
+      }
+    },
+    "/api/guardrail-presets/{preset_id}": {
+      "delete": {
+        "operationId": "delete_preset_api_guardrail_presets__preset_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "preset_id",
+            "required": true,
+            "schema": {
+              "title": "Preset Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Preset",
+        "tags": [
+          "presets"
+        ]
+      },
+      "patch": {
+        "operationId": "update_preset_api_guardrail_presets__preset_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "preset_id",
+            "required": true,
+            "schema": {
+              "title": "Preset Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresetUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Preset",
+        "tags": [
+          "presets"
         ]
       }
     },

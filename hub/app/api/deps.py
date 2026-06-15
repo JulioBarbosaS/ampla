@@ -18,6 +18,7 @@ from app.repositories.approval_repo import ApprovalRepository
 from app.repositories.audit_repo import AuditRepository
 from app.repositories.autorespond_repo import AutorespondRunRepository
 from app.repositories.group_repo import GroupRepository
+from app.repositories.guardrail_preset_repo import GuardrailPresetRepository
 from app.repositories.hub_state_repo import HubStateRepository
 from app.repositories.invite_repo import InviteRepository
 from app.repositories.message_repo import MessageRepository
@@ -32,6 +33,7 @@ from app.services.autorespond_service import AutorespondService
 from app.services.group_service import GroupService
 from app.services.message_service import MessageService
 from app.services.notification_service import NotificationService
+from app.services.preset_service import PresetService
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -98,6 +100,14 @@ def build_message_service(session: AsyncSession, settings, manager=None) -> Mess
         audit=AuditRepository(session),
         settings=settings,
         notifications=build_notification_service(session, settings, manager),
+    )
+
+
+def build_preset_service(session: AsyncSession) -> PresetService:
+    return PresetService(
+        presets=GuardrailPresetRepository(session),
+        agents=AgentRepository(session),
+        audit=AuditRepository(session),
     )
 
 
@@ -168,6 +178,10 @@ def get_message_service(
 
 def get_admin_service(session: AsyncSession = Depends(get_session)) -> AdminService:
     return build_admin_service(session)
+
+
+def get_preset_service(session: AsyncSession = Depends(get_session)) -> PresetService:
+    return build_preset_service(session)
 
 
 def get_autorespond_service(session: AsyncSession = Depends(get_session)) -> AutorespondService:

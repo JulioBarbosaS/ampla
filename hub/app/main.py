@@ -11,7 +11,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from app.api.deps import build_approval_service, build_notification_service
+from app.api.deps import (
+    build_approval_service,
+    build_notification_service,
+    build_preset_service,
+)
 from app.api.errors import register_error_handlers
 from app.api.routes import (
     admin,
@@ -22,6 +26,7 @@ from app.api.routes import (
     invites,
     messages,
     notifications,
+    presets,
     users,
     ws,
 )
@@ -77,6 +82,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     logger.info("expired %s stale pending approvals", expired)
             except Exception:
                 logger.warning("approval expiry sweep failed", exc_info=True)
+            # Seed the built-in guardrail presets (idempotent, best-effort).
+            try:
+                seeded = await build_preset_service(session).ensure_builtins()
+                if seeded:
+                    logger.info("seeded %s built-in guardrail presets", seeded)
+            except Exception:
+                logger.warning("guardrail preset seeding failed", exc_info=True)
         yield
         await engine.dispose()
 
@@ -126,6 +138,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin.router)
     app.include_router(notifications.router)
     app.include_router(approvals.router)
+    app.include_router(presets.router)
     app.include_router(ws.router)
 
     @app.get("/api/health", tags=["health"])

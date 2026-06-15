@@ -10,6 +10,7 @@ from app.models.agent import Agent, AgentKey
 from app.models.approval import Approval
 from app.models.autorespond_run import AutorespondRun
 from app.models.group import Group
+from app.models.guardrail_preset import GuardrailPreset
 from app.models.hub_state import HubState
 from app.models.message import Message
 from app.models.notification import Notification, NotificationSubscription
@@ -287,6 +288,43 @@ class FakeApprovalRepository:
 
     async def list_pending_before(self, cutoff: datetime) -> list[Approval]:
         return [a for a in self._items.values() if a.status == "pending" and a.created_at < cutoff]
+
+
+class FakeGuardrailPresetRepository:
+    def __init__(self) -> None:
+        self._items: dict[int, GuardrailPreset] = {}
+        self._seq = 0
+
+    async def add(self, preset: GuardrailPreset) -> GuardrailPreset:
+        self._seq += 1
+        preset.id = self._seq
+        _default(preset, "created_at", utcnow())
+        self._items[preset.id] = preset
+        return preset
+
+    async def save(self, preset: GuardrailPreset) -> None:
+        self._items[preset.id] = preset
+
+    async def delete(self, preset: GuardrailPreset) -> None:
+        self._items.pop(preset.id, None)
+
+    async def get(self, preset_id: int) -> GuardrailPreset | None:
+        return self._items.get(preset_id)
+
+    async def get_builtin_by_name(self, name: str) -> GuardrailPreset | None:
+        return next(
+            (p for p in self._items.values() if p.owner_id is None and p.name == name), None
+        )
+
+    async def get_by_owner_name(self, owner_id: int, name: str) -> GuardrailPreset | None:
+        return next(
+            (p for p in self._items.values() if p.owner_id == owner_id and p.name == name), None
+        )
+
+    async def list_visible(self, owner_id: int) -> list[GuardrailPreset]:
+        found = [p for p in self._items.values() if p.owner_id is None or p.owner_id == owner_id]
+        found.sort(key=lambda p: (p.owner_id is not None, p.name))
+        return found
 
 
 class FakeInviteRepository:

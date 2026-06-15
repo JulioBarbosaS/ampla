@@ -3,6 +3,7 @@ from app.models.approval import Approval
 from app.models.audit import AuditLog
 from app.models.autorespond_run import AutorespondRun
 from app.models.group import Group, GroupMember
+from app.models.guardrail_preset import GuardrailPreset
 from app.models.hub_state import HubState
 from app.models.message import Message
 from app.models.notification import Notification, NotificationSubscription
@@ -16,6 +17,7 @@ __all__ = [
     "AutorespondRun",
     "Group",
     "GroupMember",
+    "GuardrailPreset",
     "HubState",
     "Invite",
     "Message",

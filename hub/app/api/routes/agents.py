@@ -5,6 +5,7 @@ from app.api.deps import (
     get_approval_service,
     get_autorespond_service,
     get_current_user,
+    get_preset_service,
 )
 from app.models.user import User
 from app.schemas.agent import (
@@ -18,10 +19,12 @@ from app.schemas.agent import (
 )
 from app.schemas.approval import ApprovalOut
 from app.schemas.autorespond import AutorespondRunOut
+from app.schemas.preset import ApplyPreset
 from app.schemas.ws import SettingsUpdateFrame
 from app.services.agent_service import AgentService
 from app.services.approval_service import ApprovalService
 from app.services.autorespond_service import AutorespondService
+from app.services.preset_service import PresetService
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
@@ -75,6 +78,22 @@ async def update_settings(
 ) -> AgentOut:
     agent = await svc.update_settings(user, slug, body)
     # Real-time push to the daemon (docs/ARCHITECTURE.md · WS protocol)
+    frame = SettingsUpdateFrame(settings=svc.settings_of(agent))
+    await request.app.state.manager.send_settings_update(slug, frame.model_dump(mode="json"))
+    return AgentOut.model_validate(agent)
+
+
+@router.post("/{slug}/apply-preset", response_model=AgentOut)
+async def apply_preset(
+    slug: str,
+    body: ApplyPreset,
+    request: Request,
+    user: User = Depends(get_current_user),
+    svc: AgentService = Depends(get_agent_service),
+    presets: PresetService = Depends(get_preset_service),
+) -> AgentOut:
+    agent = await presets.apply(user, slug, body.preset_id)
+    # Same real-time settings push as a manual settings edit.
     frame = SettingsUpdateFrame(settings=svc.settings_of(agent))
     await request.app.state.manager.send_settings_update(slug, frame.model_dump(mode="json"))
     return AgentOut.model_validate(agent)
