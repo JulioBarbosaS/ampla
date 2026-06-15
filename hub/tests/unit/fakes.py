@@ -215,7 +215,11 @@ class FakeNotificationRepository:
         return found[:limit]
 
     async def unread_count(self, user_id: int) -> int:
-        return sum(1 for n in self._items.values() if n.user_id == user_id and n.unread)
+        return sum(
+            1
+            for n in self._items.values()
+            if n.user_id == user_id and n.unread and n.status == "inbox"
+        )
 
     async def count_created_since(self, user_id: int, since: datetime) -> int:
         return sum(

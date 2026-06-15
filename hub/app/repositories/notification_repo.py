@@ -62,10 +62,19 @@ class NotificationRepository:
         return list((await self._session.execute(stmt)).scalars())
 
     async def unread_count(self, user_id: int) -> int:
+        # The badge counts unread items STILL IN THE INBOX: moving a notification
+        # to `saved`/`done` is a triage gesture that should stop it from nagging,
+        # even though it keeps its unread flag (a reopened `done` thread returns to
+        # `inbox` and counts again). Without the status filter, a saved/done item
+        # would keep incrementing the badge forever.
         result = await self._session.execute(
             select(func.count())
             .select_from(Notification)
-            .where(Notification.user_id == user_id, Notification.unread.is_(True))
+            .where(
+                Notification.user_id == user_id,
+                Notification.unread.is_(True),
+                Notification.status == "inbox",
+            )
         )
         return int(result.scalar_one())
 

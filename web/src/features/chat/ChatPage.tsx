@@ -32,8 +32,11 @@ export function ChatPage() {
     const s = useInboxStore.getState();
     const was = s.items.find((i) => i.id === n.id);
     s.upsert(n);
-    // count it once when it (re)enters the unread set — not on an already-unread bump
-    if (n.unread && !was?.unread) {
+    // The badge counts unread items STILL IN THE INBOX (matches the server's
+    // unread_count). +1 only when this item (re)enters that set — not on an
+    // already-counted bump, and not for saved/done re-bumps.
+    const counted = (x?: AppNotification) => !!x?.unread && x.status === "inbox";
+    if (counted(n) && !counted(was)) {
       s.setUnreadCount(useInboxStore.getState().unreadCount + 1);
     }
   }, []);

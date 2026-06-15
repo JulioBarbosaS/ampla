@@ -77,6 +77,15 @@ class TestReadAndIsolation:
         await service.triage(make_user(1), 1, unread=False)
         assert await service.unread_count(make_user(1)) == 1
 
+    async def test_moving_out_of_inbox_stops_counting_even_if_unread(self, service):
+        # Triaging to saved/done is "I dealt with it" — the badge must drop it,
+        # even though it keeps unread=True (a reopened done thread counts again).
+        n1 = await _notify(service, 1, subject_key="thread:1")
+        await _notify(service, 1, subject_key="thread:2")
+        assert await service.unread_count(make_user(1)) == 2
+        await service.triage(make_user(1), n1.id, status="saved")  # still unread, now saved
+        assert await service.unread_count(make_user(1)) == 1
+
     async def test_list_filters_by_status(self, service):
         await _notify(service, 1, subject_key="thread:1")
         await service.triage(make_user(1), 1, status="saved")
