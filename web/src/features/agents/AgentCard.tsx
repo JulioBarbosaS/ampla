@@ -8,6 +8,7 @@ import type { Agent, AgentKey, Group } from "../../lib/api/types";
 import { connectToken } from "../../lib/connect";
 import { PresenceDot } from "../chat/Sidebar";
 import { AgentApprovals } from "./AgentApprovals";
+import { AgentPresets } from "./AgentPresets";
 import { AgentSchedule } from "./AgentSchedule";
 import { AutorespondRuns } from "./AutorespondRuns";
 
@@ -356,6 +357,7 @@ pnpm daemon   # deixe rodando`;
         <FormError message={error} />
       </form>
 
+      <AgentPresets agent={agent} onChanged={onChanged} />
       <AgentSchedule slug={agent.slug} schedule={agent.auto_schedule} onChanged={onChanged} />
       <AgentApprovals slug={agent.slug} />
       <AutorespondRuns slug={agent.slug} />

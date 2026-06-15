@@ -50,4 +50,6 @@ export const agentsApi = {
     api.get<Approval[]>(`/api/agents/${slug}/approvals?status=${status}`),
   decideApproval: (id: number, decision: "approve" | "reject", body?: string) =>
     api.post<Approval>(`/api/approvals/${id}/decision`, body ? { decision, body } : { decision }),
+  applyPreset: (slug: string, preset_id: number) =>
+    api.post<Agent>(`/api/agents/${slug}/apply-preset`, { preset_id }),
 };

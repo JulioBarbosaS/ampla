@@ -50,6 +50,31 @@ export interface AutoSchedule {
   windows: ScheduleWindow[];
 }
 
+/** Guardrail/auto subset carried by a preset (Epic 04 · 4.1). */
+export interface PresetSettings {
+  mode: "inbox" | "auto";
+  max_auto_per_hour: number;
+  auto_timeout_secs: number;
+  allow_write: boolean;
+  block_hidden_files: boolean;
+  block_sensitive_paths: boolean;
+  confine_to_dir: boolean;
+  denied_paths: string[];
+  trusted_senders: string[];
+  require_approval: boolean;
+  auto_paused: boolean;
+  max_auto_tokens_per_day: number | null;
+  max_auto_cost_usd_per_day: number | null;
+}
+
+export interface Preset {
+  id: number;
+  owner_id: number | null; // null = built-in
+  name: string;
+  settings: PresetSettings;
+  created_at: string;
+}
+
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "edited";
 
 export interface Approval {
