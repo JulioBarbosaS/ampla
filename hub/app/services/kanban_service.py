@@ -217,6 +217,16 @@ class KanbanService:
 
     async def create_card(self, user: User, board_id: int, data: CardCreate) -> KanbanCard:
         await self._visible_board(user, board_id)
+        return await self._insert_card(
+            board_id, data, created_by=f"user:{user.id}", audit_actor=user.email
+        )
+
+    async def _insert_card(
+        self, board_id: int, data: CardCreate, *, created_by: str, audit_actor: str
+    ) -> KanbanCard:
+        """Append a card to its column (authz already decided by the caller).
+        `created_by` is the authenticated actor — `user:<id>` or an agent slug —
+        never client-claimed (anti-spoof)."""
         column = await self._resolve_landing(board_id, data.column_id)
         rank = rank_between(await self._boards.last_rank_in_column(column.id), None)
         card = await self._boards.add_card(
@@ -226,14 +236,14 @@ class KanbanService:
                 rank=rank,
                 title=data.title.strip(),
                 body=data.body,
-                created_by=f"user:{user.id}",  # authenticated actor (anti-spoof)
+                created_by=created_by,
                 assignee=data.assignee,
                 priority=data.priority,
             )
         )
         await self._audit.record(
             "kanban_card_created",
-            actor=user.email,
+            actor=audit_actor,
             detail={"board_id": board_id, "card_id": card.id, "column_id": column.id},
         )
         return card
@@ -302,9 +312,30 @@ class KanbanService:
         collision → bounded retry → rebalance.
         """
         card = await self.get_card(user, card_id)  # 404 + visibility
+        return await self._move(
+            card,
+            to_column_id,
+            before_id=before_id,
+            after_id=after_id,
+            expected_version=expected_version,
+            audit_actor=user.email,
+        )
+
+    async def _move(
+        self,
+        card: KanbanCard,
+        to_column_id: int,
+        *,
+        before_id: int | None,
+        after_id: int | None,
+        expected_version: int,
+        audit_actor: str,
+    ) -> KanbanCard:
+        """The race-safe move core (authz already decided by the caller)."""
         if card.version != expected_version:
             raise ConflictError("O card foi alterado por outra pessoa; recarregue e tente de novo.")
         dest = await self._column_of_board(card.board_id, to_column_id)
+        card_id = card.id
 
         lo, hi = await self._move_bounds(dest.id, card, before_id, after_id)
         new_rank = rank_between(lo, hi)
@@ -318,7 +349,7 @@ class KanbanService:
         for _ in range(_MOVE_RETRIES):
             result = await self._boards.commit_move(card, dest.id, new_rank, dest.wip_limit)
             if result == "ok":
-                return await self._record_move(user, card, dest)
+                return await self._record_move(card, dest, audit_actor)
             if result == "wip_full":
                 raise ConflictError(f"A coluna {dest.name!r} atingiu o limite de cards.")
             # collision: another move grabbed this exact rank — squeeze strictly
@@ -333,12 +364,14 @@ class KanbanService:
         result = await self._boards.commit_move(card, dest.id, rank_between(lo, hi), dest.wip_limit)
         if result != "ok":
             raise ConflictError("Não foi possível posicionar o card; recarregue e tente de novo.")
-        return await self._record_move(user, card, dest)
+        return await self._record_move(card, dest, audit_actor)
 
-    async def _record_move(self, user: User, card: KanbanCard, dest: KanbanColumn) -> KanbanCard:
+    async def _record_move(
+        self, card: KanbanCard, dest: KanbanColumn, audit_actor: str
+    ) -> KanbanCard:
         await self._audit.record(
             "kanban_card_moved",
-            actor=user.email,
+            actor=audit_actor,
             detail={
                 "board_id": card.board_id,
                 "card_id": card.id,
@@ -386,19 +419,155 @@ class KanbanService:
 
     async def add_comment(self, user: User, card_id: int, data: CommentCreate) -> KanbanCardComment:
         card = await self.get_card(user, card_id)
+        return await self._insert_comment(
+            card, body=data.body, author=f"user:{user.id}", audit_actor=user.email
+        )
+
+    async def _insert_comment(
+        self, card: KanbanCard, *, body: str, author: str, audit_actor: str
+    ) -> KanbanCardComment:
         comment = await self._boards.add_comment(
-            KanbanCardComment(
-                card_id=card.id,
-                author=f"user:{user.id}",  # authenticated actor (anti-spoof)
-                body=data.body,
-            )
+            KanbanCardComment(card_id=card.id, author=author, body=body)
         )
         await self._audit.record(
             "kanban_comment_added",
-            actor=user.email,
-            detail={"board_id": card.board_id, "card_id": card_id, "comment_id": comment.id},
+            actor=audit_actor,
+            detail={"board_id": card.board_id, "card_id": card.id, "comment_id": comment.id},
         )
         return comment
+
+    # ---- agent access (via MCP/WS — Epic 06 · 6.4) ----
+    #
+    # Every agent action resolves the agent's per-board role (§6.3) and is denied
+    # (403) when the role is insufficient — enforced HERE, at the hub, never
+    # trusted from the daemon. The actor is the AUTHENTICATED socket slug.
+
+    async def agent_list_boards(self, agent_slug: str) -> list[KanbanBoard]:
+        """Boards the agent has any role on (role != none)."""
+        boards = await self._boards.list_visible_boards(0, is_admin=True)
+        out = []
+        for board in boards:
+            if await self.agent_role(board, agent_slug) != "none":
+                out.append(board)
+        return out
+
+    async def agent_get_board_full(
+        self, agent_slug: str, board_id: int, *, mine: bool = False
+    ) -> tuple[KanbanBoard, list[KanbanColumn], list[KanbanCard]]:
+        board = await self._agent_board(agent_slug, board_id)
+        await self._require_agent_can(agent_slug, board, "view")
+        columns = await self._boards.list_columns(board_id)
+        cards = await self._boards.list_cards(board_id)
+        if mine:  # "my tasks": created by OR assigned to this agent
+            cards = [c for c in cards if self._agent_owns(c, agent_slug)]
+        return board, columns, cards
+
+    async def agent_create_card(
+        self, agent_slug: str, board_id: int, data: CardCreate
+    ) -> KanbanCard:
+        board = await self._agent_board(agent_slug, board_id)
+        await self._require_agent_can(agent_slug, board, "create")
+        return await self._insert_card(
+            board_id, data, created_by=agent_slug, audit_actor=agent_slug
+        )
+
+    async def agent_move_card(
+        self,
+        agent_slug: str,
+        card_id: int,
+        to_column_id: int,
+        *,
+        before_id: int | None,
+        after_id: int | None,
+        expected_version: int,
+    ) -> KanbanCard:
+        card = await self._existing_card(card_id)
+        board = await self._agent_board(agent_slug, card.board_id)
+        await self._require_agent_can(agent_slug, board, "move", card=card)
+        return await self._move(
+            card,
+            to_column_id,
+            before_id=before_id,
+            after_id=after_id,
+            expected_version=expected_version,
+            audit_actor=agent_slug,
+        )
+
+    async def agent_comment(self, agent_slug: str, card_id: int, body: str) -> KanbanCardComment:
+        card = await self._existing_card(card_id)
+        board = await self._agent_board(agent_slug, card.board_id)
+        await self._require_agent_can(agent_slug, board, "comment")
+        return await self._insert_comment(
+            card, body=body, author=agent_slug, audit_actor=agent_slug
+        )
+
+    async def _existing_card(self, card_id: int) -> KanbanCard:
+        card = await self._boards.get_card(card_id)
+        if card is None:
+            raise NotFoundError("Card não encontrado.")
+        return card
+
+    async def get_board_raw(self, board_id: int) -> KanbanBoard | None:
+        """The board with no authz — for the WS layer to route a `kanban_delta`
+        to the right observers (owner/visibility). Never returned to a client."""
+        return await self._boards.get_board(board_id)
+
+    async def board_of_card(self, card_id: int) -> KanbanBoard | None:
+        card = await self._boards.get_card(card_id)
+        return await self._boards.get_board(card.board_id) if card else None
+
+    async def _agent_board(self, agent_slug: str, board_id: int) -> KanbanBoard:
+        board = await self._boards.get_board(board_id)
+        if board is None:
+            raise NotFoundError("Quadro não encontrado.")
+        return board
+
+    async def _require_agent_can(
+        self, agent_slug: str, board: KanbanBoard, action: str, *, card: KanbanCard | None = None
+    ) -> None:
+        role = await self.agent_role(board, agent_slug)
+        owns = self._agent_owns(card, agent_slug) if card is not None else False
+        if not agent_capability(role, action, owns_card=owns):
+            raise PermissionDeniedError("Seu agente não tem permissão para esta ação neste quadro.")
+
+    # ---- event-driven cards (hub-side, no MCP — Epic 06 · 6.4/6.5) ----
+
+    async def create_event_card(
+        self, board_id: int, data: CardCreate, *, origin: dict, audit_actor: str
+    ) -> KanbanCard | None:
+        """A card the HUB itself opens as a side effect of a trusted event
+        (a delegation or escalation, §6.5). Not agent-driven, so it bypasses the
+        per-agent capability gate — but it is still fully audited and tagged with
+        its `origin`. Returns None if the board vanished (defensive)."""
+        board = await self._boards.get_board(board_id)
+        if board is None:
+            return None
+        column = await self._resolve_landing(board_id, data.column_id)
+        rank = rank_between(await self._boards.last_rank_in_column(column.id), None)
+        card = await self._boards.add_card(
+            KanbanCard(
+                board_id=board_id,
+                column_id=column.id,
+                rank=rank,
+                title=data.title.strip(),
+                body=data.body,
+                created_by=audit_actor,
+                assignee=data.assignee,
+                priority=data.priority,
+                origin=origin,
+            )
+        )
+        await self._audit.record(
+            "kanban_card_created",
+            actor=audit_actor,
+            detail={
+                "board_id": board_id,
+                "card_id": card.id,
+                "column_id": column.id,
+                "origin": origin,
+            },
+        )
+        return card
 
     # ---- grants & capability (per-agent, per-board — Epic 06 · 6.3) ----
 

@@ -54,6 +54,15 @@
     "key": "amp_abababababababababababababababababababababababababababababababab",
     "type": "hello"
   },
+  "client.kanban_action": {
+    "board_id": 1,
+    "op": "create_card",
+    "payload": {
+      "priority": "high",
+      "title": "Investigar erro 500 no login"
+    },
+    "type": "kanban_action"
+  },
   "client.message": {
     "body": "Existe endpoint de reset de senha?",
     "to": "backend-julio",
@@ -149,6 +158,27 @@
       "trusted_senders": []
     },
     "type": "hello_ack"
+  },
+  "server.kanban_delta": {
+    "board_id": 1,
+    "card": {
+      "assignee": null,
+      "board_id": 1,
+      "body": "",
+      "column_id": 2,
+      "created_at": "2026-06-06T12:00:00Z",
+      "created_by": "backend-julio",
+      "id": 1,
+      "origin": null,
+      "priority": "high",
+      "rank": "V",
+      "title": "Investigar erro 500 no login",
+      "updated_at": "2026-06-06T12:00:00Z",
+      "version": 1
+    },
+    "comment": null,
+    "op": "card_created",
+    "type": "kanban_delta"
   },
   "server.kill_switch": {
     "auto_responder_enabled": false,

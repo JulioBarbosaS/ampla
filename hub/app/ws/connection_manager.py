@@ -111,6 +111,14 @@ class ConnectionManager:
             if obs.user_id == user_id:
                 await self._send_quietly(obs.ws, payload)
 
+    async def notify_board(self, payload: dict, *, owner_id: int, is_team: bool) -> None:
+        """Pushes a Kanban delta to the observers authorized for a board (Epic 06
+        · 6.5): a `team` board reaches every observer; a `private` board reaches
+        only its owner (and admins). Never leaks to unauthorized users."""
+        for obs in list(self._observers):
+            if is_team or obs.user_id == owner_id or obs.role == "admin":
+                await self._send_quietly(obs.ws, payload)
+
     async def broadcast_kill_switch(self, payload: dict) -> None:
         """Global kill switch flip: every daemon (to gate auto-respond) AND every
         observer (to show a banner). Not sender-filtered — it's instance-wide."""

@@ -22,11 +22,13 @@ from app.api.deps import (
     build_autorespond_service,
     build_delegation_service,
     build_group_service,
+    build_kanban_service,
     build_message_service,
 )
 from app.core.cookies import SESSION_COOKIE
 from app.core.ratelimit import TokenBucket
 from app.schemas.agent import AgentSettings
+from app.schemas.kanban import CardCreate, CardMove, CardOut, CommentOut
 from app.schemas.message import MessageOut
 from app.schemas.ws import (
     AckFrame,
@@ -41,6 +43,8 @@ from app.schemas.ws import (
     GroupInfo,
     HelloAckFrame,
     HelloFrame,
+    KanbanActionFrame,
+    KanbanDeltaFrame,
     MessageDeliveryFrame,
     PingFrame,
     PongFrame,
@@ -237,6 +241,16 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
                 await _handle_delegate(ws, slug, frame)
                 continue
 
+            # kanban action: an interactive agent mutates a board (Epic 06 · 6.4).
+            # It writes, so it counts against the token bucket. The hub re-checks
+            # the per-agent capability — the daemon's claim is never trusted.
+            if isinstance(frame, KanbanActionFrame):
+                if not bucket.allow():
+                    await _send_error(ws, "rate_limited", "Limite de mensagens excedido.")
+                    continue
+                await _handle_kanban_action(ws, slug, frame)
+                continue
+
             if not isinstance(frame, SendMessageFrame):
                 await _send_error(ws, "bad_frame", "Frame inesperado.")
                 continue
@@ -376,6 +390,70 @@ async def _handle_delegate(ws: WebSocket, slug: str, frame: DelegateFrame) -> No
         await asyncio.shield(_persist())
     except DomainError as exc:
         await _send_error(ws, exc.code, exc.detail)
+
+
+async def _handle_kanban_action(ws: WebSocket, slug: str, frame: KanbanActionFrame) -> None:
+    """An interactive agent acts on a board (Epic 06 · 6.4). Attributed to the
+    AUTHENTICATED `slug`; the service enforces the per-agent capability (§6.3),
+    so a daemon with an insufficient role gets an error frame even if it tries.
+    On success, broadcasts a `kanban_delta` to the board's authorized observers
+    (§6.5). Shielded so a mid-write disconnect doesn't half-apply it."""
+    state = ws.app.state
+    session_factory = state.session_factory
+    manager: ConnectionManager = state.manager
+
+    async def _apply() -> tuple[dict, int, bool]:
+        async with session_factory() as session:
+            svc = build_kanban_service(session)
+            payload = frame.payload
+            if frame.op == "create_card":
+                card = await svc.agent_create_card(
+                    slug, frame.board_id, CardCreate.model_validate(payload)
+                )
+                board_id = card.board_id
+                delta = KanbanDeltaFrame(
+                    board_id=board_id, op="card_created", card=CardOut.model_validate(card)
+                )
+            elif frame.op == "move_card":
+                mv = CardMove.model_validate({k: v for k, v in payload.items() if k != "card_id"})
+                card = await svc.agent_move_card(
+                    slug,
+                    int(payload["card_id"]),
+                    mv.to_column_id,
+                    before_id=mv.before_id,
+                    after_id=mv.after_id,
+                    expected_version=mv.expected_version,
+                )
+                board_id = card.board_id
+                delta = KanbanDeltaFrame(
+                    board_id=board_id, op="card_moved", card=CardOut.model_validate(card)
+                )
+            else:  # comment
+                comment = await svc.agent_comment(
+                    slug, int(payload["card_id"]), str(payload.get("body", ""))
+                )
+                board = await svc.board_of_card(comment.card_id)
+                board_id = board.id if board else frame.board_id
+                delta = KanbanDeltaFrame(
+                    board_id=board_id,
+                    op="comment_added",
+                    comment=CommentOut.model_validate(comment),
+                )
+            board = await svc.get_board_raw(board_id)
+            owner_id = board.owner_id if board else 0
+            is_team = bool(board and board.visibility == "team")
+            return delta.model_dump(mode="json", by_alias=True), owner_id, is_team
+
+    try:
+        payload, owner_id, is_team = await asyncio.shield(_apply())
+    except DomainError as exc:
+        await _send_error(ws, exc.code, exc.detail)
+        return
+    except (ValidationError, KeyError, TypeError, ValueError):
+        await _send_error(ws, "invalid_input", "Payload de ação inválido.")
+        return
+
+    await manager.notify_board(payload, owner_id=owner_id, is_team=is_team)
 
 
 async def _handle_broadcast(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -> None:

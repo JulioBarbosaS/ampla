@@ -170,6 +170,17 @@ export interface DelegateFrame {
   context: string;
 }
 
+/** Daemon→hub: an interactive agent acts on a Kanban board (Epic 06 · 6.4). No
+ * actor field — the hub attributes it to the authenticated socket and re-checks
+ * the per-agent capability (§6.3). `payload` is op-specific and re-validated at
+ * the hub against the REST schemas. Mirrors KanbanActionFrame. */
+export interface KanbanActionFrame {
+  type: "kanban_action";
+  board_id: number;
+  op: "create_card" | "move_card" | "comment";
+  payload: Record<string, unknown>;
+}
+
 export type ClientFrame =
   | HelloFrame
   | SendMessageFrame
@@ -178,7 +189,8 @@ export type ClientFrame =
   | ActivityFrame
   | AutorespondReportFrame
   | ApprovalRequestFrame
-  | DelegateFrame;
+  | DelegateFrame
+  | KanbanActionFrame;
 
 // ---------- hub → daemon ----------
 
@@ -274,6 +286,40 @@ export const notificationReadFrameSchema = z.object({
   unread_count: z.number().int(),
 });
 
+// Kanban live deltas (Epic 06 · 6.5). Panel-only frames — the daemon ignores
+// them, but the mirror must accept the exact shapes the hub emits.
+export const kanbanCardSchema = z.object({
+  id: z.number().int(),
+  board_id: z.number().int(),
+  column_id: z.number().int(),
+  rank: z.string(),
+  title: z.string(),
+  body: z.string(),
+  created_by: z.string(),
+  assignee: z.string().nullable(),
+  priority: prioritySchema,
+  origin: z.record(z.unknown()).nullable(),
+  version: z.number().int(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const kanbanCommentSchema = z.object({
+  id: z.number().int(),
+  card_id: z.number().int(),
+  author: z.string(),
+  body: z.string(),
+  created_at: z.string(),
+});
+
+export const kanbanDeltaFrameSchema = z.object({
+  type: z.literal("kanban_delta"),
+  board_id: z.number().int(),
+  op: z.enum(["card_created", "card_moved", "card_updated", "card_deleted", "comment_added"]),
+  card: kanbanCardSchema.nullable(),
+  comment: kanbanCommentSchema.nullable(),
+});
+
 export const serverFrameSchema = z.discriminatedUnion("type", [
   helloAckFrameSchema,
   messageDeliveryFrameSchema,
@@ -287,6 +333,7 @@ export const serverFrameSchema = z.discriminatedUnion("type", [
   killSwitchFrameSchema,
   notificationFrameSchema,
   notificationReadFrameSchema,
+  kanbanDeltaFrameSchema,
 ]);
 export type ServerFrame = z.infer<typeof serverFrameSchema>;
 export type HelloAckFrame = z.infer<typeof helloAckFrameSchema>;

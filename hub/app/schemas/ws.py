@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field, TypeAdapter
 
 from app.schemas.agent import AgentSettings
+from app.schemas.kanban import CardOut, CommentOut
 from app.schemas.message import PRIORITY_PATTERN, TYPE_PATTERN, MessageOut
 from app.schemas.notification import NotificationOut
 
@@ -115,6 +116,24 @@ class DelegateFrame(BaseModel):
     context: str = Field(default="", max_length=16384)
 
 
+class KanbanActionFrame(BaseModel):
+    """Daemon→hub: an interactive agent acts on a board (Epic 06 · 6.4). No actor
+    field — the hub attributes it to the socket's AUTHENTICATED slug (anti-spoof)
+    and re-checks the per-agent capability (§6.3) regardless of what the daemon
+    claims. The auto-responder runs `claude -p --strict-mcp-config` with NO ampla
+    MCP, so an untrusted incoming message can never reach this frame — board
+    mutations only come from a human-operated interactive session (Threat 1).
+
+    `payload` is op-specific and re-validated at the hub against the same schemas
+    the REST routes use (create_card → CardCreate, move_card → card_id+CardMove,
+    comment → card_id+body). It counts against the per-connection token bucket."""
+
+    type: Literal["kanban_action"] = "kanban_action"
+    board_id: int
+    op: Literal["create_card", "move_card", "comment"]
+    payload: dict = Field(default_factory=dict)
+
+
 ClientFrame = Annotated[
     HelloFrame
     | SendMessageFrame
@@ -123,7 +142,8 @@ ClientFrame = Annotated[
     | ActivityFrame
     | AutorespondReportFrame
     | ApprovalRequestFrame
-    | DelegateFrame,
+    | DelegateFrame
+    | KanbanActionFrame,
     Field(discriminator="type"),
 ]
 client_frame_adapter: TypeAdapter[ClientFrame] = TypeAdapter(ClientFrame)
@@ -228,6 +248,20 @@ class NotificationReadFrame(BaseModel):
     unread_count: int
 
 
+class KanbanDeltaFrame(BaseModel):
+    """Hub→panel observers authorized for the board: a live board change
+    (Epic 06 · 6.5), broadcast after a committed mutation so every viewer
+    converges. Reconciliation: apply the delta, or on a version conflict refetch
+    `/full`. Only one of `card`/`comment` is set, per `op`. Never sent for a
+    board an observer can't see (no cross-board/cross-user leak)."""
+
+    type: Literal["kanban_delta"] = "kanban_delta"
+    board_id: int
+    op: Literal["card_created", "card_moved", "card_updated", "card_deleted", "comment_added"]
+    card: CardOut | None = None
+    comment: CommentOut | None = None
+
+
 ServerFrame = (
     HelloAckFrame
     | MessageDeliveryFrame
@@ -241,4 +275,5 @@ ServerFrame = (
     | KillSwitchFrame
     | NotificationFrame
     | NotificationReadFrame
+    | KanbanDeltaFrame
 )

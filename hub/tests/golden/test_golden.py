@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from app.schemas.agent import AgentSettings
+from app.schemas.kanban import CardOut
 from app.schemas.message import MessageOut
 from app.schemas.notification import NotificationOut
 from app.schemas.ws import (
@@ -26,6 +27,7 @@ from app.schemas.ws import (
     GroupInfo,
     HelloAckFrame,
     HelloFrame,
+    KanbanDeltaFrame,
     KillSwitchFrame,
     MessageDeliveryFrame,
     NotificationFrame,
@@ -154,6 +156,17 @@ def test_ws_frames_contract() -> None:
                 "context": "ver auth.py",
             }
         ),
+        # kanban: an interactive agent creates a card (Epic 06 · 6.4) — no actor
+        # field; the hub attributes it to the authenticated socket and re-checks
+        # the per-agent capability. The payload mirrors the REST CardCreate.
+        "client.kanban_action": _accepted_client_frame(
+            {
+                "type": "kanban_action",
+                "board_id": 1,
+                "op": "create_card",
+                "payload": {"title": "Investigar erro 500 no login", "priority": "high"},
+            }
+        ),
         "server.hello_ack": HelloAckFrame(
             agent_id="backend-julio",
             online=["backend-julio", "mobile-eduardo"],
@@ -213,5 +226,26 @@ def test_ws_frames_contract() -> None:
         "server.notification_read": NotificationReadFrame(ids=[1, 2], unread_count=3).model_dump(
             mode="json"
         ),
+        # kanban live delta (Epic 06 · 6.5) — broadcast to observers authorized
+        # for the board after a committed mutation.
+        "server.kanban_delta": KanbanDeltaFrame(
+            board_id=1,
+            op="card_created",
+            card=CardOut(
+                id=1,
+                board_id=1,
+                column_id=2,
+                rank="V",
+                title="Investigar erro 500 no login",
+                body="",
+                created_by="backend-julio",
+                assignee=None,
+                priority="high",
+                origin=None,
+                version=1,
+                created_at=datetime(2026, 6, 6, 12, 0, 0, tzinfo=UTC),
+                updated_at=datetime(2026, 6, 6, 12, 0, 0, tzinfo=UTC),
+            ),
+        ).model_dump(mode="json"),
     }
     check_golden("ws_frames.json", frames)
