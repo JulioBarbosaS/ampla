@@ -1066,6 +1066,48 @@
         "title": "CardCreate",
         "type": "object"
       },
+      "CardMove": {
+        "description": "Anchor-based move intent (Epic 06 · 6.2): place the card in `to_column_id`\nbetween the neighbours the client saw (`before_id`/`after_id`), guarded by\n`expected_version`. Never a raw numeric index — the server recomputes the\nrank from the current neighbours so a stale view can't misorder.",
+        "properties": {
+          "after_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Id"
+          },
+          "before_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before Id"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "to_column_id": {
+            "title": "To Column Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "to_column_id",
+          "expected_version"
+        ],
+        "title": "CardMove",
+        "type": "object"
+      },
       "CardOut": {
         "properties": {
           "assignee": {
@@ -4926,6 +4968,63 @@
           }
         ],
         "summary": "Add Comment",
+        "tags": [
+          "kanban"
+        ]
+      }
+    },
+    "/api/kanban/cards/{card_id}/move": {
+      "post": {
+        "operationId": "move_card_api_kanban_cards__card_id__move_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardMove"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Move Card",
         "tags": [
           "kanban"
         ]

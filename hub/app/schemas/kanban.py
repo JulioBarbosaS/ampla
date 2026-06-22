@@ -102,6 +102,18 @@ class CardUpdate(BaseModel):
     expected_version: int | None = Field(default=None, ge=1)
 
 
+class CardMove(BaseModel):
+    """Anchor-based move intent (Epic 06 · 6.2): place the card in `to_column_id`
+    between the neighbours the client saw (`before_id`/`after_id`), guarded by
+    `expected_version`. Never a raw numeric index — the server recomputes the
+    rank from the current neighbours so a stale view can't misorder."""
+
+    to_column_id: int
+    before_id: int | None = None
+    after_id: int | None = None
+    expected_version: int = Field(ge=1)
+
+
 class CardOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

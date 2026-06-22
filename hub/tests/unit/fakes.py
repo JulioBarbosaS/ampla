@@ -583,6 +583,34 @@ class FakeKanbanRepository:
     async def save_card(self, card: KanbanCard) -> None:
         self._cards[card.id] = card
 
+    async def commit_move(
+        self, card: KanbanCard, to_column_id: int, new_rank: str, wip_limit: int | None
+    ) -> str:
+        if to_column_id != card.column_id and wip_limit is not None:
+            count = sum(1 for c in self._cards.values() if c.column_id == to_column_id)
+            if count >= wip_limit:
+                return "wip_full"
+        # unique (column_id, rank) backstop
+        if any(
+            c.id != card.id and c.column_id == to_column_id and c.rank == new_rank
+            for c in self._cards.values()
+        ):
+            return "collision"
+        card.column_id = to_column_id
+        card.rank = new_rank
+        card.version += 1
+        card.updated_at = utcnow()
+        return "ok"
+
+    async def rebalance_column(self, column_id: int, new_ranks: list[str]) -> list[KanbanCard]:
+        cards = sorted(
+            (c for c in self._cards.values() if c.column_id == column_id), key=lambda c: c.rank
+        )
+        for card, rank in zip(cards, new_ranks, strict=False):
+            card.rank = rank
+            card.version += 1
+        return cards
+
     async def delete_card(self, card: KanbanCard) -> None:
         self._comments = {k: v for k, v in self._comments.items() if v.card_id != card.id}
         self._cards.pop(card.id, None)

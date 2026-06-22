@@ -23,8 +23,18 @@ from app.schemas.kanban import (
     ColumnUpdate,
     CommentCreate,
 )
-from app.services.errors import ConflictError, NotFoundError, PermissionDeniedError
-from app.services.kanban_rank import rank_between
+from app.services.errors import (
+    ConflictError,
+    InvalidInputError,
+    NotFoundError,
+    PermissionDeniedError,
+)
+from app.services.kanban_rank import RANK_LEN_MAX, rank_between, rebalance_ranks
+
+# Bounded retries on the unique-rank backstop before falling back to a rebalance
+# (Epic 06 · 6.2). A collision needs a concurrent move into the same gap, so a
+# couple of retries already converges in practice.
+_MOVE_RETRIES = 4
 
 # Default columns a new board is seeded with; the landing column (new + event
 # cards land here) is "A fazer". User-facing copy stays pt-BR.
@@ -230,6 +240,106 @@ class KanbanService:
             actor=user.email,
             detail={"board_id": card.board_id, "card_id": card_id},
         )
+
+    # ---- move (ordering & concurrency core — Epic 06 · 6.2) ----
+
+    async def move_card(
+        self,
+        user: User,
+        card_id: int,
+        to_column_id: int,
+        *,
+        before_id: int | None,
+        after_id: int | None,
+        expected_version: int,
+    ) -> KanbanCard:
+        """Reorder/relocate a card between the neighbours the client saw
+        (`before_id`/`after_id`), guarded by its `expected_version`.
+
+        Defense in depth (§6.2): (1) the move runs as one serialized write txn —
+        SQLite admits one writer at a time, the pessimistic lock for free;
+        (2) the rank is recomputed from the *current* neighbours, so a stale
+        client view can't silently misorder; (3) the optimistic `version` rejects
+        a lost update with 409; (4) WIP is enforced inside the write txn (no
+        TOCTOU); (5) the unique `(column_id, rank)` index backstops a midpoint
+        collision → bounded retry → rebalance.
+        """
+        card = await self.get_card(user, card_id)  # 404 + visibility
+        if card.version != expected_version:
+            raise ConflictError("O card foi alterado por outra pessoa; recarregue e tente de novo.")
+        dest = await self._column_of_board(card.board_id, to_column_id)
+
+        lo, hi = await self._move_bounds(dest.id, card, before_id, after_id)
+        new_rank = rank_between(lo, hi)
+        if len(new_rank) > RANK_LEN_MAX:
+            # Gap exhausted in this column — re-spread it, then recompute.
+            await self._rebalance(dest.id)
+            card = await self._boards.get_card(card_id) or card
+            lo, hi = await self._move_bounds(dest.id, card, before_id, after_id)
+            new_rank = rank_between(lo, hi)
+
+        for _ in range(_MOVE_RETRIES):
+            result = await self._boards.commit_move(card, dest.id, new_rank, dest.wip_limit)
+            if result == "ok":
+                return await self._record_move(user, card, dest)
+            if result == "wip_full":
+                raise ConflictError(f"A coluna {dest.name!r} atingiu o limite de cards.")
+            # collision: another move grabbed this exact rank — squeeze strictly
+            # below it (toward `lo`), which targets an empty slot.
+            hi = new_rank
+            new_rank = rank_between(lo, hi)
+
+        # Pathological run of collisions: rebalance and place once more.
+        await self._rebalance(dest.id)
+        card = await self._boards.get_card(card_id) or card
+        lo, hi = await self._move_bounds(dest.id, card, before_id, after_id)
+        result = await self._boards.commit_move(card, dest.id, rank_between(lo, hi), dest.wip_limit)
+        if result != "ok":
+            raise ConflictError("Não foi possível posicionar o card; recarregue e tente de novo.")
+        return await self._record_move(user, card, dest)
+
+    async def _record_move(self, user: User, card: KanbanCard, dest: KanbanColumn) -> KanbanCard:
+        await self._audit.record(
+            "kanban_card_moved",
+            actor=user.email,
+            detail={
+                "board_id": card.board_id,
+                "card_id": card.id,
+                "to_column_id": dest.id,
+                "version": card.version,
+            },
+        )
+        return card
+
+    async def _move_bounds(
+        self, dest_id: int, card: KanbanCard, before_id: int | None, after_id: int | None
+    ) -> tuple[str | None, str | None]:
+        """Lower/upper rank bounds for the destination, from the anchors the
+        client saw, re-read now (intent, not an absolute index)."""
+        before_rank = await self._anchor_rank(dest_id, before_id, card) if before_id else None
+        after_rank = await self._anchor_rank(dest_id, after_id, card) if after_id else None
+        if before_rank is None and after_rank is None:
+            # No anchors → append to the end of the destination (excluding self).
+            ranks = [
+                c.rank for c in await self._boards.list_cards_in_column(dest_id) if c.id != card.id
+            ]
+            before_rank = ranks[-1] if ranks else None
+        if before_rank is not None and after_rank is not None and before_rank >= after_rank:
+            raise ConflictError("A posição informada está desatualizada; recarregue o quadro.")
+        return before_rank, after_rank
+
+    async def _anchor_rank(self, dest_id: int, anchor_id: int, card: KanbanCard) -> str:
+        if anchor_id == card.id:
+            raise InvalidInputError("Um card não pode ser âncora de si mesmo.")
+        anchor = await self._boards.get_card(anchor_id)
+        if anchor is None or anchor.column_id != dest_id:
+            # The client's neighbour view is stale → refetch and retry.
+            raise ConflictError("A posição informada está desatualizada; recarregue o quadro.")
+        return anchor.rank
+
+    async def _rebalance(self, column_id: int) -> None:
+        count = await self._boards.count_cards_in_column(column_id)
+        await self._boards.rebalance_column(column_id, rebalance_ranks(count))
 
     # ---- comments ----
 

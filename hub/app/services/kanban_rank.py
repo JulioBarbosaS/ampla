@@ -21,6 +21,10 @@ _INDEX = {ch: i for i, ch in enumerate(ALPHABET)}
 # A fresh, balanced first rank for an empty column (the alphabet's midpoint).
 FIRST_RANK = ALPHABET[BASE // 2]
 
+# When a computed rank grows past this, the column is rebalanced (Epic 06 · 6.2).
+# Kept well under the `rank` column's String(64) so there is always headroom.
+RANK_LEN_MAX = 48
+
 
 def rank_between(lo: str | None, hi: str | None) -> str:
     """A rank strictly between ``lo`` and ``hi`` (which must satisfy lo < hi).

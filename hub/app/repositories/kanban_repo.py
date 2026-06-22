@@ -4,6 +4,7 @@ so each mutation is its own serialized transaction (SQLite serializes writers,
 the pessimistic lock the move path relies on, Epic 06 · 6.2)."""
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.kanban import (
@@ -13,6 +14,7 @@ from app.models.kanban import (
     KanbanCardComment,
     KanbanColumn,
 )
+from app.models.user import utcnow
 
 
 class KanbanRepository:
@@ -155,6 +157,55 @@ class KanbanRepository:
     async def save_card(self, card: KanbanCard) -> None:
         self._session.add(card)
         await self._session.commit()
+
+    async def commit_move(
+        self, card: KanbanCard, to_column_id: int, new_rank: str, wip_limit: int | None
+    ) -> str:
+        """Apply a move (destination column + rank + version bump) in ONE write
+        transaction (Epic 06 · 6.2). Returns:
+
+        - ``"wip_full"`` if moving into a *different* column already at its WIP
+          limit — the count is read in the same txn that does the write, never a
+          stale pre-check (the classic TOCTOU race).
+        - ``"collision"`` if the unique ``(column_id, rank)`` backstop trips
+          (a concurrent move grabbed the same midpoint); the txn is rolled back
+          and the card reloaded so the caller can recompute and retry.
+        - ``"ok"`` on success.
+
+        Policy (the cap value) is decided by the service; the repo only enforces
+        the passed-in number atomically with the write.
+        """
+        if to_column_id != card.column_id and wip_limit is not None:
+            count = await self.count_cards_in_column(to_column_id)
+            if count >= wip_limit:
+                return "wip_full"
+        card.column_id = to_column_id
+        card.rank = new_rank
+        card.version += 1
+        card.updated_at = utcnow()
+        self._session.add(card)
+        try:
+            await self._session.commit()
+        except IntegrityError:
+            await self._session.rollback()
+            await self._session.refresh(card)  # drop the in-memory dirty state
+            return "collision"
+        return "ok"
+
+    async def rebalance_column(self, column_id: int, new_ranks: list[str]) -> list[KanbanCard]:
+        """Re-spread a column's cards across ``new_ranks`` (ascending, supplied by
+        the service). Two passes through a disjoint temp namespace so no
+        intermediate state collides with the unique ``(column_id, rank)`` index.
+        Bumps every affected card's version. (Epic 06 · 6.2 rebalance.)"""
+        cards = await self.list_cards_in_column(column_id)
+        for i, card in enumerate(cards):
+            card.rank = f"~{i:06d}"  # '~' sorts after every rank digit → unique temp
+        await self._session.flush()
+        for card, rank in zip(cards, new_ranks, strict=False):
+            card.rank = rank
+            card.version += 1
+        await self._session.commit()
+        return cards
 
     async def delete_card(self, card: KanbanCard) -> None:
         await self._session.execute(

@@ -13,6 +13,7 @@ from app.schemas.kanban import (
     BoardOut,
     BoardUpdate,
     CardCreate,
+    CardMove,
     CardOut,
     CardUpdate,
     ColumnCreate,
@@ -161,6 +162,24 @@ async def delete_card(
     svc: KanbanService = Depends(get_kanban_service),
 ) -> None:
     await svc.delete_card(user, card_id)
+
+
+@router.post("/cards/{card_id}/move", response_model=CardOut)
+async def move_card(
+    card_id: int,
+    body: CardMove,
+    user: User = Depends(get_current_user),
+    svc: KanbanService = Depends(get_kanban_service),
+) -> CardOut:
+    card = await svc.move_card(
+        user,
+        card_id,
+        body.to_column_id,
+        before_id=body.before_id,
+        after_id=body.after_id,
+        expected_version=body.expected_version,
+    )
+    return CardOut.model_validate(card)
 
 
 # ---- comments ----

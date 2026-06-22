@@ -108,6 +108,84 @@ class TestCardsAndComments:
         )
 
 
+class TestMove:
+    def _three_cards(self, client, token, board_id):
+        return [
+            client.post(
+                f"/api/kanban/boards/{board_id}/cards",
+                json={"title": t},
+                headers=auth(token),
+            ).json()
+            for t in ("a", "b", "c")
+        ]
+
+    def test_move_reorders_and_persists(self, client):
+        token = do_setup(client)
+        board = _create_board(client, token)
+        a, b, c = self._three_cards(client, token, board["id"])
+        # move c between a and b
+        resp = client.post(
+            f"/api/kanban/cards/{c['id']}/move",
+            json={
+                "to_column_id": a["column_id"],
+                "before_id": a["id"],
+                "after_id": b["id"],
+                "expected_version": c["version"],
+            },
+            headers=auth(token),
+        )
+        assert resp.status_code == 200, resp.text
+        full = client.get(f"/api/kanban/boards/{board['id']}/full", headers=auth(token)).json()
+        landing = [x for x in full["cards"] if x["column_id"] == a["column_id"]]
+        landing.sort(key=lambda x: x["rank"])
+        assert [x["id"] for x in landing] == [a["id"], c["id"], b["id"]]
+
+    def test_move_with_stale_version_is_409(self, client):
+        token = do_setup(client)
+        board = _create_board(client, token)
+        a, b, c = self._three_cards(client, token, board["id"])
+        # bump c's version with an edit
+        client.patch(f"/api/kanban/cards/{c['id']}", json={"title": "c2"}, headers=auth(token))
+        resp = client.post(
+            f"/api/kanban/cards/{c['id']}/move",
+            json={
+                "to_column_id": a["column_id"],
+                "before_id": a["id"],
+                "after_id": b["id"],
+                "expected_version": c["version"],  # stale (was 1, now 2)
+            },
+            headers=auth(token),
+        )
+        assert resp.status_code == 409, resp.text
+
+    def test_move_into_full_column_is_409(self, client):
+        token = do_setup(client)
+        board = _create_board(client, token)
+        full = client.get(f"/api/kanban/boards/{board['id']}/full", headers=auth(token)).json()
+        landing = next(c for c in full["columns"] if c["is_landing"])
+        other = next(c for c in full["columns"] if not c["is_landing"])
+        client.patch(
+            f"/api/kanban/boards/{board['id']}/columns/{landing['id']}",
+            json={"wip_limit": 1},
+            headers=auth(token),
+        )
+        # one card already in landing
+        client.post(
+            f"/api/kanban/boards/{board['id']}/cards", json={"title": "x"}, headers=auth(token)
+        )
+        intruder = client.post(
+            f"/api/kanban/boards/{board['id']}/cards",
+            json={"title": "y", "column_id": other["id"]},
+            headers=auth(token),
+        ).json()
+        resp = client.post(
+            f"/api/kanban/cards/{intruder['id']}/move",
+            json={"to_column_id": landing["id"], "expected_version": intruder["version"]},
+            headers=auth(token),
+        )
+        assert resp.status_code == 409, resp.text
+
+
 class TestAuthorization:
     def test_private_board_is_404_for_other_user(self, client):
         admin = do_setup(client)
