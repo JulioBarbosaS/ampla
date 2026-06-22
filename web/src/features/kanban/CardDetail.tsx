@@ -1,15 +1,31 @@
 import { useEffect, useState } from "react";
 import { Markdown } from "../../components/Markdown";
+import { ApiError } from "../../lib/api/client";
 import { kanbanApi } from "../../lib/api/kanban";
 import type { KanbanCard, KanbanComment } from "../../lib/api/types";
 
+const PRIORITIES = ["urgent", "high", "normal", "low"] as const;
+
 /**
- * Card detail (Epic 06 · 6.6): the card body as sanitized Markdown plus the
- * comments thread — the "I need info" channel. Posting a comment notifies the
- * assignee + board owner, and @mentions reach the mentioned agent's owner
- * (hub-side, Epic 06 · 6.5). All via src/lib/api.
+ * Card detail (Epic 06 · 6.6): edit the card (title/body/assignee/priority) and
+ * delete it, plus the comments thread — the "I need info" channel. Editing uses
+ * the optimistic-version PATCH (stale → 409 → reload-and-retry). Posting a
+ * comment notifies the assignee + board owner; @mentions reach the mentioned
+ * agent's owner (hub-side, Epic 06 · 6.5). All via src/lib/api.
  */
-export function CardDetail({ card, onClose }: { card: KanbanCard; onClose: () => void }) {
+export function CardDetail({
+  card,
+  onClose,
+  onChanged,
+}: {
+  card: KanbanCard;
+  onClose: () => void;
+  onChanged: (card: KanbanCard | null) => void;
+}) {
+  const [title, setTitle] = useState(card.title);
+  const [body, setBody] = useState(card.body);
+  const [assignee, setAssignee] = useState(card.assignee ?? "");
+  const [priority, setPriority] = useState(card.priority);
   const [comments, setComments] = useState<KanbanComment[]>([]);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -28,13 +44,48 @@ export function CardDetail({ card, onClose }: { card: KanbanCard; onClose: () =>
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  async function submit() {
+  async function save() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await kanbanApi.updateCard(card.id, {
+        title: title.trim(),
+        body,
+        priority,
+        ...(assignee.trim() ? { assignee: assignee.trim() } : { clear_assignee: true }),
+        expected_version: card.version,
+      });
+      onChanged(updated);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409)
+        setError("O card mudou em outro lugar — feche e reabra para ver a versão atual.");
+      else setError(e instanceof Error ? e.message : "Falha ao salvar o card.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await kanbanApi.deleteCard(card.id);
+      onChanged(null);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao excluir o card.");
+      setBusy(false);
+    }
+  }
+
+  async function comment() {
     if (!draft.trim() || busy) return;
     setBusy(true);
     setError(null);
     try {
-      const comment = await kanbanApi.addComment(card.id, draft.trim());
-      setComments((cur) => [...cur, comment]);
+      const c = await kanbanApi.addComment(card.id, draft.trim());
+      setComments((cur) => [...cur, c]);
       setDraft("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao comentar.");
@@ -57,7 +108,12 @@ export function CardDetail({ card, onClose }: { card: KanbanCard; onClose: () =>
         className="relative z-10 flex h-full w-full max-w-md flex-col gap-3 overflow-y-auto bg-zinc-900 p-4 shadow-xl"
       >
         <header className="flex items-start justify-between gap-2">
-          <h2 className="text-base font-semibold text-zinc-100">{card.title}</h2>
+          <input
+            aria-label="Título"
+            className="flex-1 rounded bg-zinc-800 px-2 py-1 text-base font-semibold text-zinc-100"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
           <button
             type="button"
             aria-label="Fechar"
@@ -68,19 +124,62 @@ export function CardDetail({ card, onClose }: { card: KanbanCard; onClose: () =>
           </button>
         </header>
 
-        <div className="flex gap-2 text-xs text-zinc-400">
-          {card.assignee && <span>Responsável: {card.assignee}</span>}
-          <span>Prioridade: {card.priority}</span>
+        <div className="flex gap-2">
+          <input
+            aria-label="Responsável"
+            className="min-w-0 flex-1 rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-100"
+            placeholder="Responsável (slug ou user:<id>)"
+            value={assignee}
+            onChange={(e) => setAssignee(e.target.value)}
+          />
+          <select
+            aria-label="Prioridade"
+            className="rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-200"
+            value={priority}
+            onChange={(e) => setPriority(e.target.value as KanbanCard["priority"])}
+          >
+            {PRIORITIES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {card.body.trim() && (
+        <textarea
+          aria-label="Descrição"
+          className="min-h-[5rem] rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-100"
+          placeholder="Descrição (Markdown)…"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+        />
+        {body.trim() && (
           <div className="rounded bg-zinc-800/60 p-2 text-sm text-zinc-100">
-            <Markdown>{card.body}</Markdown>
+            <Markdown>{body}</Markdown>
           </div>
         )}
 
-        <h3 className="text-sm font-medium text-zinc-300">Comentários</h3>
         {error && <p className="text-sm text-red-400">{error}</p>}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="rounded bg-indigo-600 px-3 py-1 text-sm text-white disabled:opacity-40"
+            disabled={busy || !title.trim()}
+            onClick={save}
+          >
+            Salvar
+          </button>
+          <button
+            type="button"
+            className="rounded border border-red-700 px-3 py-1 text-sm text-red-300 hover:bg-red-950/40"
+            disabled={busy}
+            onClick={remove}
+          >
+            Excluir card
+          </button>
+        </div>
+
+        <h3 className="text-sm font-medium text-zinc-300">Comentários</h3>
         <ul className="flex flex-col gap-2">
           {comments.length === 0 && (
             <li className="text-xs text-zinc-500">Nenhum comentário ainda.</li>
@@ -105,7 +204,7 @@ export function CardDetail({ card, onClose }: { card: KanbanCard; onClose: () =>
             type="button"
             className="self-end rounded bg-indigo-600 px-3 py-1 text-sm text-white disabled:opacity-40"
             disabled={busy || !draft.trim()}
-            onClick={submit}
+            onClick={comment}
           >
             Comentar
           </button>

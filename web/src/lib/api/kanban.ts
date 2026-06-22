@@ -28,6 +28,16 @@ export const kanbanApi = {
   ) => api.patch<KanbanBoard>(`/api/kanban/boards/${boardId}`, data),
   deleteBoard: (boardId: number) => api.delete<void>(`/api/kanban/boards/${boardId}`),
 
+  createColumn: (boardId: number, data: { name: string; wip_limit?: number }) =>
+    api.post<KanbanColumn>(`/api/kanban/boards/${boardId}/columns`, data),
+  updateColumn: (
+    boardId: number,
+    columnId: number,
+    data: { name?: string; wip_limit?: number; is_landing?: boolean },
+  ) => api.patch<KanbanColumn>(`/api/kanban/boards/${boardId}/columns/${columnId}`, data),
+  deleteColumn: (boardId: number, columnId: number) =>
+    api.delete<void>(`/api/kanban/boards/${boardId}/columns/${columnId}`),
+
   createCard: (
     boardId: number,
     data: {

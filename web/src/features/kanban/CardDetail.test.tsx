@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { kanbanApi } from "../../lib/api/kanban";
@@ -9,6 +9,8 @@ vi.mock("../../lib/api/kanban", () => ({
   kanbanApi: {
     listComments: vi.fn(),
     addComment: vi.fn(),
+    updateCard: vi.fn(),
+    deleteCard: vi.fn(),
   },
 }));
 
@@ -42,21 +44,49 @@ beforeEach(() => {
     body: "novo",
     created_at: "",
   });
+  vi.mocked(kanbanApi.updateCard).mockResolvedValue(card({ title: "editado" }));
+  vi.mocked(kanbanApi.deleteCard).mockResolvedValue(undefined);
 });
 
 afterEach(() => vi.clearAllMocks());
 
 describe("CardDetail", () => {
-  it("renders the title, body and existing comments", async () => {
-    render(<CardDetail card={card()} onClose={vi.fn()} />);
+  it("renders editable fields, body and existing comments", async () => {
+    render(<CardDetail card={card()} onClose={vi.fn()} onChanged={vi.fn()} />);
     expect(screen.getByRole("dialog", { name: /Implementar OAuth/ })).toBeInTheDocument();
-    expect(screen.getByText("corpo do card")).toBeInTheDocument();
+    expect(screen.getByLabelText("Título")).toHaveValue("Implementar OAuth");
+    expect(screen.getByLabelText("Responsável")).toHaveValue("backend-ana");
+    expect(screen.getByLabelText("Descrição")).toHaveValue("corpo do card");
     expect(await screen.findByText("primeiro comentario")).toBeInTheDocument();
-    expect(screen.getByText(/Responsável: backend-ana/)).toBeInTheDocument();
+  });
+
+  it("saves edits with the optimistic version", async () => {
+    const onChanged = vi.fn();
+    render(<CardDetail card={card()} onClose={vi.fn()} onChanged={onChanged} />);
+    await userEvent.clear(screen.getByLabelText("Título"));
+    await userEvent.type(screen.getByLabelText("Título"), "Novo título");
+    await userEvent.click(screen.getByRole("button", { name: "Salvar" }));
+    expect(kanbanApi.updateCard).toHaveBeenCalledWith(7, {
+      title: "Novo título",
+      body: "corpo do card",
+      priority: "high",
+      assignee: "backend-ana",
+      expected_version: 1,
+    });
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("deletes the card and signals removal", async () => {
+    const onChanged = vi.fn();
+    const onClose = vi.fn();
+    render(<CardDetail card={card()} onClose={onClose} onChanged={onChanged} />);
+    await userEvent.click(screen.getByRole("button", { name: "Excluir card" }));
+    expect(kanbanApi.deleteCard).toHaveBeenCalledWith(7);
+    expect(onChanged).toHaveBeenCalledWith(null);
   });
 
   it("posts a comment and appends it", async () => {
-    render(<CardDetail card={card()} onClose={vi.fn()} />);
+    render(<CardDetail card={card()} onClose={vi.fn()} onChanged={vi.fn()} />);
     await screen.findByText("primeiro comentario");
     await userEvent.type(screen.getByLabelText("Novo comentário"), "novo");
     await userEvent.click(screen.getByRole("button", { name: "Comentar" }));
@@ -66,8 +96,8 @@ describe("CardDetail", () => {
 
   it("closes via the close button", async () => {
     const onClose = vi.fn();
-    render(<CardDetail card={card()} onClose={onClose} />);
+    render(<CardDetail card={card()} onClose={onClose} onChanged={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: "Fechar" }));
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(onClose).toHaveBeenCalled();
   });
 });

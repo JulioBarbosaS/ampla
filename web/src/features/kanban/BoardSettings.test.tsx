@@ -11,6 +11,7 @@ vi.mock("../../lib/api/kanban", () => ({
     setGrant: vi.fn().mockResolvedValue({}),
     removeGrant: vi.fn().mockResolvedValue(undefined),
     updateBoard: vi.fn(),
+    deleteBoard: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -25,8 +26,14 @@ const BOARD: KanbanBoard = {
   created_at: "",
 };
 
-function renderSettings() {
-  return render(<BoardSettings board={BOARD} onBoardChange={vi.fn()} />);
+function renderSettings(overrides: { onBoardDeleted?: () => void } = {}) {
+  return render(
+    <BoardSettings
+      board={BOARD}
+      onBoardChange={vi.fn()}
+      onBoardDeleted={overrides.onBoardDeleted ?? vi.fn()}
+    />,
+  );
 }
 
 vi.mock("../../lib/api/agents", () => ({
@@ -96,5 +103,26 @@ describe("BoardSettings (grants + danger-zone)", () => {
     renderSettings();
     await userEvent.click(await screen.findByLabelText(/quando uma tarefa for delegada/i));
     expect(kanbanApi.updateBoard).toHaveBeenCalledWith(1, { auto_card_on_delegation: true });
+  });
+
+  it("changes board visibility and default agent role", async () => {
+    vi.mocked(kanbanApi.updateBoard).mockResolvedValue(BOARD);
+    renderSettings();
+    await userEvent.selectOptions(await screen.findByLabelText("Visibilidade"), "private");
+    expect(kanbanApi.updateBoard).toHaveBeenCalledWith(1, { visibility: "private" });
+    await userEvent.selectOptions(screen.getByLabelText("Papel padrão dos agentes"), "viewer");
+    expect(kanbanApi.updateBoard).toHaveBeenCalledWith(1, { default_agent_role: "viewer" });
+  });
+
+  it("deletes the board through the danger-zone", async () => {
+    const onBoardDeleted = vi.fn();
+    renderSettings({ onBoardDeleted });
+    await userEvent.click(await screen.findByRole("button", { name: "Excluir este quadro" }));
+    await userEvent.click(screen.getByRole("button", { name: "Entendo o risco" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirmar de novo" }));
+    await userEvent.type(screen.getByPlaceholderText("Sprint 1"), "Sprint 1");
+    await userEvent.click(screen.getByRole("button", { name: "Aplicar" }));
+    expect(kanbanApi.deleteBoard).toHaveBeenCalledWith(1);
+    await waitFor(() => expect(onBoardDeleted).toHaveBeenCalled());
   });
 });

@@ -22,14 +22,24 @@ const roleLabel: Record<Role, string> = {
  * otherwise. Granting an agent WRITE (contributor/editor) is gated behind the
  * danger-zone confirm: relaxing a guardrail by letting an AI mutate the board.
  */
+const AGENT_ROLE_LABEL: Record<string, string> = {
+  none: "Sem acesso (só devs)",
+  viewer: "Leitor",
+  contributor: "Colaborador",
+  editor: "Editor",
+};
+
 export function BoardSettings({
   board,
   onBoardChange,
+  onBoardDeleted,
 }: {
   board: KanbanBoard;
   onBoardChange: (b: KanbanBoard) => void;
+  onBoardDeleted: () => void;
 }) {
   const boardId = board.id;
+  const [name, setName] = useState(board.name);
   const [grants, setGrants] = useState<KanbanGrant[]>([]);
   const [directory, setDirectory] = useState<DirectoryEntry[]>([]);
   const [agent, setAgent] = useState("");
@@ -71,14 +81,27 @@ export function BoardSettings({
     }
   }
 
+  async function patchBoard(data: Parameters<typeof kanbanApi.updateBoard>[1]) {
+    try {
+      onBoardChange(await kanbanApi.updateBoard(boardId, data));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao salvar a configuração.");
+    }
+  }
+
   async function toggleEventCard(
     flag: "auto_card_on_delegation" | "auto_card_on_escalation",
     value: boolean,
   ) {
+    await patchBoard({ [flag]: value });
+  }
+
+  async function deleteBoard() {
     try {
-      onBoardChange(await kanbanApi.updateBoard(boardId, { [flag]: value }));
+      await kanbanApi.deleteBoard(boardId);
+      onBoardDeleted();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Falha ao salvar a configuração.");
+      setError(e instanceof Error ? e.message : "Falha ao excluir o quadro.");
     }
   }
 
@@ -90,7 +113,43 @@ export function BoardSettings({
       aria-label="Permissões de agentes"
       className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3"
     >
-      <h2 className="text-sm font-semibold text-zinc-200">Permissões de agentes</h2>
+      <h2 className="text-sm font-semibold text-zinc-200">Configurações do quadro</h2>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          aria-label="Nome do quadro"
+          className="rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-100"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() =>
+            name.trim() && name.trim() !== board.name && patchBoard({ name: name.trim() })
+          }
+        />
+        <select
+          aria-label="Visibilidade"
+          className="rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-200"
+          value={board.visibility}
+          onChange={(e) => patchBoard({ visibility: e.target.value })}
+        >
+          <option value="team">Time (todos editam)</option>
+          <option value="private">Privado (dono + concedidos)</option>
+        </select>
+        <select
+          aria-label="Papel padrão dos agentes"
+          className="rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-200"
+          value={board.default_agent_role}
+          onChange={(e) => patchBoard({ default_agent_role: e.target.value })}
+        >
+          {Object.entries(AGENT_ROLE_LABEL).map(([v, label]) => (
+            <option key={v} value={v}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <h2 className="border-t border-zinc-800 pt-3 text-sm font-semibold text-zinc-200">
+        Permissões de agentes
+      </h2>
       <p className="text-xs text-zinc-500">
         Por padrão o quadro é só para devs. Conceda a um agente o direito de ler, criar/mover seus
         próprios cards (colaborador) ou editar qualquer card (editor).
@@ -189,6 +248,16 @@ export function BoardSettings({
           />
           Criar card quando um agente meu escalar para mim
         </label>
+      </div>
+
+      <div className="space-y-2 border-t border-red-900/60 pt-3">
+        <h3 className="text-sm font-medium text-red-300">Zona de perigo</h3>
+        <DangerAction
+          trigger="Excluir este quadro"
+          warning={`Excluir o quadro “${board.name}” apaga todas as colunas, cards e comentários. Não dá para desfazer.`}
+          confirmWord={board.name}
+          onConfirm={deleteBoard}
+        />
       </div>
     </section>
   );

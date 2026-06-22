@@ -14,8 +14,12 @@ vi.mock("../../lib/api/kanban", async (importActual) => {
     kanbanApi: {
       listBoards: vi.fn(),
       getBoardFull: vi.fn(),
+      createBoard: vi.fn(),
       createCard: vi.fn(),
       moveCard: vi.fn(),
+      createColumn: vi.fn(),
+      updateColumn: vi.fn(),
+      deleteColumn: vi.fn(),
     },
   };
 });
@@ -102,5 +106,48 @@ describe("BoardPage", () => {
     await userEvent.type(screen.getByLabelText("Novo card"), "Nova");
     await userEvent.click(screen.getByRole("button", { name: "+" }));
     expect(kanbanApi.createCard).toHaveBeenCalledWith(1, { title: "Nova" });
+  });
+
+  it("creates another board", async () => {
+    vi.mocked(kanbanApi.createBoard).mockResolvedValue({ ...FULL.board, id: 2, name: "Outro" });
+    render(<BoardPage />);
+    await screen.findByText("Card X");
+    await userEvent.click(screen.getByRole("button", { name: "+ Novo quadro" }));
+    await userEvent.type(screen.getByLabelText("Nome do novo quadro"), "Outro");
+    await userEvent.click(screen.getByRole("button", { name: "Criar" }));
+    expect(kanbanApi.createBoard).toHaveBeenCalledWith({ name: "Outro" });
+  });
+
+  it("adds a custom column", async () => {
+    vi.mocked(kanbanApi.createColumn).mockResolvedValue({
+      id: 30,
+      board_id: 1,
+      name: "Bloqueado",
+      rank: "z",
+      wip_limit: null,
+      is_landing: false,
+    });
+    render(<BoardPage />);
+    await screen.findByText("Card X");
+    await userEvent.type(screen.getByLabelText("Nova coluna"), "Bloqueado{Enter}");
+    expect(kanbanApi.createColumn).toHaveBeenCalledWith(1, { name: "Bloqueado" });
+  });
+
+  it("reorders a card within its column via the anchor API", async () => {
+    const two: KanbanBoardFull = {
+      ...structuredClone(FULL),
+      cards: [card({ id: 100, rank: "a" }), card({ id: 101, title: "Card Y", rank: "b" })],
+    };
+    vi.mocked(kanbanApi.getBoardFull).mockResolvedValue(two);
+    vi.mocked(kanbanApi.moveCard).mockResolvedValue(card({ id: 100, rank: "c" }));
+    render(<BoardPage />);
+    await screen.findByText("Card Y");
+    await userEvent.click(screen.getByRole("button", { name: "Descer Card X" }));
+    // moving down past Y: lands after Y (before_id=Y, no after) in the same column
+    expect(kanbanApi.moveCard).toHaveBeenCalledWith(100, {
+      to_column_id: 10,
+      before_id: 101,
+      expected_version: 1,
+    });
   });
 });
