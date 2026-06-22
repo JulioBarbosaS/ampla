@@ -355,21 +355,36 @@ agent write. A board snapshot.
 
 ## Epic 06 milestone checklist
 
-- [ ] 6.1 Board/columns/cards/comments model + REST CRUD + authz + golden
-- [ ] 6.2 Fractional-rank ordering + serialized-txn/optimistic-version concurrency
-  + WIP-in-txn + rebalance — **property + concurrency tests required**
-- [ ] 6.3 Per-agent per-board role grants (dev-only default) + danger-zone for
-  agent write + audit
-- [ ] 6.4 `amp_kanban_*` MCP tools + daemon `/kanban` + `--strict-mcp-config`
-  guarantee + opt-in event cards
-- [ ] 6.5 `kanban_action`/`kanban_delta` WS frames + delegation/escalation→card +
-  inbox notifications
-- [ ] 6.6 Board view + grants panel (danger-zone) — components only via api/ws
-- [ ] Every dangerous knob (agent write grant, event-card opt-in) audited +
-  behind the danger-zone where relevant
-- [ ] All ordering/concurrency invariants covered by property + simulation tests
+- [x] 6.1 Board/columns/cards/comments model + REST CRUD + authz + golden
+  (`ab7f609`; foundation `2fd56c9`)
+- [x] 6.2 Fractional-rank ordering + serialized-txn/optimistic-version concurrency
+  + WIP-in-txn + rebalance — property + concurrency tests (`de4dbc0`)
+- [x] 6.3 Per-agent per-board role grants (dev-only default) + audit; danger-zone
+  confirm is the UI's job, deferred with the grants panel (`acd396d`)
+- [x] 6.4 `amp_kanban_*` MCP tools + daemon `/kanban` + agent-key reads +
+  `--strict-mcp-config` guarantee (`c69e93a`, `756500e`).
+  ◻ opt-in event cards (delegation/escalation→card) deferred — see below
+- [x] 6.5 `kanban_action`/`kanban_delta` WS frames + inbox notifications
+  (comment/assignment/move) (`509312c`).
+  ◻ delegation/escalation→card deferred — see below
+- [x] 6.6 Board view (live + optimistic moves) — components only via api/ws
+  (`fa758d2`). ◻ grants panel + danger-zone + card-detail/comments + drag-drop
+  deferred to the dedicated UI pass
+- [x] Every dangerous knob audited (agent write grant → `kanban_grant_set`)
+- [x] All ordering/concurrency invariants covered by property + simulation tests
 
 Recommended order: 6.1 → 6.2 (hardest; lock it down first) → 6.3 → 6.4 → 6.5 → 6.6.
+
+### Deferred to a follow-up (not built; backend-ready)
+
+- **Event-driven cards** (`auto_card_on_delegation`/`_escalation`): the hub-side
+  `create_event_card` primitive exists (audited, `origin`-tagged), but routing an
+  event to a *specific* board needs a board-selection rule (which board does a
+  given delegation/escalation drop a card on?) that the spec doesn't pin down.
+  Left out rather than shipping a speculative default; revisit with a board
+  setting + an explicit resolution rule.
+- **Grants/danger-zone UI panel**, **card detail + comments thread**, **HTML5
+  drag-and-drop**: UI refinements on top of endpoints that already exist.
 
 ---
 

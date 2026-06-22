@@ -21,9 +21,12 @@ code is written until an epic is approved.
 | [03](03-autorespond-trust.md) | Auto-respond Trust & Control | Auditable transcript · kill switch + per-agent pause · human approval (agent permission) · token/cost budget + metrics | new | Med |
 | [04](04-agent-policy.md) | Agent Config & Policy | Guardrail presets · availability window / DND · escalation to human inbox · agent-to-agent delegation/handoff | partial | Med |
 | [05](05-account-auth.md) | Account & Auth | `PATCH /api/auth/me` (name) · change password · avatar upload (server-side) · forgot-password reset | **yes** | Med |
-| [06](06-kanban.md) | Kanban / Task Board | Boards/columns/cards + comments · fractional-rank ordering w/ concurrency control · per-agent per-board role grants (dev-only default) · `amp_kanban_*` MCP · WS deltas + delegation/escalation→card | new | Med–High |
+| [06](06-kanban.md) | Kanban / Task Board | Boards/columns/cards + comments · fractional-rank ordering w/ concurrency control · per-agent per-board role grants (dev-only default) · `amp_kanban_*` MCP · WS deltas + inbox notifications · live board view | **yes** | Med–High |
 
-> Epics 01–05 are **done**. Epic 06 is a **proposal** (this spec) — no code until approved.
+> Epics 01–06 are **done**. Epic 06 shipped 6.1–6.6 (core data, race-safe
+> ordering, per-agent permissions, MCP + agent-key reads, inbox integration,
+> live board UI); event-driven cards + the grants/danger-zone UI + card-detail +
+> drag-and-drop are deferred follow-ups (see the Epic 06 checklist).
 
 ## Suggested sequencing & why
 
