@@ -122,7 +122,11 @@ def build_admin_service(session: AsyncSession) -> AdminService:
 
 
 def build_kanban_service(session: AsyncSession) -> KanbanService:
-    return KanbanService(boards=KanbanRepository(session), audit=AuditRepository(session))
+    return KanbanService(
+        boards=KanbanRepository(session),
+        audit=AuditRepository(session),
+        agents=AgentRepository(session),
+    )
 
 
 def build_autorespond_service(

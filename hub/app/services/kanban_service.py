@@ -10,11 +10,19 @@ Security: `created_by`/`author`/`assignee` are stamped from the AUTHENTICATED
 actor, never trusted from the client (anti-spoof). Every mutation is audited.
 """
 
-from app.models.kanban import KanbanBoard, KanbanCard, KanbanCardComment, KanbanColumn
+from app.models.kanban import (
+    KanbanAgentGrant,
+    KanbanBoard,
+    KanbanCard,
+    KanbanCardComment,
+    KanbanColumn,
+)
 from app.models.user import User, utcnow
+from app.repositories.agent_repo import AgentRepository
 from app.repositories.audit_repo import AuditRepository
 from app.repositories.kanban_repo import KanbanRepository
 from app.schemas.kanban import (
+    GRANTABLE_ROLES,
     BoardCreate,
     BoardUpdate,
     CardCreate,
@@ -36,6 +44,28 @@ from app.services.kanban_rank import RANK_LEN_MAX, rank_between, rebalance_ranks
 # couple of retries already converges in practice.
 _MOVE_RETRIES = 4
 
+
+def agent_capability(role: str, action: str, *, owns_card: bool = False) -> bool:
+    """Whether an AGENT with `role` may perform `action` on a board/card
+    (Epic 06 · 6.3). Humans are never gated here — this restricts agents only.
+
+    Actions: ``view`` ``comment`` ``create`` ``move`` ``edit`` ``delete``
+    ``manage_columns``. ``owns_card`` is true when the agent created OR is
+    assigned the target card (a contributor may only touch its own/assigned).
+    """
+    if role == "viewer":
+        return action in {"view", "comment"}
+    if role == "contributor":
+        if action in {"view", "comment", "create"}:
+            return True
+        if action in {"move", "edit"}:
+            return owns_card
+        return False
+    if role == "editor":
+        return action in {"view", "comment", "create", "move", "edit", "delete", "manage_columns"}
+    return False  # `none` (dev-only board) or an unknown role → no access
+
+
 # Default columns a new board is seeded with; the landing column (new + event
 # cards land here) is "A fazer". User-facing copy stays pt-BR.
 DEFAULT_COLUMNS: list[tuple[str, bool]] = [
@@ -48,9 +78,16 @@ DEFAULT_COLUMNS: list[tuple[str, bool]] = [
 
 
 class KanbanService:
-    def __init__(self, boards: KanbanRepository, audit: AuditRepository) -> None:
+    def __init__(
+        self,
+        boards: KanbanRepository,
+        audit: AuditRepository,
+        agents: AgentRepository | None = None,
+    ) -> None:
         self._boards = boards
         self._audit = audit
+        # Used to validate grant targets and (in 6.4) to attribute agent actions.
+        self._agents = agents
 
     # ---- boards ----
 
@@ -362,6 +399,61 @@ class KanbanService:
             detail={"board_id": card.board_id, "card_id": card_id, "comment_id": comment.id},
         )
         return comment
+
+    # ---- grants & capability (per-agent, per-board — Epic 06 · 6.3) ----
+
+    async def list_grants(self, user: User, board_id: int) -> list[KanbanAgentGrant]:
+        await self._owned_board(user, board_id)  # governance: owner/admin only
+        return await self._boards.list_grants(board_id)
+
+    async def set_grant(
+        self, user: User, board_id: int, agent_slug: str, role: str
+    ) -> KanbanAgentGrant:
+        """Grant an agent a role on a board (owner/admin). A privileged action —
+        granting write to an AI is treated like relaxing a guardrail: audited as
+        `kanban_grant_set` (and behind the danger-zone confirm in the UI, §6.6)."""
+        await self._owned_board(user, board_id)
+        if role not in GRANTABLE_ROLES:
+            raise InvalidInputError(f"Papel inválido: {role!r}.")
+        if self._agents is not None and await self._agents.get(agent_slug) is None:
+            raise NotFoundError(f"Agente {agent_slug!r} não existe.")
+        grant = await self._boards.get_grant(board_id, agent_slug)
+        if grant is None:
+            grant = await self._boards.add_grant(
+                KanbanAgentGrant(board_id=board_id, agent_slug=agent_slug, role=role)
+            )
+        else:
+            grant.role = role
+            await self._boards.save_grant(grant)
+        await self._audit.record(
+            "kanban_grant_set",
+            actor=user.email,
+            detail={"board_id": board_id, "agent": agent_slug, "role": role},
+        )
+        return grant
+
+    async def remove_grant(self, user: User, board_id: int, agent_slug: str) -> None:
+        await self._owned_board(user, board_id)
+        grant = await self._boards.get_grant(board_id, agent_slug)
+        if grant is None:
+            return  # idempotent
+        await self._boards.delete_grant(grant)
+        await self._audit.record(
+            "kanban_grant_removed",
+            actor=user.email,
+            detail={"board_id": board_id, "agent": agent_slug},
+        )
+
+    async def agent_role(self, board: KanbanBoard, agent_slug: str) -> str:
+        """The agent's effective role on a board: an explicit grant, else the
+        board's `default_agent_role` (`none` = dev-only)."""
+        grant = await self._boards.get_grant(board.id, agent_slug)
+        return grant.role if grant else board.default_agent_role
+
+    @staticmethod
+    def _agent_owns(card: KanbanCard, agent_slug: str) -> bool:
+        """A contributor's reach: cards it created OR is assigned."""
+        return card.created_by == agent_slug or card.assignee == agent_slug
 
     # ---- internals ----
 

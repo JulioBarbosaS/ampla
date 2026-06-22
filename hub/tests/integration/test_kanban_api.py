@@ -2,7 +2,7 @@
 plus the cross-user authorization convention (invisible board → 404, visible
 but non-owner governance → 403)."""
 
-from tests.helpers import auth, do_setup, register_member
+from tests.helpers import auth, create_agent, do_setup, register_member
 
 
 def _create_board(client, token, **body):
@@ -219,3 +219,63 @@ class TestAuthorization:
             headers=auth(member),
         )
         assert resp.status_code == 201, resp.text
+
+
+class TestGrants:
+    def test_set_list_remove_grant(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-ana")
+        board = _create_board(client, token)
+        put = client.put(
+            f"/api/kanban/boards/{board['id']}/grants",
+            json={"agent_slug": "backend-ana", "role": "contributor"},
+            headers=auth(token),
+        )
+        assert put.status_code == 200, put.text
+        assert put.json() == {
+            "board_id": board["id"],
+            "agent_slug": "backend-ana",
+            "role": "contributor",
+        }
+        grants = client.get(f"/api/kanban/boards/{board['id']}/grants", headers=auth(token)).json()
+        assert [g["agent_slug"] for g in grants] == ["backend-ana"]
+        # upsert: same agent, new role
+        client.put(
+            f"/api/kanban/boards/{board['id']}/grants",
+            json={"agent_slug": "backend-ana", "role": "editor"},
+            headers=auth(token),
+        )
+        grants = client.get(f"/api/kanban/boards/{board['id']}/grants", headers=auth(token)).json()
+        assert grants[0]["role"] == "editor"
+        # remove
+        assert (
+            client.delete(
+                f"/api/kanban/boards/{board['id']}/grants/backend-ana", headers=auth(token)
+            ).status_code
+            == 204
+        )
+        assert (
+            client.get(f"/api/kanban/boards/{board['id']}/grants", headers=auth(token)).json() == []
+        )
+
+    def test_grant_unknown_agent_is_404(self, client):
+        token = do_setup(client)
+        board = _create_board(client, token)
+        resp = client.put(
+            f"/api/kanban/boards/{board['id']}/grants",
+            json={"agent_slug": "ghost-agent", "role": "viewer"},
+            headers=auth(token),
+        )
+        assert resp.status_code == 404, resp.text
+
+    def test_non_owner_cannot_manage_grants(self, client):
+        admin = do_setup(client)
+        member = register_member(client, admin)
+        create_agent(client, admin, "backend-ana")
+        board = _create_board(client, admin, visibility="team")
+        resp = client.put(
+            f"/api/kanban/boards/{board['id']}/grants",
+            json={"agent_slug": "backend-ana", "role": "editor"},
+            headers=auth(member),
+        )
+        assert resp.status_code == 403, resp.text

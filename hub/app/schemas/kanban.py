@@ -7,6 +7,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.agent import SLUG_PATTERN
 from app.schemas.message import PRIORITY_PATTERN
 
 # Visibility + per-agent role vocabularies (mirrored where the daemon/panel need them).
@@ -147,6 +148,25 @@ class CommentOut(BaseModel):
     author: str
     body: str
     created_at: datetime
+
+
+# ---- per-agent grants (Epic 06 · 6.3) ----
+
+
+class GrantSet(BaseModel):
+    """Grant (or change) an agent's role on a board. `none` is not grantable —
+    removing access is a DELETE."""
+
+    agent_slug: str = Field(pattern=SLUG_PATTERN, max_length=60)
+    role: str = Field(pattern=GRANT_ROLE_PATTERN)
+
+
+class GrantOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    board_id: int
+    agent_slug: str
+    role: str
 
 
 # ---- aggregate (initial render) ----

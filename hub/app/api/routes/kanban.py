@@ -21,6 +21,8 @@ from app.schemas.kanban import (
     ColumnUpdate,
     CommentCreate,
     CommentOut,
+    GrantOut,
+    GrantSet,
 )
 from app.services.kanban_service import KanbanService
 
@@ -202,3 +204,36 @@ async def add_comment(
     svc: KanbanService = Depends(get_kanban_service),
 ) -> CommentOut:
     return CommentOut.model_validate(await svc.add_comment(user, card_id, body))
+
+
+# ---- per-agent grants (owner/admin only — Epic 06 · 6.3) ----
+
+
+@router.get("/boards/{board_id}/grants", response_model=list[GrantOut])
+async def list_grants(
+    board_id: int,
+    user: User = Depends(get_current_user),
+    svc: KanbanService = Depends(get_kanban_service),
+) -> list[GrantOut]:
+    return [GrantOut.model_validate(g) for g in await svc.list_grants(user, board_id)]
+
+
+@router.put("/boards/{board_id}/grants", response_model=GrantOut)
+async def set_grant(
+    board_id: int,
+    body: GrantSet,
+    user: User = Depends(get_current_user),
+    svc: KanbanService = Depends(get_kanban_service),
+) -> GrantOut:
+    grant = await svc.set_grant(user, board_id, body.agent_slug, body.role)
+    return GrantOut.model_validate(grant)
+
+
+@router.delete("/boards/{board_id}/grants/{agent_slug}", status_code=204)
+async def remove_grant(
+    board_id: int,
+    agent_slug: str,
+    user: User = Depends(get_current_user),
+    svc: KanbanService = Depends(get_kanban_service),
+) -> None:
+    await svc.remove_grant(user, board_id, agent_slug)

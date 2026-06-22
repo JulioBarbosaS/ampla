@@ -1546,6 +1546,51 @@
         "title": "DirectoryEntry",
         "type": "object"
       },
+      "GrantOut": {
+        "properties": {
+          "agent_slug": {
+            "title": "Agent Slug",
+            "type": "string"
+          },
+          "board_id": {
+            "title": "Board Id",
+            "type": "integer"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "board_id",
+          "agent_slug",
+          "role"
+        ],
+        "title": "GrantOut",
+        "type": "object"
+      },
+      "GrantSet": {
+        "description": "Grant (or change) an agent's role on a board. `none` is not grantable —\nremoving access is a DELETE.",
+        "properties": {
+          "agent_slug": {
+            "maxLength": 60,
+            "pattern": "^[a-z][a-z0-9-]{1,48}[a-z0-9]$",
+            "title": "Agent Slug",
+            "type": "string"
+          },
+          "role": {
+            "pattern": "^(viewer|contributor|editor)$",
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_slug",
+          "role"
+        ],
+        "title": "GrantSet",
+        "type": "object"
+      },
       "GroupCreate": {
         "properties": {
           "display_name": {
@@ -4722,6 +4767,161 @@
           }
         ],
         "summary": "Get Board Full",
+        "tags": [
+          "kanban"
+        ]
+      }
+    },
+    "/api/kanban/boards/{board_id}/grants": {
+      "get": {
+        "operationId": "list_grants_api_kanban_boards__board_id__grants_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "board_id",
+            "required": true,
+            "schema": {
+              "title": "Board Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GrantOut"
+                  },
+                  "title": "Response List Grants Api Kanban Boards  Board Id  Grants Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Grants",
+        "tags": [
+          "kanban"
+        ]
+      },
+      "put": {
+        "operationId": "set_grant_api_kanban_boards__board_id__grants_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "board_id",
+            "required": true,
+            "schema": {
+              "title": "Board Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantSet"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Set Grant",
+        "tags": [
+          "kanban"
+        ]
+      }
+    },
+    "/api/kanban/boards/{board_id}/grants/{agent_slug}": {
+      "delete": {
+        "operationId": "remove_grant_api_kanban_boards__board_id__grants__agent_slug__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "board_id",
+            "required": true,
+            "schema": {
+              "title": "Board Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "agent_slug",
+            "required": true,
+            "schema": {
+              "title": "Agent Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove Grant",
         "tags": [
           "kanban"
         ]
