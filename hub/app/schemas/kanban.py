@@ -73,6 +73,7 @@ class ColumnUpdate(BaseModel):
     # 0 clears the WIP limit (unlimited); a positive value sets it; null = unchanged.
     wip_limit: int | None = Field(default=None, ge=0, le=999)
     is_landing: bool | None = None
+    is_done: bool | None = None  # terminal column for dependency gating (§6.7)
 
 
 class ColumnOut(BaseModel):
@@ -84,6 +85,7 @@ class ColumnOut(BaseModel):
     rank: str
     wip_limit: int | None
     is_landing: bool
+    is_done: bool
 
 
 # ---- cards ----
@@ -134,8 +136,15 @@ class CardOut(BaseModel):
     priority: str
     origin: dict | None
     version: int
+    # Cards this one is blocked by (Epic 06 · 6.7). The panel computes "blocked"
+    # from these + which columns are is_done, so it stays correct as cards move.
+    depends_on: list[int] = []
     created_at: datetime
     updated_at: datetime
+
+
+class DepCreate(BaseModel):
+    depends_on_id: int
 
 
 # ---- comments ----

@@ -12,6 +12,7 @@ from app.models.kanban import (
     KanbanBoard,
     KanbanCard,
     KanbanCardComment,
+    KanbanCardDep,
     KanbanColumn,
 )
 from app.models.user import utcnow
@@ -242,6 +243,36 @@ class KanbanRepository:
             .order_by(KanbanCardComment.created_at, KanbanCardComment.id)
         )
         return list((await self._session.execute(stmt)).scalars())
+
+    # ---- dependencies (DAG — Epic 06 · 6.7) ----
+
+    async def get_dep(self, card_id: int, depends_on_id: int) -> KanbanCardDep | None:
+        stmt = select(KanbanCardDep).where(
+            KanbanCardDep.card_id == card_id, KanbanCardDep.depends_on_id == depends_on_id
+        )
+        return (await self._session.execute(stmt)).scalars().first()
+
+    async def add_dep(self, dep: KanbanCardDep) -> KanbanCardDep:
+        self._session.add(dep)
+        await self._session.commit()
+        await self._session.refresh(dep)
+        return dep
+
+    async def remove_dep(self, dep: KanbanCardDep) -> None:
+        await self._session.delete(dep)
+        await self._session.commit()
+
+    async def dep_ids_for_card(self, card_id: int) -> list[int]:
+        stmt = select(KanbanCardDep.depends_on_id).where(KanbanCardDep.card_id == card_id)
+        return list((await self._session.execute(stmt)).scalars())
+
+    async def deps_for_board(self, board_id: int) -> list[tuple[int, int]]:
+        """All (card_id, depends_on_id) edges among the board's cards."""
+        card_ids = select(KanbanCard.id).where(KanbanCard.board_id == board_id)
+        stmt = select(KanbanCardDep.card_id, KanbanCardDep.depends_on_id).where(
+            KanbanCardDep.card_id.in_(card_ids)
+        )
+        return [(row[0], row[1]) for row in (await self._session.execute(stmt)).all()]
 
     # ---- grants (per-agent, per-board — Epic 06 · 6.3) ----
 

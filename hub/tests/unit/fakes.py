@@ -18,6 +18,7 @@ from app.models.kanban import (
     KanbanBoard,
     KanbanCard,
     KanbanCardComment,
+    KanbanCardDep,
     KanbanColumn,
 )
 from app.models.message import Message
@@ -468,6 +469,8 @@ class FakeKanbanRepository:
         self._cards: dict[int, KanbanCard] = {}
         self._comments: dict[int, KanbanCardComment] = {}
         self._grants: dict[int, KanbanAgentGrant] = {}
+        self._deps: list[KanbanCardDep] = []
+        self._dep_seq = 0
         self._board_seq = 0
         self._column_seq = 0
         self._card_seq = 0
@@ -522,6 +525,7 @@ class FakeKanbanRepository:
         self._column_seq += 1
         column.id = self._column_seq
         _default(column, "is_landing", False)
+        _default(column, "is_done", False)
         _default(column, "wip_limit", None)
         self._columns[column.id] = column
         return column
@@ -635,6 +639,31 @@ class FakeKanbanRepository:
         found = [c for c in self._comments.values() if c.card_id == card_id]
         found.sort(key=lambda c: (c.created_at, c.id))
         return found
+
+    # ---- dependencies (Epic 06 · 6.7) ----
+
+    async def get_dep(self, card_id: int, depends_on_id: int) -> KanbanCardDep | None:
+        return next(
+            (d for d in self._deps if d.card_id == card_id and d.depends_on_id == depends_on_id),
+            None,
+        )
+
+    async def add_dep(self, dep: KanbanCardDep) -> KanbanCardDep:
+        self._dep_seq += 1
+        dep.id = self._dep_seq
+        _default(dep, "created_at", utcnow())
+        self._deps.append(dep)
+        return dep
+
+    async def remove_dep(self, dep: KanbanCardDep) -> None:
+        self._deps = [d for d in self._deps if d.id != dep.id]
+
+    async def dep_ids_for_card(self, card_id: int) -> list[int]:
+        return [d.depends_on_id for d in self._deps if d.card_id == card_id]
+
+    async def deps_for_board(self, board_id: int) -> list[tuple[int, int]]:
+        board_cards = {c.id for c in self._cards.values() if c.board_id == board_id}
+        return [(d.card_id, d.depends_on_id) for d in self._deps if d.card_id in board_cards]
 
     # ---- grants (Epic 06 · 6.3) ----
 

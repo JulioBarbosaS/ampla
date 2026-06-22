@@ -11,6 +11,7 @@ from app.models.kanban import (
     KanbanBoard,
     KanbanCard,
     KanbanCardComment,
+    KanbanCardDep,
     KanbanColumn,
 )
 from app.models.message import Message
@@ -32,6 +33,7 @@ __all__ = [
     "KanbanBoard",
     "KanbanCard",
     "KanbanCardComment",
+    "KanbanCardDep",
     "KanbanColumn",
     "Invite",
     "Message",

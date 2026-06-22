@@ -45,6 +45,9 @@ class KanbanColumn(Base):
     wip_limit: Mapped[int | None] = mapped_column(Integer, default=None)  # null = unlimited
     # New cards / event-driven cards land here (exactly one per board).
     is_landing: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Terminal column: a card here counts as "done" for dependency gating
+    # (Epic 06 · 6.7 DAG). Seeded on "Concluído"; a board may have several.
+    is_done: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class KanbanCard(Base):
@@ -94,3 +97,18 @@ class KanbanAgentGrant(Base):
     board_id: Mapped[int] = mapped_column(ForeignKey("kanban_boards.id"), index=True)
     agent_slug: Mapped[str] = mapped_column(String(60))
     role: Mapped[str] = mapped_column(String(12))
+
+
+class KanbanCardDep(Base):
+    """A blocking dependency between cards (Epic 06 · 6.7 DAG): `card_id` is
+    blocked until `depends_on_id` reaches a `is_done` column. Both cards live on
+    the same board; the service rejects self-edges and any edge that would close
+    a cycle. Unique per (card, dependency)."""
+
+    __tablename__ = "kanban_card_deps"
+    __table_args__ = (Index("ix_kanban_card_deps_pair", "card_id", "depends_on_id", unique=True),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    card_id: Mapped[int] = mapped_column(ForeignKey("kanban_cards.id"), index=True)
+    depends_on_id: Mapped[int] = mapped_column(ForeignKey("kanban_cards.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

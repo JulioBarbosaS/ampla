@@ -16,6 +16,7 @@ from app.models.kanban import (
     KanbanBoard,
     KanbanCard,
     KanbanCardComment,
+    KanbanCardDep,
     KanbanColumn,
 )
 from app.models.user import User, utcnow
@@ -68,14 +69,15 @@ def agent_capability(role: str, action: str, *, owns_card: bool = False) -> bool
     return False  # `none` (dev-only board) or an unknown role → no access
 
 
-# Default columns a new board is seeded with; the landing column (new + event
-# cards land here) is "A fazer". User-facing copy stays pt-BR.
-DEFAULT_COLUMNS: list[tuple[str, bool]] = [
-    ("Backlog", False),
-    ("A fazer", True),
-    ("Fazendo", False),
-    ("Revisão", False),
-    ("Concluído", False),
+# Default columns a new board is seeded with (name, is_landing, is_done). The
+# landing column (new + event cards land here) is "A fazer"; "Concluído" is the
+# terminal column for dependency gating (§6.7). User-facing copy stays pt-BR.
+DEFAULT_COLUMNS: list[tuple[str, bool, bool]] = [
+    ("Backlog", False, False),
+    ("A fazer", True, False),
+    ("Fazendo", False, False),
+    ("Revisão", False, False),
+    ("Concluído", False, True),
 ]
 
 
@@ -109,10 +111,16 @@ class KanbanService:
         # Seed the default columns in one transaction, ranked left→right.
         columns: list[KanbanColumn] = []
         prev: str | None = None
-        for name, is_landing in DEFAULT_COLUMNS:
+        for name, is_landing, is_done in DEFAULT_COLUMNS:
             prev = rank_between(prev, None)
             columns.append(
-                KanbanColumn(board_id=board.id, name=name, rank=prev, is_landing=is_landing)
+                KanbanColumn(
+                    board_id=board.id,
+                    name=name,
+                    rank=prev,
+                    is_landing=is_landing,
+                    is_done=is_done,
+                )
             )
         await self._boards.add_columns(columns)
         await self._audit.record(
@@ -134,6 +142,7 @@ class KanbanService:
         board = await self._visible_board(user, board_id)
         columns = await self._boards.list_columns(board_id)
         cards = await self._boards.list_cards(board_id)
+        await self._attach_deps(board_id, cards)
         return board, columns, cards
 
     async def update_board(self, user: User, board_id: int, data: BoardUpdate) -> KanbanBoard:
@@ -203,6 +212,8 @@ class KanbanService:
             # Exactly one landing column per board.
             await self._boards.clear_landing(board_id)
             column.is_landing = True
+        if data.is_done is not None:
+            column.is_done = data.is_done  # terminal column for dependency gating
         await self._boards.save_column(column)
         await self._audit.record(
             "kanban_column_updated",
@@ -267,6 +278,7 @@ class KanbanService:
         if card is None:
             raise NotFoundError("Card não encontrado.")
         await self._visible_board(user, card.board_id)
+        card.depends_on = await self._boards.dep_ids_for_card(card.id)
         return card
 
     async def update_card(self, user: User, card_id: int, data: CardUpdate) -> KanbanCard:
@@ -356,6 +368,11 @@ class KanbanService:
             raise ConflictError("O card foi alterado por outra pessoa; recarregue e tente de novo.")
         dest = await self._column_of_board(card.board_id, to_column_id)
         card_id = card.id
+        # Dependency gate (§6.7): can't move a blocked card into a done column.
+        if dest.is_done and await self._is_blocked(card):
+            raise ConflictError(
+                "Card bloqueado: conclua os cards dos quais ele depende antes de finalizá-lo."
+            )
 
         lo, hi = await self._move_bounds(dest.id, card, before_id, after_id)
         new_rank = rank_between(lo, hi)
@@ -389,6 +406,7 @@ class KanbanService:
     async def _record_move(
         self, card: KanbanCard, dest: KanbanColumn, audit_actor: str
     ) -> KanbanCard:
+        card.depends_on = await self._boards.dep_ids_for_card(card.id)
         await self._audit.record(
             "kanban_card_moved",
             actor=audit_actor,
@@ -479,6 +497,7 @@ class KanbanService:
         await self._require_agent_can(agent_slug, board, "view")
         columns = await self._boards.list_columns(board_id)
         cards = await self._boards.list_cards(board_id)
+        await self._attach_deps(board_id, cards)
         if mine:  # "my tasks": created by OR assigned to this agent
             cards = [c for c in cards if self._agent_owns(c, agent_slug)]
         return board, columns, cards
@@ -700,6 +719,85 @@ class KanbanService:
             },
         )
         return card
+
+    # ---- dependencies (DAG — Epic 06 · 6.7) ----
+
+    async def _attach_deps(self, board_id: int, cards: list[KanbanCard]) -> None:
+        """Set each card's transient `depends_on` from one board-wide query."""
+        by_card: dict[int, list[int]] = {}
+        for card_id, dep_id in await self._boards.deps_for_board(board_id):
+            by_card.setdefault(card_id, []).append(dep_id)
+        for card in cards:
+            card.depends_on = by_card.get(card.id, [])
+
+    async def _is_blocked(self, card: KanbanCard) -> bool:
+        """A card is blocked while any dependency is NOT in a done column."""
+        for dep_id in await self._boards.dep_ids_for_card(card.id):
+            dep = await self._boards.get_card(dep_id)
+            if dep is None:
+                continue
+            col = await self._boards.get_column(dep.column_id)
+            if col is None or not col.is_done:
+                return True
+        return False
+
+    async def _would_create_cycle(self, board_id: int, card_id: int, depends_on_id: int) -> bool:
+        """Adding card_id → depends_on_id closes a cycle iff depends_on_id can
+        already reach card_id through existing edges."""
+        graph: dict[int, list[int]] = {}
+        for a, b in await self._boards.deps_for_board(board_id):
+            graph.setdefault(a, []).append(b)
+        seen: set[int] = set()
+        stack = [depends_on_id]
+        while stack:
+            node = stack.pop()
+            if node == card_id:
+                return True
+            if node in seen:
+                continue
+            seen.add(node)
+            stack.extend(graph.get(node, []))
+        return False
+
+    async def add_dependency(self, user: User, card_id: int, depends_on_id: int) -> None:
+        card = await self.get_card(user, card_id)  # 404 + visibility
+        if depends_on_id == card_id:
+            raise InvalidInputError("Um card não pode depender de si mesmo.")
+        dep_card = await self._boards.get_card(depends_on_id)
+        if dep_card is None or dep_card.board_id != card.board_id:
+            raise InvalidInputError("A dependência deve ser um card do mesmo quadro.")
+        if await self._boards.get_dep(card_id, depends_on_id) is not None:
+            return  # idempotent
+        if await self._would_create_cycle(card.board_id, card_id, depends_on_id):
+            raise ConflictError("Isso criaria um ciclo de dependências entre os cards.")
+        await self._boards.add_dep(KanbanCardDep(card_id=card_id, depends_on_id=depends_on_id))
+        await self._audit.record(
+            "kanban_dep_added",
+            actor=user.email,
+            detail={"card_id": card_id, "depends_on_id": depends_on_id},
+        )
+
+    async def remove_dependency(self, user: User, card_id: int, depends_on_id: int) -> None:
+        await self.get_card(user, card_id)  # 404 + visibility
+        dep = await self._boards.get_dep(card_id, depends_on_id)
+        if dep is None:
+            return  # idempotent
+        await self._boards.remove_dep(dep)
+        await self._audit.record(
+            "kanban_dep_removed",
+            actor=user.email,
+            detail={"card_id": card_id, "depends_on_id": depends_on_id},
+        )
+
+    async def list_dependencies(self, user: User, card_id: int) -> list[KanbanCard]:
+        await self.get_card(user, card_id)  # 404 + visibility
+        out: list[KanbanCard] = []
+        for dep_id in await self._boards.dep_ids_for_card(card_id):
+            dep = await self._boards.get_card(dep_id)
+            if dep is not None:
+                dep.depends_on = await self._boards.dep_ids_for_card(dep.id)
+                out.append(dep)
+        return out
 
     # ---- grants & capability (per-agent, per-board — Epic 06 · 6.3) ----
 

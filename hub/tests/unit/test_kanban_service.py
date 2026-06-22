@@ -32,7 +32,7 @@ class TestBoards:
         svc, _boards, audit, _users, owner = await _setup()
         board = await svc.create_board(owner, BoardCreate(name="Sprint 1"))
         _, columns, cards = await svc.get_board_full(owner, board.id)
-        assert [c.name for c in columns] == [name for name, _ in DEFAULT_COLUMNS]
+        assert [c.name for c in columns] == [name for name, *_ in DEFAULT_COLUMNS]
         assert sum(c.is_landing for c in columns) == 1
         assert next(c for c in columns if c.is_landing).name == "A fazer"
         # columns come back in left→right rank order

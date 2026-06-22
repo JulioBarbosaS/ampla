@@ -22,6 +22,7 @@ from app.schemas.kanban import (
     ColumnUpdate,
     CommentCreate,
     CommentOut,
+    DepCreate,
     GrantOut,
     GrantSet,
 )
@@ -205,6 +206,39 @@ async def add_comment(
     svc: KanbanService = Depends(get_kanban_service),
 ) -> CommentOut:
     return CommentOut.model_validate(await svc.add_comment(user, card_id, body))
+
+
+# ---- dependencies (DAG — Epic 06 · 6.7) ----
+
+
+@router.get("/cards/{card_id}/dependencies", response_model=list[CardOut])
+async def list_dependencies(
+    card_id: int,
+    user: User = Depends(get_current_user),
+    svc: KanbanService = Depends(get_kanban_service),
+) -> list[CardOut]:
+    return [CardOut.model_validate(c) for c in await svc.list_dependencies(user, card_id)]
+
+
+@router.post("/cards/{card_id}/dependencies", response_model=list[CardOut], status_code=201)
+async def add_dependency(
+    card_id: int,
+    body: DepCreate,
+    user: User = Depends(get_current_user),
+    svc: KanbanService = Depends(get_kanban_service),
+) -> list[CardOut]:
+    await svc.add_dependency(user, card_id, body.depends_on_id)
+    return [CardOut.model_validate(c) for c in await svc.list_dependencies(user, card_id)]
+
+
+@router.delete("/cards/{card_id}/dependencies/{depends_on_id}", status_code=204)
+async def remove_dependency(
+    card_id: int,
+    depends_on_id: int,
+    user: User = Depends(get_current_user),
+    svc: KanbanService = Depends(get_kanban_service),
+) -> None:
+    await svc.remove_dependency(user, card_id, depends_on_id)
 
 
 # ---- agent reads (authenticated by agent key — Epic 06 · 6.4) ----
