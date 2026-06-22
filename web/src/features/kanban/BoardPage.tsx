@@ -5,6 +5,7 @@ import type { KanbanBoard, KanbanBoardFull, KanbanCard } from "../../lib/api/typ
 import { connectObserver } from "../../lib/ws/observer";
 import { useAuthStore } from "../../stores/auth";
 import { BoardSettings } from "./BoardSettings";
+import { CardDetail } from "./CardDetail";
 
 /**
  * Kanban board view (Epic 06 · 6.6). Reads via src/lib/api, lives via the
@@ -22,6 +23,7 @@ export function BoardPage() {
   const [newTitle, setNewTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [openCardId, setOpenCardId] = useState<number | null>(null);
   const user = useAuthStore((s) => s.user);
   const canManage = !!full && !!user && (user.id === full.board.owner_id || user.role === "admin");
 
@@ -121,6 +123,7 @@ export function BoardPage() {
   }
 
   const columns = full ? sortColumns(full.columns) : [];
+  const openCard = full?.cards.find((c) => c.id === openCardId) ?? null;
 
   return (
     <div className="flex h-full flex-col gap-4 p-4">
@@ -172,7 +175,13 @@ export function BoardPage() {
             </h2>
             {cardsOf(full?.cards ?? [], col.id).map((card) => (
               <article key={card.id} className="rounded bg-zinc-800 p-2 text-sm text-zinc-100">
-                <p>{card.title}</p>
+                <button
+                  type="button"
+                  className="block w-full text-left hover:text-indigo-300"
+                  onClick={() => setOpenCardId(card.id)}
+                >
+                  {card.title}
+                </button>
                 <div className="mt-1 flex justify-between text-xs text-zinc-400">
                   <span>{card.assignee ?? ""}</span>
                   <span className="flex gap-2">
@@ -220,6 +229,8 @@ export function BoardPage() {
           </section>
         ))}
       </div>
+
+      {openCard && <CardDetail card={openCard} onClose={() => setOpenCardId(null)} />}
     </div>
   );
 }
