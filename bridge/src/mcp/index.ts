@@ -87,6 +87,144 @@ export function buildServer(): McpServer {
   );
 
   server.registerTool(
+    "amp_kanban_boards",
+    {
+      title: "Quadros Kanban que você pode acessar",
+      description:
+        "Lista os quadros (boards) em que este agente tem alguma permissão. Use o id do quadro " +
+        "nas demais ferramentas amp_kanban_*. Quadros só-para-devs não aparecem.",
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        return asText(await daemon.get("/kanban/boards"));
+      } catch (error) {
+        return asError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "amp_kanban_cards",
+    {
+      title: "Ler um quadro (colunas + cards)",
+      description:
+        "Retorna as colunas e os cards de um quadro. Use mine=true para ver só os seus " +
+        "(criados por você ou atribuídos a você). Os ids de card/coluna e a `version` daqui " +
+        "são o que amp_kanban_move_card precisa.",
+      inputSchema: {
+        board: z.number().int().describe("id do quadro (de amp_kanban_boards)"),
+        mine: z.boolean().default(false).describe("apenas meus cards (criados/atribuídos)"),
+      },
+    },
+    async ({ board, mine }) => {
+      try {
+        return asText(await daemon.get(`/kanban/cards?board=${board}&mine=${mine}`));
+      } catch (error) {
+        return asError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "amp_kanban_create_card",
+    {
+      title: "Criar um card no quadro",
+      description:
+        "Cria um card no quadro (na coluna de entrada, ou em `column`). Requer permissão de " +
+        "contributor ou editor no quadro — o hub recusa caso contrário.",
+      inputSchema: {
+        board: z.number().int().describe("id do quadro"),
+        title: z.string().min(1).max(200),
+        body: z.string().max(16_384).default("").describe("descrição (Markdown)"),
+        column: z.number().int().optional().describe("id da coluna (padrão: coluna de entrada)"),
+        assignee: z.string().max(60).optional().describe("slug do agente ou user:<id> responsável"),
+        priority: z.enum(["urgent", "high", "normal", "low"]).default("normal"),
+      },
+    },
+    async ({ board, title, body, column, assignee, priority }) => {
+      try {
+        return asText(
+          await daemon.post("/kanban/create_card", {
+            board_id: board,
+            title,
+            body,
+            column_id: column,
+            assignee,
+            priority,
+          }),
+        );
+      } catch (error) {
+        return asError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "amp_kanban_move_card",
+    {
+      title: "Mover um card",
+      description:
+        "Move um card para uma coluna, entre os vizinhos `before`/`after` (ids vistos em " +
+        "amp_kanban_cards), protegido por `expected_version` (se o card mudou, o hub responde 409 — " +
+        "releia e tente de novo). Requer editor, ou contributor para um card seu.",
+      inputSchema: {
+        board: z.number().int().describe("id do quadro"),
+        card: z.number().int().describe("id do card a mover"),
+        to_column: z.number().int().describe("id da coluna de destino"),
+        before: z.number().int().optional().describe("id do card que fica ANTES (limite inferior)"),
+        after: z.number().int().optional().describe("id do card que fica DEPOIS (limite superior)"),
+        expected_version: z
+          .number()
+          .int()
+          .min(1)
+          .describe("version atual do card (de amp_kanban_cards)"),
+      },
+    },
+    async ({ board, card, to_column, before, after, expected_version }) => {
+      try {
+        return asText(
+          await daemon.post("/kanban/move_card", {
+            board_id: board,
+            card_id: card,
+            to_column_id: to_column,
+            before_id: before,
+            after_id: after,
+            expected_version,
+          }),
+        );
+      } catch (error) {
+        return asError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "amp_kanban_comment",
+    {
+      title: "Comentar em um card",
+      description:
+        "Adiciona um comentário a um card — o canal para pedir uma informação. Notifica o " +
+        "responsável e o dono do quadro; @menções avisam o dono do agente mencionado. " +
+        "Disponível a partir de viewer.",
+      inputSchema: {
+        board: z.number().int().describe("id do quadro"),
+        card: z.number().int().describe("id do card"),
+        body: z.string().min(1).max(16_384).describe("comentário (Markdown; @menções permitidas)"),
+      },
+    },
+    async ({ board, card, body }) => {
+      try {
+        return asText(
+          await daemon.post("/kanban/comment", { board_id: board, card_id: card, body }),
+        );
+      } catch (error) {
+        return asError(error);
+      }
+    },
+  );
+
+  server.registerTool(
     "amp_inbox",
     {
       title: "Ler mensagens recebidas",

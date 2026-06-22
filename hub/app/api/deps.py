@@ -5,12 +5,13 @@ Routes only know services (docs/ARCHITECTURE.md · layer rules).
 
 from collections.abc import AsyncIterator
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.cookies import SESSION_COOKIE
+from app.models.agent import Agent
 from app.models.message import Message
 from app.models.user import User
 from app.repositories.agent_repo import AgentRepository
@@ -285,6 +286,26 @@ async def get_current_user(
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão inválida ou expirada.")
     return user
+
+
+async def get_current_agent(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    x_amp_agent: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> Agent:
+    """Authenticates an AGENT for the read-only board API (Epic 06 · 6.4): the
+    daemon sends its slug in `X-Amp-Agent` and its key as the Bearer token. Same
+    credential as the WS hello — never a user JWT. Reuses AgentService key auth
+    (which audits failures)."""
+    key = credentials.credentials if credentials else None
+    if not key or not x_amp_agent:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "Informe X-Amp-Agent e a chave do agente."
+        )
+    agent = await build_agent_service(session).authenticate_key(x_amp_agent, key)
+    if agent is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Agente ou chave inválida.")
+    return agent
 
 
 async def require_admin(user: User = Depends(get_current_user)) -> User:

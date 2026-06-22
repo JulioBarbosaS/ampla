@@ -141,6 +141,17 @@ export class FakeHub {
       .map((f) => ({ to: String(f.to), task: String(f.task), context: String(f.context) }));
   }
 
+  /** `kanban_action` frames the daemon sent to the hub (Epic 06 · 6.4). */
+  sentKanbanActions(): Array<{ board_id: number; op: string; payload: Record<string, unknown> }> {
+    return this.received
+      .filter((f) => f.type === "kanban_action")
+      .map((f) => ({
+        board_id: Number(f.board_id),
+        op: String(f.op),
+        payload: (f.payload ?? {}) as Record<string, unknown>,
+      }));
+  }
+
   async stop(): Promise<void> {
     for (const ws of this.sockets.values()) ws.terminate();
     await new Promise<void>((resolve) => this.wss?.close(() => resolve()));

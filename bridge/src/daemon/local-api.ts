@@ -34,6 +34,37 @@ const delegateBodySchema = z.object({
   context: z.string().max(16_384).default(""),
 });
 
+// Kanban write payloads (Epic 06 · 6.4) — mirror the hub schemas (defense in
+// depth). The hub re-validates and enforces the per-agent capability; these
+// just reject obvious junk before it leaves the daemon.
+const kanbanCreateCardSchema = z.object({
+  board_id: z.number().int(),
+  title: z.string().min(1).max(200),
+  body: z.string().max(16_384).default(""),
+  column_id: z.number().int().optional(),
+  assignee: z.string().max(60).optional(),
+  priority: prioritySchema.default("normal"),
+});
+const kanbanMoveCardSchema = z.object({
+  board_id: z.number().int(),
+  card_id: z.number().int(),
+  to_column_id: z.number().int(),
+  before_id: z.number().int().optional(),
+  after_id: z.number().int().optional(),
+  expected_version: z.number().int().min(1),
+});
+const kanbanCommentSchema = z.object({
+  board_id: z.number().int(),
+  card_id: z.number().int(),
+  body: z.string().min(1).max(16_384),
+});
+
+/** Drops `undefined` keys so the WS frame mirrors what the hub's optional fields
+ * expect (omitted, not null). */
+function compact(obj: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
+}
+
 export interface LocalApiDeps {
   agentId: string;
   hub: HubClient;
@@ -122,6 +153,69 @@ export function buildLocalApi({ agentId, hub, store }: LocalApiDeps): FastifyIns
       read: true,
     });
     return { delegated: true, to, recipient_online: hub.onlineAgents().includes(to) };
+  });
+
+  // ---- kanban (Epic 06 · 6.4): writes over the WS, reads proxied with the key ----
+
+  api.post("/kanban/create_card", async (request, reply) => {
+    const parsed = kanbanCreateCardSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(422).send({ error: parsed.error.issues[0]?.message ?? "inválido" });
+    }
+    if (!hub.connected) {
+      return reply.code(503).send({ error: "Daemon desconectado do hub." });
+    }
+    const { board_id, ...rest } = parsed.data;
+    hub.sendKanbanAction(board_id, "create_card", compact(rest));
+    return { queued: true };
+  });
+
+  api.post("/kanban/move_card", async (request, reply) => {
+    const parsed = kanbanMoveCardSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(422).send({ error: parsed.error.issues[0]?.message ?? "inválido" });
+    }
+    if (!hub.connected) {
+      return reply.code(503).send({ error: "Daemon desconectado do hub." });
+    }
+    const { board_id, ...rest } = parsed.data;
+    hub.sendKanbanAction(board_id, "move_card", compact(rest));
+    return { queued: true };
+  });
+
+  api.post("/kanban/comment", async (request, reply) => {
+    const parsed = kanbanCommentSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(422).send({ error: parsed.error.issues[0]?.message ?? "inválido" });
+    }
+    if (!hub.connected) {
+      return reply.code(503).send({ error: "Daemon desconectado do hub." });
+    }
+    const { board_id, card_id, body } = parsed.data;
+    hub.sendKanbanAction(board_id, "comment", { card_id, body });
+    return { queued: true };
+  });
+
+  api.get("/kanban/boards", async (_request, reply) => {
+    try {
+      return await hub.kanbanGet("/api/kanban/agent/boards");
+    } catch (error) {
+      return reply.code(502).send({ error: error instanceof Error ? error.message : "falha" });
+    }
+  });
+
+  api.get("/kanban/cards", async (request, reply) => {
+    const query = request.query as { board?: string; mine?: string };
+    const boardId = Number(query.board);
+    if (!Number.isInteger(boardId) || boardId <= 0) {
+      return reply.code(422).send({ error: "parâmetro 'board' (id) é obrigatório" });
+    }
+    const mine = query.mine === "true";
+    try {
+      return await hub.kanbanGet(`/api/kanban/agent/boards/${boardId}/full?mine=${mine}`);
+    } catch (error) {
+      return reply.code(502).send({ error: error instanceof Error ? error.message : "falha" });
+    }
   });
 
   api.get("/inbox", async (request) => {

@@ -2,7 +2,11 @@
 plus the cross-user authorization convention (invisible board → 404, visible
 but non-owner governance → 403)."""
 
-from tests.helpers import auth, create_agent, do_setup, register_member
+from tests.helpers import auth, create_agent, create_key, do_setup, register_member
+
+
+def _agent_auth(slug: str, key: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {key}", "X-Amp-Agent": slug}
 
 
 def _create_board(client, token, **body):
@@ -279,3 +283,56 @@ class TestGrants:
             headers=auth(member),
         )
         assert resp.status_code == 403, resp.text
+
+
+class TestAgentReads:
+    def test_agent_lists_only_boards_it_can_access(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-ana")
+        key = create_key(client, token, "backend-ana")
+        granted = _create_board(client, token, name="Com acesso")
+        _create_board(client, token, name="Dev-only")  # default_agent_role=none
+        client.put(
+            f"/api/kanban/boards/{granted['id']}/grants",
+            json={"agent_slug": "backend-ana", "role": "viewer"},
+            headers=auth(token),
+        )
+        resp = client.get("/api/kanban/agent/boards", headers=_agent_auth("backend-ana", key))
+        assert resp.status_code == 200, resp.text
+        assert [b["id"] for b in resp.json()] == [granted["id"]]  # dev-only board hidden
+
+    def test_agent_full_with_mine_filters_to_its_cards(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-ana")
+        key = create_key(client, token, "backend-ana")
+        board = _create_board(client, token)
+        client.put(
+            f"/api/kanban/boards/{board['id']}/grants",
+            json={"agent_slug": "backend-ana", "role": "contributor"},
+            headers=auth(token),
+        )
+        # one card assigned to the agent, one not
+        client.post(
+            f"/api/kanban/boards/{board['id']}/cards",
+            json={"title": "minha", "assignee": "backend-ana"},
+            headers=auth(token),
+        )
+        client.post(
+            f"/api/kanban/boards/{board['id']}/cards",
+            json={"title": "de outro"},
+            headers=auth(token),
+        )
+        resp = client.get(
+            f"/api/kanban/agent/boards/{board['id']}/full?mine=true",
+            headers=_agent_auth("backend-ana", key),
+        )
+        assert resp.status_code == 200, resp.text
+        assert [c["title"] for c in resp.json()["cards"]] == ["minha"]
+
+    def test_bad_agent_key_is_401(self, client):
+        token = do_setup(client)
+        create_agent(client, token, "backend-ana")
+        resp = client.get(
+            "/api/kanban/agent/boards", headers=_agent_auth("backend-ana", "amp_wrong")
+        )
+        assert resp.status_code == 401, resp.text

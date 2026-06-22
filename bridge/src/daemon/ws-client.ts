@@ -142,6 +142,38 @@ export class HubClient extends EventEmitter<HubClientEvents> {
     return true;
   }
 
+  /** Acts on a Kanban board (Epic 06 · 6.4). No actor field — the hub attributes
+   * it to this authenticated agent and re-checks the per-agent capability (§6.3).
+   * Only reachable from an interactive session (the auto-responder runs with
+   * --strict-mcp-config and has no ampla MCP). Fire-and-forget like delegate; a
+   * rejection comes back as an `error` frame and the change streams as a delta. */
+  sendKanbanAction(
+    boardId: number,
+    op: "create_card" | "move_card" | "comment",
+    payload: Record<string, unknown>,
+  ): boolean {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const frame: ClientFrame = { type: "kanban_action", board_id: boardId, op, payload };
+    ws.send(JSON.stringify(frame));
+    return true;
+  }
+
+  /** Reads the board over the hub's REST API using THIS agent's key (Epic 06 ·
+   * 6.4). Writes go over the WS; reads need real data, so the daemon proxies the
+   * agent-key-authenticated GETs. The hub applies the same per-agent capability. */
+  async kanbanGet(path: string): Promise<unknown> {
+    const base = this.hubUrl.replace(/^ws/, "http").replace(/\/ws$/, "");
+    const res = await fetch(`${base}${path}`, {
+      headers: { Authorization: `Bearer ${this.agentKey}`, "X-Amp-Agent": this.agentId },
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`hub respondeu ${res.status}${detail ? `: ${detail}` : ""}`);
+    }
+    return res.json();
+  }
+
   /** Confirms receipt of a message (at-least-once): the hub only marks it
    * `delivered` and notifies the sender after this ack. Always ack — even a
    * deduplicated message — otherwise the hub resends it on every reconnect. */

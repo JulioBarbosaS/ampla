@@ -83,10 +83,33 @@ describe("MCP smoke: real client ↔ real server ↔ daemon", () => {
       "amp_groups",
       "amp_history",
       "amp_inbox",
+      "amp_kanban_boards",
+      "amp_kanban_cards",
+      "amp_kanban_comment",
+      "amp_kanban_create_card",
+      "amp_kanban_move_card",
       "amp_presence",
       "amp_send",
       "amp_status",
     ]);
+  });
+
+  it("amp_kanban_create_card routes a kanban_action frame through the daemon to the hub", async () => {
+    const res = payload(
+      await client.callTool({
+        name: "amp_kanban_create_card",
+        arguments: { board: 1, title: "Card via MCP", priority: "high" },
+      }),
+    ) as { queued: boolean };
+    expect(res.queued).toBe(true);
+    await waitFor(
+      () =>
+        hub
+          .sentKanbanActions()
+          .some((a) => a.op === "create_card" && a.payload.title === "Card via MCP"),
+      5000,
+      "kanban_action chegou ao hub via MCP",
+    );
   });
 
   it("amp_status reflects the real connection to the hub", async () => {

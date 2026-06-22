@@ -4284,6 +4284,137 @@
         ]
       }
     },
+    "/api/kanban/agent/boards": {
+      "get": {
+        "operationId": "agent_list_boards_api_kanban_agent_boards_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-amp-agent",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Amp-Agent"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BoardOut"
+                  },
+                  "title": "Response Agent List Boards Api Kanban Agent Boards Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Agent List Boards",
+        "tags": [
+          "kanban"
+        ]
+      }
+    },
+    "/api/kanban/agent/boards/{board_id}/full": {
+      "get": {
+        "operationId": "agent_board_full_api_kanban_agent_boards__board_id__full_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "board_id",
+            "required": true,
+            "schema": {
+              "title": "Board Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mine",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Mine",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-amp-agent",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Amp-Agent"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardFull"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Agent Board Full",
+        "tags": [
+          "kanban"
+        ]
+      }
+    },
     "/api/kanban/boards": {
       "get": {
         "operationId": "list_boards_api_kanban_boards_get",

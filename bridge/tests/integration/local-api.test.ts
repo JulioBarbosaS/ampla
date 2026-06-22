@@ -119,6 +119,77 @@ describe("daemon local API (consumed by the MCP)", () => {
     expect(toSelf.statusCode).toBe(422);
   });
 
+  it("POST /kanban/create_card emits a create_card action frame", async () => {
+    const response = await daemon.api.inject({
+      method: "POST",
+      url: "/kanban/create_card",
+      payload: { board_id: 1, title: "Investigar erro 500", priority: "high" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ queued: true });
+
+    await waitFor(() => hub.sentKanbanActions().length === 1, 5000, "kanban_action no hub");
+    const action = hub.sentKanbanActions()[0];
+    expect(action.board_id).toBe(1);
+    expect(action.op).toBe("create_card");
+    // optional fields omitted (not null) so the hub's CardCreate defaults apply
+    expect(action.payload).toEqual({ title: "Investigar erro 500", body: "", priority: "high" });
+  });
+
+  it("POST /kanban/move_card emits a move_card action with the anchors + version", async () => {
+    const response = await daemon.api.inject({
+      method: "POST",
+      url: "/kanban/move_card",
+      payload: {
+        board_id: 1,
+        card_id: 7,
+        to_column_id: 3,
+        before_id: 5,
+        expected_version: 2,
+      },
+    });
+    expect(response.statusCode).toBe(200);
+
+    await waitFor(() => hub.sentKanbanActions().length === 1, 5000, "kanban_action no hub");
+    const action = hub.sentKanbanActions()[0];
+    expect(action.op).toBe("move_card");
+    expect(action.payload).toEqual({
+      card_id: 7,
+      to_column_id: 3,
+      before_id: 5,
+      expected_version: 2,
+    });
+  });
+
+  it("POST /kanban/comment emits a comment action", async () => {
+    const response = await daemon.api.inject({
+      method: "POST",
+      url: "/kanban/comment",
+      payload: { board_id: 1, card_id: 7, body: "Preciso da spec" },
+    });
+    expect(response.statusCode).toBe(200);
+    await waitFor(() => hub.sentKanbanActions().length === 1, 5000, "kanban_action no hub");
+    expect(hub.sentKanbanActions()[0].payload).toEqual({ card_id: 7, body: "Preciso da spec" });
+  });
+
+  it("kanban writes validate the payload (422) and require a connection (503)", async () => {
+    const invalid = await daemon.api.inject({
+      method: "POST",
+      url: "/kanban/create_card",
+      payload: { board_id: 1, title: "" }, // empty title
+    });
+    expect(invalid.statusCode).toBe(422);
+
+    daemon.hub.stop();
+    await waitFor(() => !daemon.hub.connected, 5000, "desconexão");
+    const offline = await daemon.api.inject({
+      method: "POST",
+      url: "/kanban/create_card",
+      payload: { board_id: 1, title: "x" },
+    });
+    expect(offline.statusCode).toBe(503);
+  });
+
   it("GET /inbox returns unread messages and marks them read by default", async () => {
     hub.pushMessage(AGENT, wireMessage(21, "mobile-eduardo", AGENT, "primeira"));
     await waitFor(() => daemon.store.unreadCount() === 1, 5000, "mensagem na inbox");

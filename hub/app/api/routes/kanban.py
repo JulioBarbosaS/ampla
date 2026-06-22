@@ -5,7 +5,8 @@ Move (§6.2) and grants (§6.3) are added in their own slices."""
 
 from fastapi import APIRouter, Depends
 
-from app.api.deps import get_current_user, get_kanban_service
+from app.api.deps import get_current_agent, get_current_user, get_kanban_service
+from app.models.agent import Agent
 from app.models.user import User
 from app.schemas.kanban import (
     BoardCreate,
@@ -204,6 +205,36 @@ async def add_comment(
     svc: KanbanService = Depends(get_kanban_service),
 ) -> CommentOut:
     return CommentOut.model_validate(await svc.add_comment(user, card_id, body))
+
+
+# ---- agent reads (authenticated by agent key — Epic 06 · 6.4) ----
+#
+# Writes go over the WS (kanban_action); reads need real data, so the daemon
+# proxies these GETs with its agent key. Same per-agent capability as the WS
+# path — a dev-only board never appears here.
+
+
+@router.get("/agent/boards", response_model=list[BoardOut])
+async def agent_list_boards(
+    agent: Agent = Depends(get_current_agent),
+    svc: KanbanService = Depends(get_kanban_service),
+) -> list[BoardOut]:
+    return [BoardOut.model_validate(b) for b in await svc.agent_list_boards(agent.slug)]
+
+
+@router.get("/agent/boards/{board_id}/full", response_model=BoardFull)
+async def agent_board_full(
+    board_id: int,
+    mine: bool = False,
+    agent: Agent = Depends(get_current_agent),
+    svc: KanbanService = Depends(get_kanban_service),
+) -> BoardFull:
+    board, columns, cards = await svc.agent_get_board_full(agent.slug, board_id, mine=mine)
+    return BoardFull(
+        board=BoardOut.model_validate(board),
+        columns=[ColumnOut.model_validate(c) for c in columns],
+        cards=[CardOut.model_validate(c) for c in cards],
+    )
 
 
 # ---- per-agent grants (owner/admin only — Epic 06 · 6.3) ----
