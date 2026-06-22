@@ -246,3 +246,67 @@ export interface ConversationPartner {
   agent: string;
   last_message: Message;
 }
+
+// ---- Kanban (Epic 06) ----
+
+export interface KanbanBoard {
+  id: number;
+  owner_id: number;
+  name: string;
+  visibility: "team" | "private";
+  default_agent_role: "none" | "viewer" | "contributor" | "editor";
+  created_at: string;
+}
+
+export interface KanbanColumn {
+  id: number;
+  board_id: number;
+  name: string;
+  rank: string;
+  wip_limit: number | null;
+  is_landing: boolean;
+}
+
+export interface KanbanCard {
+  id: number;
+  board_id: number;
+  column_id: number;
+  rank: string;
+  title: string;
+  body: string;
+  created_by: string;
+  assignee: string | null;
+  priority: Priority;
+  origin: Record<string, unknown> | null;
+  version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KanbanComment {
+  id: number;
+  card_id: number;
+  author: string;
+  body: string;
+  created_at: string;
+}
+
+export interface KanbanBoardFull {
+  board: KanbanBoard;
+  columns: KanbanColumn[];
+  cards: KanbanCard[];
+}
+
+export interface KanbanGrant {
+  board_id: number;
+  agent_slug: string;
+  role: "viewer" | "contributor" | "editor";
+}
+
+/** hub→panel live board delta (mirrors KanbanDeltaFrame). */
+export interface KanbanDelta {
+  board_id: number;
+  op: "card_created" | "card_moved" | "card_updated" | "card_deleted" | "comment_added";
+  card: KanbanCard | null;
+  comment: KanbanComment | null;
+}

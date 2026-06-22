@@ -4,7 +4,7 @@
  */
 
 import { wsUrl } from "../api/client";
-import type { AppNotification, Message } from "../api/types";
+import type { AppNotification, KanbanDelta, Message } from "../api/types";
 
 export interface ObserverHandlers {
   onMessage: (message: Message) => void;
@@ -23,6 +23,8 @@ export interface ObserverHandlers {
   onNotification?: (notification: AppNotification) => void;
   /** Read-state synced from another tab/device: ids (or "all") + badge count. */
   onNotificationRead?: (ids: number[] | "all", unreadCount: number) => void;
+  /** A live Kanban board change for a board this user can see (Epic 06 · 6.5). */
+  onKanbanDelta?: (delta: KanbanDelta) => void;
 }
 
 const RECONNECT_MS = 3000;
@@ -64,6 +66,8 @@ export function connectObserver(handlers: ObserverHandlers): () => void {
         handlers.onPresence(String(frame.agent_id), frame.status === "online");
       } else if (frame.type === "agent_activity") {
         handlers.onActivity?.(String(frame.agent_id), frame.state === "responding");
+      } else if (frame.type === "kanban_delta") {
+        handlers.onKanbanDelta?.(frame as unknown as KanbanDelta);
       }
     };
     ws.onclose = () => {

@@ -49,6 +49,9 @@ export function AppShell() {
             <NavLink to="/groups" className={linkClass}>
               Grupos
             </NavLink>
+            <NavLink to="/board" className={linkClass}>
+              Quadro
+            </NavLink>
             <NavLink to="/agents" className={linkClass}>
               Meus agentes
             </NavLink>

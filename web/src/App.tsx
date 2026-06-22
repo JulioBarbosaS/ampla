@@ -9,6 +9,7 @@ import { SetupPage } from "./features/auth/SetupPage";
 import { ChatPage } from "./features/chat/ChatPage";
 import { GroupsPage } from "./features/groups/GroupsPage";
 import { InboxPage } from "./features/inbox/InboxPage";
+import { BoardPage } from "./features/kanban/BoardPage";
 import { SettingsPage } from "./features/settings/SettingsPage";
 import { TeamPage } from "./features/team/TeamPage";
 import { authApi } from "./lib/api/auth";
@@ -66,6 +67,7 @@ export default function App() {
       <Route element={<AppShell />}>
         <Route path="/" element={<ChatPage />} />
         <Route path="/groups" element={<GroupsPage />} />
+        <Route path="/board" element={<BoardPage />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/team" element={<TeamPage />} />
