@@ -13,6 +13,13 @@ from app.models.delegation import Delegation
 from app.models.group import Group
 from app.models.guardrail_preset import GuardrailPreset
 from app.models.hub_state import HubState
+from app.models.kanban import (
+    KanbanAgentGrant,
+    KanbanBoard,
+    KanbanCard,
+    KanbanCardComment,
+    KanbanColumn,
+)
 from app.models.message import Message
 from app.models.notification import Notification, NotificationSubscription
 from app.models.user import Invite, PasswordReset, User, utcnow
@@ -450,6 +457,178 @@ class FakeAgentRepository:
 
     async def save_key(self, key: AgentKey) -> None:
         self._keys[key.id] = key
+
+
+class FakeKanbanRepository:
+    """In-memory mirror of KanbanRepository (Epic 06)."""
+
+    def __init__(self) -> None:
+        self._boards: dict[int, KanbanBoard] = {}
+        self._columns: dict[int, KanbanColumn] = {}
+        self._cards: dict[int, KanbanCard] = {}
+        self._comments: dict[int, KanbanCardComment] = {}
+        self._grants: dict[int, KanbanAgentGrant] = {}
+        self._board_seq = 0
+        self._column_seq = 0
+        self._card_seq = 0
+        self._comment_seq = 0
+        self._grant_seq = 0
+
+    # ---- boards ----
+
+    async def add_board(self, board: KanbanBoard) -> KanbanBoard:
+        self._board_seq += 1
+        board.id = self._board_seq
+        _default(board, "visibility", "team")
+        _default(board, "default_agent_role", "none")
+        _default(board, "created_at", utcnow())
+        self._boards[board.id] = board
+        return board
+
+    async def get_board(self, board_id: int) -> KanbanBoard | None:
+        return self._boards.get(board_id)
+
+    async def list_visible_boards(self, user_id: int, *, is_admin: bool) -> list[KanbanBoard]:
+        found = [
+            b
+            for b in self._boards.values()
+            if is_admin or b.owner_id == user_id or b.visibility == "team"
+        ]
+        found.sort(key=lambda b: (b.created_at, b.id), reverse=True)
+        return found
+
+    async def save_board(self, board: KanbanBoard) -> None:
+        self._boards[board.id] = board
+
+    async def delete_board(self, board: KanbanBoard) -> None:
+        card_ids = [c.id for c in self._cards.values() if c.board_id == board.id]
+        for cid in card_ids:
+            self._cards.pop(cid, None)
+        self._comments = {k: v for k, v in self._comments.items() if v.card_id not in card_ids}
+        self._columns = {k: v for k, v in self._columns.items() if v.board_id != board.id}
+        self._grants = {k: v for k, v in self._grants.items() if v.board_id != board.id}
+        self._boards.pop(board.id, None)
+
+    # ---- columns ----
+
+    async def add_column(self, column: KanbanColumn) -> KanbanColumn:
+        self._column_seq += 1
+        column.id = self._column_seq
+        _default(column, "is_landing", False)
+        _default(column, "wip_limit", None)
+        self._columns[column.id] = column
+        return column
+
+    async def add_columns(self, columns: list[KanbanColumn]) -> None:
+        for column in columns:
+            await self.add_column(column)
+
+    async def get_column(self, column_id: int) -> KanbanColumn | None:
+        return self._columns.get(column_id)
+
+    async def list_columns(self, board_id: int) -> list[KanbanColumn]:
+        found = [c for c in self._columns.values() if c.board_id == board_id]
+        found.sort(key=lambda c: c.rank)
+        return found
+
+    async def landing_column(self, board_id: int) -> KanbanColumn | None:
+        landing = [c for c in self._columns.values() if c.board_id == board_id and c.is_landing]
+        landing.sort(key=lambda c: c.rank)
+        return landing[0] if landing else None
+
+    async def save_column(self, column: KanbanColumn) -> None:
+        self._columns[column.id] = column
+
+    async def clear_landing(self, board_id: int) -> None:
+        for c in self._columns.values():
+            if c.board_id == board_id:
+                c.is_landing = False
+
+    async def delete_column(self, column: KanbanColumn) -> None:
+        self._columns.pop(column.id, None)
+
+    # ---- cards ----
+
+    async def add_card(self, card: KanbanCard) -> KanbanCard:
+        self._card_seq += 1
+        card.id = self._card_seq
+        _default(card, "body", "")
+        _default(card, "priority", "normal")
+        _default(card, "version", 1)
+        _default(card, "created_at", utcnow())
+        _default(card, "updated_at", utcnow())
+        self._cards[card.id] = card
+        return card
+
+    async def get_card(self, card_id: int) -> KanbanCard | None:
+        return self._cards.get(card_id)
+
+    async def list_cards(self, board_id: int) -> list[KanbanCard]:
+        found = [c for c in self._cards.values() if c.board_id == board_id]
+        found.sort(key=lambda c: (c.column_id, c.rank))
+        return found
+
+    async def list_cards_in_column(self, column_id: int) -> list[KanbanCard]:
+        found = [c for c in self._cards.values() if c.column_id == column_id]
+        found.sort(key=lambda c: c.rank)
+        return found
+
+    async def count_cards_in_column(self, column_id: int) -> int:
+        return sum(1 for c in self._cards.values() if c.column_id == column_id)
+
+    async def last_rank_in_column(self, column_id: int) -> str | None:
+        ranks = sorted(c.rank for c in self._cards.values() if c.column_id == column_id)
+        return ranks[-1] if ranks else None
+
+    async def save_card(self, card: KanbanCard) -> None:
+        self._cards[card.id] = card
+
+    async def delete_card(self, card: KanbanCard) -> None:
+        self._comments = {k: v for k, v in self._comments.items() if v.card_id != card.id}
+        self._cards.pop(card.id, None)
+
+    # ---- comments ----
+
+    async def add_comment(self, comment: KanbanCardComment) -> KanbanCardComment:
+        self._comment_seq += 1
+        comment.id = self._comment_seq
+        _default(comment, "created_at", utcnow())
+        self._comments[comment.id] = comment
+        return comment
+
+    async def list_comments(self, card_id: int) -> list[KanbanCardComment]:
+        found = [c for c in self._comments.values() if c.card_id == card_id]
+        found.sort(key=lambda c: (c.created_at, c.id))
+        return found
+
+    # ---- grants (Epic 06 · 6.3) ----
+
+    async def get_grant(self, board_id: int, agent_slug: str) -> KanbanAgentGrant | None:
+        return next(
+            (
+                g
+                for g in self._grants.values()
+                if g.board_id == board_id and g.agent_slug == agent_slug
+            ),
+            None,
+        )
+
+    async def list_grants(self, board_id: int) -> list[KanbanAgentGrant]:
+        found = [g for g in self._grants.values() if g.board_id == board_id]
+        found.sort(key=lambda g: g.agent_slug)
+        return found
+
+    async def add_grant(self, grant: KanbanAgentGrant) -> KanbanAgentGrant:
+        self._grant_seq += 1
+        grant.id = self._grant_seq
+        self._grants[grant.id] = grant
+        return grant
+
+    async def save_grant(self, grant: KanbanAgentGrant) -> None:
+        self._grants[grant.id] = grant
+
+    async def delete_grant(self, grant: KanbanAgentGrant) -> None:
+        self._grants.pop(grant.id, None)
 
 
 class FakeMessageRepository:

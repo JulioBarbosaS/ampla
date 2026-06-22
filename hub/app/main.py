@@ -24,6 +24,7 @@ from app.api.routes import (
     auth,
     groups,
     invites,
+    kanban,
     messages,
     notifications,
     presets,
@@ -139,6 +140,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(notifications.router)
     app.include_router(approvals.router)
     app.include_router(presets.router)
+    app.include_router(kanban.router)
     app.include_router(ws.router)
 
     @app.get("/api/health", tags=["health"])

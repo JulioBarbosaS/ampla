@@ -137,9 +137,7 @@ class TestPasswordReset:
         member_token = register_member(client, admin_token)
         member_id = client.get("/api/auth/me", headers=auth(member_token)).json()["id"]
 
-        issued = client.post(
-            f"/api/users/{member_id}/password-reset", headers=auth(admin_token)
-        )
+        issued = client.post(f"/api/users/{member_id}/password-reset", headers=auth(admin_token))
         assert issued.status_code == 200
         token = issued.json()["token"]
 
