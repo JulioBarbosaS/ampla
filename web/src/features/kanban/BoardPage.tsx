@@ -297,13 +297,15 @@ export function BoardPage() {
                   >
                     {card.title}
                   </button>
-                  <div className="mt-1 flex justify-between text-xs text-zinc-400">
-                    <span>{card.assignee ?? ""}</span>
-                    <span className="flex gap-2">
+                  <div className="mt-1 flex items-center justify-between gap-1 text-xs text-zinc-400">
+                    <span className="truncate">{card.assignee ?? ""}</span>
+                    <span className="flex shrink-0 gap-1.5 text-zinc-500">
                       {ci > 0 && (
                         <button
                           type="button"
                           aria-label={`Subir ${card.title}`}
+                          title="Subir nesta coluna"
+                          className="hover:text-zinc-200"
                           onClick={() => reorder(card, -1)}
                         >
                           ↑
@@ -313,6 +315,8 @@ export function BoardPage() {
                         <button
                           type="button"
                           aria-label={`Descer ${card.title}`}
+                          title="Descer nesta coluna"
+                          className="hover:text-zinc-200"
                           onClick={() => reorder(card, 1)}
                         >
                           ↓
@@ -322,6 +326,8 @@ export function BoardPage() {
                         <button
                           type="button"
                           aria-label={`Mover ${card.title} para ${columns[i - 1].name}`}
+                          title={`Mover para ${columns[i - 1].name}`}
+                          className="hover:text-zinc-200"
                           onClick={() => applyMove(card, columns[i - 1].id)}
                         >
                           ←
@@ -331,6 +337,8 @@ export function BoardPage() {
                         <button
                           type="button"
                           aria-label={`Mover ${card.title} para ${columns[i + 1].name}`}
+                          title={`Mover para ${columns[i + 1].name}`}
+                          className="hover:text-zinc-200"
                           onClick={() => applyMove(card, columns[i + 1].id)}
                         >
                           →
@@ -413,6 +421,7 @@ function ColumnHeader({
   onDelete: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
   const [name, setName] = useState(column.name);
 
   function commitRename() {
@@ -422,65 +431,106 @@ function ColumnHeader({
     else setName(column.name);
   }
 
+  const atLimit = column.wip_limit != null && count >= column.wip_limit;
+
   return (
-    <div className="flex items-center justify-between gap-1 px-1">
-      {editing ? (
-        <input
-          aria-label={`Nome da coluna ${column.name}`}
-          className="min-w-0 flex-1 rounded bg-zinc-800 px-1 text-sm text-zinc-100"
-          value={name}
-          // biome-ignore lint/a11y/noAutofocus: focus the field the user just opened
-          autoFocus
-          onChange={(e) => setName(e.target.value)}
-          onBlur={commitRename}
-          onKeyDown={(e) => e.key === "Enter" && commitRename()}
-        />
-      ) : (
+    <div className="flex flex-col gap-1 px-1">
+      {/* clean default header: name + count (count/limit when a WIP is set) */}
+      <div className="flex items-center justify-between gap-1">
+        {editing ? (
+          <input
+            aria-label={`Nome da coluna ${column.name}`}
+            className="min-w-0 flex-1 rounded bg-zinc-800 px-1 text-sm text-zinc-100"
+            value={name}
+            // biome-ignore lint/a11y/noAutofocus: focus the field the user just opened
+            autoFocus
+            onChange={(e) => setName(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => e.key === "Enter" && commitRename()}
+          />
+        ) : (
+          <button
+            type="button"
+            aria-label={`Renomear coluna ${column.name}`}
+            className="flex items-center gap-1.5 truncate text-sm font-medium text-zinc-200 hover:text-white"
+            onClick={() => setEditing(true)}
+          >
+            <span className="truncate">{column.name}</span>
+            <span
+              className={`rounded-full px-1.5 text-xs ${atLimit ? "bg-amber-900/60 text-amber-300" : "bg-zinc-800 text-zinc-400"}`}
+              title={
+                column.wip_limit != null
+                  ? `${count} de no máximo ${column.wip_limit} (limite WIP)`
+                  : `${count} cards`
+              }
+            >
+              {column.wip_limit != null ? `${count}/${column.wip_limit}` : count}
+            </span>
+            {column.is_landing && (
+              <span
+                className="rounded bg-indigo-900/60 px-1 text-[10px] text-indigo-300"
+                title="Novos cards chegam aqui"
+              >
+                entrada
+              </span>
+            )}
+          </button>
+        )}
         <button
           type="button"
-          aria-label={`Renomear coluna ${column.name}`}
-          className="truncate text-sm font-medium text-zinc-300 hover:text-zinc-100"
-          onClick={() => setEditing(true)}
+          aria-label={`Configurar coluna ${column.name}`}
+          title="Configurar coluna"
+          className="shrink-0 text-zinc-500 hover:text-zinc-200"
+          onClick={() => setShowConfig((s) => !s)}
         >
-          {column.name} <span className="text-xs text-zinc-500">({count})</span>
+          ⚙
         </button>
+      </div>
+
+      {/* labeled config, hidden until the gear is clicked */}
+      {showConfig && (
+        <div className="space-y-2 rounded bg-zinc-800/60 p-2 text-xs text-zinc-300">
+          <label className="flex flex-col gap-0.5">
+            <span>
+              Limite de cards (WIP) — quantos cabem aqui ao mesmo tempo.{" "}
+              <span className="text-zinc-500">0 = ilimitado.</span>
+            </span>
+            <input
+              aria-label={`Limite de cards da coluna ${column.name}`}
+              type="number"
+              min={0}
+              className="w-20 rounded bg-zinc-900 px-1.5 py-0.5 text-zinc-100"
+              defaultValue={column.wip_limit ?? ""}
+              placeholder="0"
+              onBlur={(e) => {
+                const v = Number(e.target.value);
+                const next = Number.isFinite(v) && v > 0 ? v : 0;
+                if (next !== (column.wip_limit ?? 0)) onSetWip(next);
+              }}
+            />
+          </label>
+          {column.is_landing ? (
+            <p className="text-indigo-300">★ Coluna de entrada (novos cards chegam aqui).</p>
+          ) : (
+            <button
+              type="button"
+              aria-label={`Definir ${column.name} como coluna de entrada`}
+              className="rounded bg-zinc-700 px-2 py-0.5 hover:bg-zinc-600"
+              onClick={onSetLanding}
+            >
+              Tornar coluna de entrada
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label={`Excluir coluna ${column.name}`}
+            className="block text-red-400 hover:text-red-300"
+            onClick={onDelete}
+          >
+            Excluir coluna
+          </button>
+        </div>
       )}
-      <span className="flex shrink-0 items-center gap-1 text-xs text-zinc-500">
-        <button
-          type="button"
-          aria-label={
-            column.is_landing
-              ? `${column.name} é a coluna de entrada`
-              : `Definir ${column.name} como coluna de entrada`
-          }
-          className={column.is_landing ? "text-amber-400" : "hover:text-zinc-200"}
-          onClick={onSetLanding}
-          disabled={column.is_landing}
-        >
-          ★
-        </button>
-        <input
-          aria-label={`Limite WIP da coluna ${column.name}`}
-          type="number"
-          min={0}
-          className="w-10 rounded bg-zinc-800 px-1 text-zinc-300"
-          defaultValue={column.wip_limit ?? ""}
-          placeholder="WIP"
-          onBlur={(e) => {
-            const v = Number(e.target.value);
-            const next = Number.isFinite(v) && v > 0 ? v : 0;
-            if (next !== (column.wip_limit ?? 0)) onSetWip(next);
-          }}
-        />
-        <button
-          type="button"
-          aria-label={`Excluir coluna ${column.name}`}
-          className="hover:text-red-300"
-          onClick={onDelete}
-        >
-          ×
-        </button>
-      </span>
     </div>
   );
 }

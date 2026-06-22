@@ -133,6 +133,33 @@ describe("BoardPage", () => {
     expect(kanbanApi.createColumn).toHaveBeenCalledWith(1, { name: "Bloqueado" });
   });
 
+  it("sets a column WIP limit from the gear menu", async () => {
+    vi.mocked(kanbanApi.updateColumn).mockResolvedValue({
+      id: 10,
+      board_id: 1,
+      name: "A fazer",
+      rank: "a",
+      wip_limit: 3,
+      is_landing: true,
+    });
+    render(<BoardPage />);
+    await screen.findByText("Card X");
+    await userEvent.click(screen.getByRole("button", { name: "Configurar coluna A fazer" }));
+    const wip = screen.getByLabelText("Limite de cards da coluna A fazer");
+    await userEvent.type(wip, "3");
+    await userEvent.tab(); // blur commits
+    expect(kanbanApi.updateColumn).toHaveBeenCalledWith(1, 10, { wip_limit: 3 });
+  });
+
+  it("deletes a column from the gear menu", async () => {
+    vi.mocked(kanbanApi.deleteColumn).mockResolvedValue(undefined);
+    render(<BoardPage />);
+    await screen.findByText("Card X");
+    await userEvent.click(screen.getByRole("button", { name: "Configurar coluna Fazendo" }));
+    await userEvent.click(screen.getByRole("button", { name: "Excluir coluna Fazendo" }));
+    expect(kanbanApi.deleteColumn).toHaveBeenCalledWith(1, 20);
+  });
+
   it("reorders a card within its column via the anchor API", async () => {
     const two: KanbanBoardFull = {
       ...structuredClone(FULL),
