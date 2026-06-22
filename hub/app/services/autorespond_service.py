@@ -15,6 +15,7 @@ from app.models.autorespond_run import AutorespondRun
 from app.repositories.agent_repo import AgentRepository
 from app.repositories.autorespond_repo import AutorespondRunRepository
 from app.schemas.ws import AutorespondRecord
+from app.services.kanban_service import KanbanService
 from app.services.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
@@ -63,10 +64,14 @@ class AutorespondService:
         runs: AutorespondRunRepository,
         agents: AgentRepository | None = None,
         notifications: NotificationService | None = None,
+        kanban: KanbanService | None = None,
     ) -> None:
         self._runs = runs
         self._agents = agents
         self._notifications = notifications
+        # Opt-in event card: an escalation drops a "needs human" card on the
+        # agent owner's board that enabled auto_card_on_escalation (Epic 06 · 6.5).
+        self._kanban = kanban
 
     async def record_run(self, agent_slug: str, record: AutorespondRecord) -> AutorespondRun:
         run = AutorespondRun(
@@ -128,6 +133,25 @@ class AutorespondService:
                 token,
                 exc_info=True,
             )
+        # Opt-in event card (§6.5), best-effort and independent of the notify.
+        if self._kanban is not None:
+            try:
+                await self._kanban.create_card_for_event(
+                    owner_id=agent.user_id,
+                    flag=self._kanban.ESCALATION_FLAG,
+                    title=_ESCALATION_TITLES[token].format(agent=agent_slug, sender=sender),
+                    body=record.reply_preview or "",
+                    assignee=f"user:{agent.user_id}",
+                    origin={"kind": "escalation", "from": sender},
+                    priority="high",
+                )
+            except Exception:
+                logger.warning(
+                    "escalation event-card failed for %s (outcome=%s)",
+                    agent_slug,
+                    token,
+                    exc_info=True,
+                )
 
     async def list_for_agent(self, agent_slug: str, limit: int = 50) -> list[AutorespondRun]:
         return await self._runs.list_for_agent(agent_slug, min(max(limit, 1), MAX_LIMIT))

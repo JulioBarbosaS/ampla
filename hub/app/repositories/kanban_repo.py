@@ -46,6 +46,19 @@ class KanbanRepository:
         self._session.add(board)
         await self._session.commit()
 
+    async def first_board_with_flag(self, owner_id: int, flag: str) -> KanbanBoard | None:
+        """The owner's oldest board that opted into an event-card flag
+        (`auto_card_on_delegation`/`_escalation`), or None — the feature is
+        opt-in, so most owners have no such board (Epic 06 · 6.5)."""
+        column = getattr(KanbanBoard, flag)
+        stmt = (
+            select(KanbanBoard)
+            .where(KanbanBoard.owner_id == owner_id, column.is_(True))
+            .order_by(KanbanBoard.created_at, KanbanBoard.id)
+            .limit(1)
+        )
+        return (await self._session.execute(stmt)).scalars().first()
+
     async def delete_board(self, board: KanbanBoard) -> None:
         # Children first (FK order); cheap at a local board's scale.
         await self._session.execute(

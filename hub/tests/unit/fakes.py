@@ -481,12 +481,19 @@ class FakeKanbanRepository:
         board.id = self._board_seq
         _default(board, "visibility", "team")
         _default(board, "default_agent_role", "none")
+        _default(board, "auto_card_on_delegation", False)
+        _default(board, "auto_card_on_escalation", False)
         _default(board, "created_at", utcnow())
         self._boards[board.id] = board
         return board
 
     async def get_board(self, board_id: int) -> KanbanBoard | None:
         return self._boards.get(board_id)
+
+    async def first_board_with_flag(self, owner_id: int, flag: str) -> KanbanBoard | None:
+        found = [b for b in self._boards.values() if b.owner_id == owner_id and getattr(b, flag)]
+        found.sort(key=lambda b: (b.created_at, b.id))
+        return found[0] if found else None
 
     async def list_visible_boards(self, user_id: int, *, is_admin: bool) -> list[KanbanBoard]:
         found = [

@@ -156,7 +156,12 @@ export function BoardPage() {
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      {showSettings && canManage && full && <BoardSettings boardId={full.board.id} />}
+      {showSettings && canManage && full && (
+        <BoardSettings
+          board={full.board}
+          onBoardChange={(b) => setFull((cur) => (cur ? { ...cur, board: b } : cur))}
+        />
+      )}
 
       <div className="flex flex-1 gap-3 overflow-x-auto">
         {columns.map((col, i) => (

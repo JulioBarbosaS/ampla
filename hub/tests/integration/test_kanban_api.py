@@ -33,6 +33,18 @@ class TestBoardCrud:
         boards = client.get("/api/kanban/boards", headers=auth(token)).json()
         assert {b["name"] for b in boards} == {"A", "B"}
 
+    def test_toggle_event_card_flags(self, client):
+        token = do_setup(client)
+        board = _create_board(client, token)
+        assert board["auto_card_on_delegation"] is False
+        patched = client.patch(
+            f"/api/kanban/boards/{board['id']}",
+            json={"auto_card_on_delegation": True, "auto_card_on_escalation": True},
+            headers=auth(token),
+        ).json()
+        assert patched["auto_card_on_delegation"] is True
+        assert patched["auto_card_on_escalation"] is True
+
     def test_update_and_delete_board(self, client):
         token = do_setup(client)
         board = _create_board(client, token)

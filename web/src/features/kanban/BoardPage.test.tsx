@@ -48,6 +48,8 @@ const FULL: KanbanBoardFull = {
     name: "Sprint 1",
     visibility: "team",
     default_agent_role: "none",
+    auto_card_on_delegation: false,
+    auto_card_on_escalation: false,
     created_at: "",
   },
   columns: [

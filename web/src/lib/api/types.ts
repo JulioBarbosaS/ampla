@@ -255,6 +255,8 @@ export interface KanbanBoard {
   name: string;
   visibility: "team" | "private";
   default_agent_role: "none" | "viewer" | "contributor" | "editor";
+  auto_card_on_delegation: boolean;
+  auto_card_on_escalation: boolean;
   created_at: string;
 }
 

@@ -23,6 +23,7 @@ from app.repositories.audit_repo import AuditRepository
 from app.repositories.delegation_repo import DelegationRepository
 from app.schemas.delegation import MAX_TASK_LEN
 from app.services.errors import InvalidInputError, PermissionDeniedError
+from app.services.kanban_service import KanbanService
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +46,16 @@ class DelegationService:
         audit: AuditRepository,
         sender: DelegationSender | None = None,
         max_open: int = DEFAULT_MAX_OPEN,
+        kanban: KanbanService | None = None,
     ) -> None:
         self._delegations = delegations
         self._agents = agents
         self._audit = audit
         self._sender = sender
         self._max_open = max_open
+        # Opt-in event card: a delegation drops a card on the delegate owner's
+        # board that enabled auto_card_on_delegation (Epic 06 · 6.5).
+        self._kanban = kanban
 
     @staticmethod
     def _build_body(delegator: str, task: str, context: str) -> str:
@@ -106,7 +111,30 @@ class DelegationService:
             actor=from_slug,
             detail={"to": to, "id": delegation.id, "message_id": message.id},
         )
+        await self._maybe_event_card(from_slug, to, headline, body, delegation.id)
         return delegation
+
+    async def _maybe_event_card(
+        self, from_slug: str, to: str, headline: str, body: str, delegation_id: int
+    ) -> None:
+        """Best-effort: a card on the delegate owner's opted-in board (§6.5). The
+        delegations row is the source of truth, so a card failure never blocks it."""
+        if self._kanban is None:
+            return
+        delegate = await self._agents.get(to)
+        if delegate is None:
+            return
+        try:
+            await self._kanban.create_card_for_event(
+                owner_id=delegate.user_id,
+                flag=self._kanban.DELEGATION_FLAG,
+                title=f"[Delegado por {from_slug}] {headline}",
+                body=body,
+                assignee=to,
+                origin={"kind": "delegation", "id": delegation_id},
+            )
+        except Exception:
+            logger.warning("delegation event-card failed (id=%s)", delegation_id, exc_info=True)
 
     async def list_for_agent(self, agent_slug: str, *, limit: int = 50) -> list[Delegation]:
         return await self._delegations.list_for_agent(agent_slug, limit=min(max(limit, 1), 200))

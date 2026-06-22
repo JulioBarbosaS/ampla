@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { kanbanApi } from "../../lib/api/kanban";
+import type { KanbanBoard } from "../../lib/api/types";
 import { BoardSettings } from "./BoardSettings";
 
 vi.mock("../../lib/api/kanban", () => ({
@@ -9,8 +10,24 @@ vi.mock("../../lib/api/kanban", () => ({
     listGrants: vi.fn(),
     setGrant: vi.fn().mockResolvedValue({}),
     removeGrant: vi.fn().mockResolvedValue(undefined),
+    updateBoard: vi.fn(),
   },
 }));
+
+const BOARD: KanbanBoard = {
+  id: 1,
+  owner_id: 1,
+  name: "Sprint 1",
+  visibility: "team",
+  default_agent_role: "none",
+  auto_card_on_delegation: false,
+  auto_card_on_escalation: false,
+  created_at: "",
+};
+
+function renderSettings() {
+  return render(<BoardSettings board={BOARD} onBoardChange={vi.fn()} />);
+}
 
 vi.mock("../../lib/api/agents", () => ({
   agentsApi: {
@@ -32,14 +49,14 @@ describe("BoardSettings (grants + danger-zone)", () => {
     vi.mocked(kanbanApi.listGrants).mockResolvedValue([
       { board_id: 1, agent_slug: "backend-ana", role: "editor" },
     ]);
-    render(<BoardSettings boardId={1} />);
+    renderSettings();
     const item = (await screen.findByText("backend-ana")).closest("li");
     // scope to the grant row — "Editor" also appears as a role <select> option
     expect(within(item as HTMLElement).getByText("Editor")).toBeInTheDocument();
   });
 
   it("grants a viewer role directly (no danger-zone)", async () => {
-    render(<BoardSettings boardId={1} />);
+    renderSettings();
     await screen.findByText(/só para devs/i);
     await userEvent.selectOptions(screen.getByLabelText("Agente"), "backend-ana");
     // role defaults to viewer → a plain "Conceder" button, no confirmation
@@ -48,7 +65,7 @@ describe("BoardSettings (grants + danger-zone)", () => {
   });
 
   it("granting write (editor) goes through the danger-zone confirm", async () => {
-    render(<BoardSettings boardId={1} />);
+    renderSettings();
     await screen.findByText(/só para devs/i);
     await userEvent.selectOptions(screen.getByLabelText("Agente"), "backend-ana");
     await userEvent.selectOptions(screen.getByLabelText("Papel"), "editor");
@@ -67,10 +84,17 @@ describe("BoardSettings (grants + danger-zone)", () => {
     vi.mocked(kanbanApi.listGrants).mockResolvedValue([
       { board_id: 1, agent_slug: "backend-ana", role: "viewer" },
     ]);
-    render(<BoardSettings boardId={1} />);
+    renderSettings();
     await userEvent.click(
       await screen.findByRole("button", { name: "Remover acesso de backend-ana" }),
     );
     await waitFor(() => expect(kanbanApi.removeGrant).toHaveBeenCalledWith(1, "backend-ana"));
+  });
+
+  it("toggles the opt-in event-card flag", async () => {
+    vi.mocked(kanbanApi.updateBoard).mockResolvedValue({ ...BOARD, auto_card_on_delegation: true });
+    renderSettings();
+    await userEvent.click(await screen.findByLabelText(/quando uma tarefa for delegada/i));
+    expect(kanbanApi.updateBoard).toHaveBeenCalledWith(1, { auto_card_on_delegation: true });
   });
 });

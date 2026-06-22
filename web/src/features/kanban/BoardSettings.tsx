@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { DangerAction } from "../../components/DangerAction";
 import { agentsApi } from "../../lib/api/agents";
 import { kanbanApi } from "../../lib/api/kanban";
-import type { DirectoryEntry, KanbanGrant } from "../../lib/api/types";
+import type { DirectoryEntry, KanbanBoard, KanbanGrant } from "../../lib/api/types";
 
 const ROLES = ["viewer", "contributor", "editor"] as const;
 type Role = (typeof ROLES)[number];
@@ -22,7 +22,14 @@ const roleLabel: Record<Role, string> = {
  * otherwise. Granting an agent WRITE (contributor/editor) is gated behind the
  * danger-zone confirm: relaxing a guardrail by letting an AI mutate the board.
  */
-export function BoardSettings({ boardId }: { boardId: number }) {
+export function BoardSettings({
+  board,
+  onBoardChange,
+}: {
+  board: KanbanBoard;
+  onBoardChange: (b: KanbanBoard) => void;
+}) {
+  const boardId = board.id;
   const [grants, setGrants] = useState<KanbanGrant[]>([]);
   const [directory, setDirectory] = useState<DirectoryEntry[]>([]);
   const [agent, setAgent] = useState("");
@@ -61,6 +68,17 @@ export function BoardSettings({ boardId }: { boardId: number }) {
       reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao remover permissão.");
+    }
+  }
+
+  async function toggleEventCard(
+    flag: "auto_card_on_delegation" | "auto_card_on_escalation",
+    value: boolean,
+  ) {
+    try {
+      onBoardChange(await kanbanApi.updateBoard(boardId, { [flag]: value }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao salvar a configuração.");
     }
   }
 
@@ -151,6 +169,26 @@ export function BoardSettings({ boardId }: { boardId: number }) {
             onConfirm={() => grant(agent, role)}
           />
         )}
+      </div>
+
+      <div className="space-y-2 border-t border-zinc-800 pt-3">
+        <h3 className="text-sm font-medium text-zinc-300">Cards automáticos</h3>
+        <label className="flex items-center gap-2 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            checked={board.auto_card_on_delegation}
+            onChange={(e) => toggleEventCard("auto_card_on_delegation", e.target.checked)}
+          />
+          Criar card quando uma tarefa for delegada a um agente meu
+        </label>
+        <label className="flex items-center gap-2 text-sm text-zinc-300">
+          <input
+            type="checkbox"
+            checked={board.auto_card_on_escalation}
+            onChange={(e) => toggleEventCard("auto_card_on_escalation", e.target.checked)}
+          />
+          Criar card quando um agente meu escalar para mim
+        </label>
       </div>
     </section>
   );

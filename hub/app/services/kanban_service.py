@@ -148,6 +148,12 @@ class KanbanService:
         if data.default_agent_role is not None:
             board.default_agent_role = data.default_agent_role
             changed["default_agent_role"] = board.default_agent_role
+        if data.auto_card_on_delegation is not None:
+            board.auto_card_on_delegation = data.auto_card_on_delegation
+            changed["auto_card_on_delegation"] = board.auto_card_on_delegation
+        if data.auto_card_on_escalation is not None:
+            board.auto_card_on_escalation = data.auto_card_on_escalation
+            changed["auto_card_on_escalation"] = board.auto_card_on_escalation
         await self._boards.save_board(board)
         await self._audit.record(
             "kanban_board_updated", actor=user.email, detail={"board_id": board_id, **changed}
@@ -629,6 +635,34 @@ class KanbanService:
             raise PermissionDeniedError("Seu agente não tem permissão para esta ação neste quadro.")
 
     # ---- event-driven cards (hub-side, no MCP — Epic 06 · 6.4/6.5) ----
+
+    # Event-card flags the hub may target (Epic 06 · 6.5). Constrained set — the
+    # repo does a getattr, so callers must never pass arbitrary attribute names.
+    DELEGATION_FLAG = "auto_card_on_delegation"
+    ESCALATION_FLAG = "auto_card_on_escalation"
+
+    async def create_card_for_event(
+        self,
+        *,
+        owner_id: int,
+        flag: str,
+        title: str,
+        body: str,
+        assignee: str | None,
+        origin: dict,
+        priority: str = "normal",
+    ) -> KanbanCard | None:
+        """Drop an event card on the owner's first board that opted into `flag`
+        (delegation/escalation → card, §6.5). Returns None when the owner has no
+        opted-in board — the feature is off by default, so most events create
+        nothing. The board's observers get a `kanban_delta` like any other card."""
+        if flag not in (self.DELEGATION_FLAG, self.ESCALATION_FLAG):
+            raise InvalidInputError("Flag de event-card inválida.")
+        board = await self._boards.first_board_with_flag(owner_id, flag)
+        if board is None:
+            return None
+        data = CardCreate(title=title, body=body, assignee=assignee, priority=priority)
+        return await self.create_event_card(board.id, data, origin=origin, audit_actor="system")
 
     async def create_event_card(
         self, board_id: int, data: CardCreate, *, origin: dict, audit_actor: str

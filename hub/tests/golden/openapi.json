@@ -857,6 +857,14 @@
       },
       "BoardOut": {
         "properties": {
+          "auto_card_on_delegation": {
+            "title": "Auto Card On Delegation",
+            "type": "boolean"
+          },
+          "auto_card_on_escalation": {
+            "title": "Auto Card On Escalation",
+            "type": "boolean"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -889,6 +897,8 @@
           "name",
           "visibility",
           "default_agent_role",
+          "auto_card_on_delegation",
+          "auto_card_on_escalation",
           "created_at"
         ],
         "title": "BoardOut",
@@ -896,6 +906,28 @@
       },
       "BoardUpdate": {
         "properties": {
+          "auto_card_on_delegation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Card On Delegation"
+          },
+          "auto_card_on_escalation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Card On Escalation"
+          },
           "default_agent_role": {
             "anyOf": [
               {

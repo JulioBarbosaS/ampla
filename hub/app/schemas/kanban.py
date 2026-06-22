@@ -42,6 +42,9 @@ class BoardUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=KANBAN_BOARD_NAME_MAX)
     visibility: str | None = Field(default=None, pattern=VISIBILITY_PATTERN)
     default_agent_role: str | None = Field(default=None, pattern=AGENT_ROLE_PATTERN)
+    # Opt-in event cards (Epic 06 · 6.5): null = unchanged.
+    auto_card_on_delegation: bool | None = None
+    auto_card_on_escalation: bool | None = None
 
 
 class BoardOut(BaseModel):
@@ -52,6 +55,8 @@ class BoardOut(BaseModel):
     name: str
     visibility: str
     default_agent_role: str
+    auto_card_on_delegation: bool
+    auto_card_on_escalation: bool
     created_at: datetime
 
 

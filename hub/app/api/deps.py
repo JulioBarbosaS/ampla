@@ -149,6 +149,8 @@ def build_autorespond_service(
         runs=AutorespondRunRepository(session),
         agents=AgentRepository(session),
         notifications=notifications,
+        # event cards are hub-side + opt-in; safe to wire whenever escalation runs
+        kanban=build_kanban_service(session),
     )
 
 
@@ -212,6 +214,7 @@ def build_delegation_service(session: AsyncSession, settings, manager=None) -> D
         agents=AgentRepository(session),
         audit=AuditRepository(session),
         sender=_delegation_sender(session, settings, manager),
+        kanban=build_kanban_service(session),
     )
 
 

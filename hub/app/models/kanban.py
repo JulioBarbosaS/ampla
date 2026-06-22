@@ -27,6 +27,11 @@ class KanbanBoard(Base):
     visibility: Mapped[str] = mapped_column(String(8), default="team")
     # Role an agent gets WITHOUT an explicit grant. Default `none` = dev-only board.
     default_agent_role: Mapped[str] = mapped_column(String(12), default="none")
+    # Opt-in event cards (Epic 06 · 6.5): when on, a delegation/escalation whose
+    # target's owner owns THIS board drops a card here automatically. Off by
+    # default — most boards never auto-create cards. (server_default in migration.)
+    auto_card_on_delegation: Mapped[bool] = mapped_column(Boolean, default=False)
+    auto_card_on_escalation: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
