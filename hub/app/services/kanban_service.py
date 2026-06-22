@@ -10,6 +10,7 @@ Security: `created_by`/`author`/`assignee` are stamped from the AUTHENTICATED
 actor, never trusted from the client (anti-spoof). Every mutation is audited.
 """
 
+from app.core.mentions import parse_mentions
 from app.models.kanban import (
     KanbanAgentGrant,
     KanbanBoard,
@@ -38,6 +39,7 @@ from app.services.errors import (
     PermissionDeniedError,
 )
 from app.services.kanban_rank import RANK_LEN_MAX, rank_between, rebalance_ranks
+from app.services.notification_service import NotificationService
 
 # Bounded retries on the unique-rank backstop before falling back to a rebalance
 # (Epic 06 · 6.2). A collision needs a concurrent move into the same gap, so a
@@ -83,11 +85,15 @@ class KanbanService:
         boards: KanbanRepository,
         audit: AuditRepository,
         agents: AgentRepository | None = None,
+        notifications: NotificationService | None = None,
     ) -> None:
         self._boards = boards
         self._audit = audit
         # Used to validate grant targets and (in 6.4) to attribute agent actions.
         self._agents = agents
+        # Drives the Inbox integration (Epic 06 · 6.5): assignment / move / comment
+        # notifications. Optional so read-only builds stay lightweight.
+        self._notifications = notifications
 
     # ---- boards ----
 
@@ -246,6 +252,8 @@ class KanbanService:
             actor=audit_actor,
             detail={"board_id": board_id, "card_id": card.id, "column_id": column.id},
         )
+        if card.assignee:
+            await self._notify_assignee(card, reason="task_assigned", actor=created_by)
         return card
 
     async def get_card(self, user: User, card_id: int) -> KanbanCard:
@@ -263,10 +271,12 @@ class KanbanService:
             card.title = data.title.strip()
         if data.body is not None:
             card.body = data.body
+        newly_assigned = False
         if data.clear_assignee:
             card.assignee = None
-        elif data.assignee is not None:
+        elif data.assignee is not None and data.assignee != card.assignee:
             card.assignee = data.assignee
+            newly_assigned = True
         if data.priority is not None:
             card.priority = data.priority
         card.version += 1
@@ -277,6 +287,8 @@ class KanbanService:
             actor=user.email,
             detail={"board_id": card.board_id, "card_id": card_id, "version": card.version},
         )
+        if newly_assigned:
+            await self._notify_assignee(card, reason="task_assigned", actor=f"user:{user.id}")
         return card
 
     async def delete_card(self, user: User, card_id: int) -> None:
@@ -312,7 +324,7 @@ class KanbanService:
         collision → bounded retry → rebalance.
         """
         card = await self.get_card(user, card_id)  # 404 + visibility
-        return await self._move(
+        moved = await self._move(
             card,
             to_column_id,
             before_id=before_id,
@@ -320,6 +332,8 @@ class KanbanService:
             expected_version=expected_version,
             audit_actor=user.email,
         )
+        await self._notify_assignee(moved, reason="state_change", actor=f"user:{user.id}")
+        return moved
 
     async def _move(
         self,
@@ -434,6 +448,7 @@ class KanbanService:
             actor=audit_actor,
             detail={"board_id": card.board_id, "card_id": card.id, "comment_id": comment.id},
         )
+        await self._notify_comment(card, body=body, actor=author)
         return comment
 
     # ---- agent access (via MCP/WS — Epic 06 · 6.4) ----
@@ -484,7 +499,7 @@ class KanbanService:
         card = await self._existing_card(card_id)
         board = await self._agent_board(agent_slug, card.board_id)
         await self._require_agent_can(agent_slug, board, "move", card=card)
-        return await self._move(
+        moved = await self._move(
             card,
             to_column_id,
             before_id=before_id,
@@ -492,6 +507,8 @@ class KanbanService:
             expected_version=expected_version,
             audit_actor=agent_slug,
         )
+        await self._notify_assignee(moved, reason="state_change", actor=agent_slug)
+        return moved
 
     async def agent_comment(self, agent_slug: str, card_id: int, body: str) -> KanbanCardComment:
         card = await self._existing_card(card_id)
@@ -515,6 +532,87 @@ class KanbanService:
     async def board_of_card(self, card_id: int) -> KanbanBoard | None:
         card = await self._boards.get_card(card_id)
         return await self._boards.get_board(card.board_id) if card else None
+
+    # ---- Inbox integration (Epic 06 · 6.5) ----
+
+    async def _resolve_user_id(self, identity: str | None) -> int | None:
+        """Map a card actor/assignee/mention (`user:<id>` or an agent slug) to the
+        USER who should be notified — the user themselves, or the agent's owner."""
+        if not identity:
+            return None
+        if identity.startswith("user:"):
+            try:
+                return int(identity[5:])
+            except ValueError:
+                return None
+        if self._agents is not None:
+            agent = await self._agents.get(identity)
+            return agent.user_id if agent else None
+        return None
+
+    def _card_link(self, card: KanbanCard) -> str:
+        return f"/?board={card.board_id}&card={card.id}"
+
+    async def _notify_assignee(self, card: KanbanCard, *, reason: str, actor: str) -> None:
+        """Notify the card's assignee's owner on assignment / state change. The
+        actor is never notified of their own action."""
+        if self._notifications is None or not card.assignee:
+            return
+        target = await self._resolve_user_id(card.assignee)
+        actor_uid = await self._resolve_user_id(actor)
+        if target is None or target == actor_uid:
+            return
+        title = (
+            f"Você foi atribuído ao card “{card.title}”"
+            if reason == "task_assigned"
+            else f"O card “{card.title}” foi movido"
+        )
+        await self._notifications.notify(
+            target,
+            subject_type="kanban_card",
+            subject_key=f"kanban:card:{card.id}",
+            reason=reason,
+            title=title,
+            link=self._card_link(card),
+            actor=actor,
+        )
+
+    async def _notify_comment(self, card: KanbanCard, *, body: str, actor: str) -> None:
+        """The "I need info" channel (Epic 06 · 6.5): a comment notifies the card's
+        assignee and the board owner (reason `participating`); any `@mention`
+        notifies the mentioned agent's owner (reason `mention`, which outranks
+        participating). The commenter is never notified of their own comment;
+        notify_level + per-thread `ignored` still gate delivery."""
+        if self._notifications is None:
+            return
+        actor_uid = await self._resolve_user_id(actor)
+        board = await self._boards.get_board(card.board_id)
+
+        # user_id → reason, with `mention` winning over `participating`.
+        targets: dict[int, str] = {}
+
+        def _add(uid: int | None, reason: str) -> None:
+            if uid is None or uid == actor_uid:
+                return
+            if uid not in targets or reason == "mention":
+                targets[uid] = reason
+
+        _add(await self._resolve_user_id(card.assignee), "participating")
+        if board is not None:
+            _add(board.owner_id, "participating")
+        for slug in parse_mentions(body):
+            _add(await self._resolve_user_id(slug), "mention")
+
+        for uid, reason in targets.items():
+            await self._notifications.notify(
+                uid,
+                subject_type="kanban_card",
+                subject_key=f"kanban:card:{card.id}",
+                reason=reason,
+                title=f"Novo comentário no card “{card.title}”",
+                link=self._card_link(card),
+                actor=actor,
+            )
 
     async def _agent_board(self, agent_slug: str, board_id: int) -> KanbanBoard:
         board = await self._boards.get_board(board_id)

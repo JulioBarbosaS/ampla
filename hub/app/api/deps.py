@@ -122,11 +122,17 @@ def build_admin_service(session: AsyncSession) -> AdminService:
     return AdminService(state=HubStateRepository(session), audit=AuditRepository(session))
 
 
-def build_kanban_service(session: AsyncSession) -> KanbanService:
+def build_kanban_service(session: AsyncSession, settings=None, manager=None) -> KanbanService:
+    # notifications power the Inbox integration (Epic 06 · 6.5: assignment / move /
+    # comment). Read-only builds (no settings) skip it.
+    notifications = (
+        build_notification_service(session, settings, manager) if settings is not None else None
+    )
     return KanbanService(
         boards=KanbanRepository(session),
         audit=AuditRepository(session),
         agents=AgentRepository(session),
+        notifications=notifications,
     )
 
 
@@ -237,8 +243,10 @@ def get_admin_service(session: AsyncSession = Depends(get_session)) -> AdminServ
     return build_admin_service(session)
 
 
-def get_kanban_service(session: AsyncSession = Depends(get_session)) -> KanbanService:
-    return build_kanban_service(session)
+def get_kanban_service(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> KanbanService:
+    return build_kanban_service(session, request.app.state.settings, request.app.state.manager)
 
 
 def get_preset_service(session: AsyncSession = Depends(get_session)) -> PresetService:

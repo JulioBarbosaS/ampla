@@ -404,7 +404,7 @@ async def _handle_kanban_action(ws: WebSocket, slug: str, frame: KanbanActionFra
 
     async def _apply() -> tuple[dict, int, bool]:
         async with session_factory() as session:
-            svc = build_kanban_service(session)
+            svc = build_kanban_service(session, state.settings, state.manager)
             payload = frame.payload
             if frame.op == "create_card":
                 card = await svc.agent_create_card(
