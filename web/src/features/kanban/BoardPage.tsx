@@ -3,6 +3,8 @@ import { ApiError } from "../../lib/api/client";
 import { cardsOf, kanbanApi, sortColumns } from "../../lib/api/kanban";
 import type { KanbanBoard, KanbanBoardFull, KanbanCard } from "../../lib/api/types";
 import { connectObserver } from "../../lib/ws/observer";
+import { useAuthStore } from "../../stores/auth";
+import { BoardSettings } from "./BoardSettings";
 
 /**
  * Kanban board view (Epic 06 · 6.6). Reads via src/lib/api, lives via the
@@ -19,6 +21,9 @@ export function BoardPage() {
   const [full, setFull] = useState<KanbanBoardFull | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const canManage = !!full && !!user && (user.id === full.board.owner_id || user.role === "admin");
 
   useEffect(() => {
     kanbanApi
@@ -135,9 +140,20 @@ export function BoardPage() {
             ))}
           </select>
         )}
+        {canManage && (
+          <button
+            type="button"
+            className="ml-auto rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-300 hover:bg-zinc-700"
+            onClick={() => setShowSettings((s) => !s)}
+          >
+            Permissões
+          </button>
+        )}
       </header>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
+
+      {showSettings && canManage && full && <BoardSettings boardId={full.board.id} />}
 
       <div className="flex flex-1 gap-3 overflow-x-auto">
         {columns.map((col, i) => (
