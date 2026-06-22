@@ -160,7 +160,7 @@ export function BoardPage() {
 
   async function patchColumn(
     columnId: number,
-    data: { name?: string; wip_limit?: number; is_landing?: boolean },
+    data: { name?: string; wip_limit?: number; is_landing?: boolean; is_done?: boolean },
   ) {
     if (boardId === null) return;
     try {
@@ -195,6 +195,15 @@ export function BoardPage() {
 
   const columns = full ? sortColumns(full.columns) : [];
   const openCard = full?.cards.find((c) => c.id === openCardId) ?? null;
+  const doneColumnIds = new Set((full?.columns ?? []).filter((c) => c.is_done).map((c) => c.id));
+
+  // A card is blocked while any card it depends on is NOT in a done column.
+  function isBlocked(card: KanbanCard): boolean {
+    return card.depends_on.some((depId) => {
+      const dep = full?.cards.find((c) => c.id === depId);
+      return !!dep && !doneColumnIds.has(dep.column_id);
+    });
+  }
 
   return (
     <div className="flex h-full flex-col gap-4 p-4">
@@ -286,6 +295,7 @@ export function BoardPage() {
                 onRename={(name) => patchColumn(col.id, { name })}
                 onSetLanding={() => patchColumn(col.id, { is_landing: true })}
                 onSetWip={(wip) => patchColumn(col.id, { wip_limit: wip })}
+                onSetDone={(v) => patchColumn(col.id, { is_done: v })}
                 onDelete={() => removeColumn(col.id)}
               />
               {colCards.map((card, ci) => (
@@ -295,6 +305,11 @@ export function BoardPage() {
                     className="block w-full text-left hover:text-indigo-300"
                     onClick={() => setOpenCardId(card.id)}
                   >
+                    {isBlocked(card) && (
+                      <span title="Bloqueado por dependências" className="mr-1">
+                        🔒
+                      </span>
+                    )}
                     {card.title}
                   </button>
                   <div className="mt-1 flex items-center justify-between gap-1 text-xs text-zinc-400">
@@ -386,6 +401,7 @@ export function BoardPage() {
       {openCard && (
         <CardDetail
           card={openCard}
+          boardCards={full?.cards ?? []}
           onClose={() => setOpenCardId(null)}
           onChanged={(updated) => {
             setFull((cur) =>
@@ -411,6 +427,7 @@ function ColumnHeader({
   onRename,
   onSetLanding,
   onSetWip,
+  onSetDone,
   onDelete,
 }: {
   column: KanbanColumn;
@@ -418,6 +435,7 @@ function ColumnHeader({
   onRename: (name: string) => void;
   onSetLanding: () => void;
   onSetWip: (wip: number) => void;
+  onSetDone: (value: boolean) => void;
   onDelete: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -521,6 +539,15 @@ function ColumnHeader({
               Tornar coluna de entrada
             </button>
           )}
+          <label className="flex items-center gap-1.5">
+            <input
+              aria-label={`Coluna de conclusão: ${column.name}`}
+              type="checkbox"
+              checked={column.is_done}
+              onChange={(e) => onSetDone(e.target.checked)}
+            />
+            Coluna de conclusão (libera dependências)
+          </label>
           <button
             type="button"
             aria-label={`Excluir coluna ${column.name}`}

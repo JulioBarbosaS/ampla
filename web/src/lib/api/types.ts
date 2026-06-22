@@ -267,6 +267,7 @@ export interface KanbanColumn {
   rank: string;
   wip_limit: number | null;
   is_landing: boolean;
+  is_done: boolean;
 }
 
 export interface KanbanCard {
@@ -281,6 +282,7 @@ export interface KanbanCard {
   priority: Priority;
   origin: Record<string, unknown> | null;
   version: number;
+  depends_on: number[];
   created_at: string;
   updated_at: string;
 }

@@ -33,7 +33,7 @@ export const kanbanApi = {
   updateColumn: (
     boardId: number,
     columnId: number,
-    data: { name?: string; wip_limit?: number; is_landing?: boolean },
+    data: { name?: string; wip_limit?: number; is_landing?: boolean; is_done?: boolean },
   ) => api.patch<KanbanColumn>(`/api/kanban/boards/${boardId}/columns/${columnId}`, data),
   deleteColumn: (boardId: number, columnId: number) =>
     api.delete<void>(`/api/kanban/boards/${boardId}/columns/${columnId}`),
@@ -62,6 +62,16 @@ export const kanbanApi = {
   moveCard: (cardId: number, data: MoveCardInput) =>
     api.post<KanbanCard>(`/api/kanban/cards/${cardId}/move`, data),
   deleteCard: (cardId: number) => api.delete<void>(`/api/kanban/cards/${cardId}`),
+
+  // dependencies (DAG — Epic 06 · 6.7): returns the updated "blocked by" set
+  listDependencies: (cardId: number) =>
+    api.get<KanbanCard[]>(`/api/kanban/cards/${cardId}/dependencies`),
+  addDependency: (cardId: number, dependsOnId: number) =>
+    api.post<KanbanCard[]>(`/api/kanban/cards/${cardId}/dependencies`, {
+      depends_on_id: dependsOnId,
+    }),
+  removeDependency: (cardId: number, dependsOnId: number) =>
+    api.delete<void>(`/api/kanban/cards/${cardId}/dependencies/${dependsOnId}`),
 
   listComments: (cardId: number) =>
     api.get<KanbanComment[]>(`/api/kanban/cards/${cardId}/comments`),

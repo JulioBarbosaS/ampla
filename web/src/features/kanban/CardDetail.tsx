@@ -15,10 +15,12 @@ const PRIORITIES = ["urgent", "high", "normal", "low"] as const;
  */
 export function CardDetail({
   card,
+  boardCards,
   onClose,
   onChanged,
 }: {
   card: KanbanCard;
+  boardCards: KanbanCard[];
   onClose: () => void;
   onChanged: (card: KanbanCard | null) => void;
 }) {
@@ -27,6 +29,7 @@ export function CardDetail({
   const [assignee, setAssignee] = useState(card.assignee ?? "");
   const [priority, setPriority] = useState(card.priority);
   const [comments, setComments] = useState<KanbanComment[]>([]);
+  const [deps, setDeps] = useState<KanbanCard[]>([]);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -36,7 +39,35 @@ export function CardDetail({
       .listComments(card.id)
       .then(setComments)
       .catch((e) => setError(e instanceof Error ? e.message : "Falha ao carregar comentários."));
+    kanbanApi
+      .listDependencies(card.id)
+      .then(setDeps)
+      .catch(() => {});
   }, [card.id]);
+
+  function syncDeps(next: KanbanCard[]) {
+    setDeps(next);
+    // keep the board badge correct without a full reload
+    onChanged({ ...card, depends_on: next.map((d) => d.id) });
+  }
+
+  async function addDep(depId: number) {
+    setError(null);
+    try {
+      syncDeps(await kanbanApi.addDependency(card.id, depId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao adicionar dependência.");
+    }
+  }
+
+  async function removeDep(depId: number) {
+    try {
+      await kanbanApi.removeDependency(card.id, depId);
+      syncDeps(deps.filter((d) => d.id !== depId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao remover dependência.");
+    }
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -177,6 +208,48 @@ export function CardDetail({
           >
             Excluir card
           </button>
+        </div>
+
+        <div className="space-y-1">
+          <h3 className="text-sm font-medium text-zinc-300">Bloqueado por</h3>
+          <p className="text-xs text-zinc-500">
+            Este card só pode ir para uma coluna de conclusão depois que os cards abaixo estiverem
+            concluídos.
+          </p>
+          <ul className="flex flex-col gap-1">
+            {deps.length === 0 && <li className="text-xs text-zinc-500">Sem dependências.</li>}
+            {deps.map((d) => (
+              <li
+                key={d.id}
+                className="flex items-center justify-between rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-100"
+              >
+                <span className="truncate">{d.title}</span>
+                <button
+                  type="button"
+                  aria-label={`Remover dependência ${d.title}`}
+                  className="text-xs text-zinc-400 hover:text-red-300"
+                  onClick={() => removeDep(d.id)}
+                >
+                  remover
+                </button>
+              </li>
+            ))}
+          </ul>
+          <select
+            aria-label="Adicionar dependência"
+            className="w-full rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-200"
+            value=""
+            onChange={(e) => e.target.value && addDep(Number(e.target.value))}
+          >
+            <option value="">+ Depende de…</option>
+            {boardCards
+              .filter((c) => c.id !== card.id && !deps.some((d) => d.id === c.id))
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+          </select>
         </div>
 
         <h3 className="text-sm font-medium text-zinc-300">Comentários</h3>

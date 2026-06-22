@@ -3,7 +3,15 @@ import { cardsOf, sortColumns } from "./kanban";
 import type { KanbanCard, KanbanColumn } from "./types";
 
 function col(id: number, rank: string): KanbanColumn {
-  return { id, board_id: 1, name: `c${id}`, rank, wip_limit: null, is_landing: false };
+  return {
+    id,
+    board_id: 1,
+    name: `c${id}`,
+    rank,
+    wip_limit: null,
+    is_landing: false,
+    is_done: false,
+  };
 }
 
 function card(id: number, columnId: number, rank: string): KanbanCard {
@@ -19,6 +27,7 @@ function card(id: number, columnId: number, rank: string): KanbanCard {
     priority: "normal",
     origin: null,
     version: 1,
+    depends_on: [],
     created_at: "",
     updated_at: "",
   };

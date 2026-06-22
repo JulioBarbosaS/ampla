@@ -39,6 +39,7 @@ function card(over: Partial<KanbanCard> = {}): KanbanCard {
     priority: "normal",
     origin: null,
     version: 1,
+    depends_on: [],
     created_at: "",
     updated_at: "",
     ...over,
@@ -57,8 +58,24 @@ const FULL: KanbanBoardFull = {
     created_at: "",
   },
   columns: [
-    { id: 10, board_id: 1, name: "A fazer", rank: "a", wip_limit: null, is_landing: true },
-    { id: 20, board_id: 1, name: "Fazendo", rank: "b", wip_limit: null, is_landing: false },
+    {
+      id: 10,
+      board_id: 1,
+      name: "A fazer",
+      rank: "a",
+      wip_limit: null,
+      is_landing: true,
+      is_done: false,
+    },
+    {
+      id: 20,
+      board_id: 1,
+      name: "Fazendo",
+      rank: "b",
+      wip_limit: null,
+      is_landing: false,
+      is_done: false,
+    },
   ],
   cards: [card()],
 };
@@ -126,6 +143,7 @@ describe("BoardPage", () => {
       rank: "z",
       wip_limit: null,
       is_landing: false,
+      is_done: false,
     });
     render(<BoardPage />);
     await screen.findByText("Card X");
@@ -141,6 +159,7 @@ describe("BoardPage", () => {
       rank: "a",
       wip_limit: 3,
       is_landing: true,
+      is_done: false,
     });
     render(<BoardPage />);
     await screen.findByText("Card X");
