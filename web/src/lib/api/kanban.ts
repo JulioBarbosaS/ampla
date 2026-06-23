@@ -7,6 +7,7 @@ import type {
   KanbanColumn,
   KanbanComment,
   KanbanGrant,
+  KanbanMember,
 } from "./types";
 
 /** Anchor-based move intent (Epic 06 · 6.2): the server recomputes the rank from
@@ -85,12 +86,21 @@ export const kanbanApi = {
   addComment: (cardId: number, body: string) =>
     api.post<KanbanComment>(`/api/kanban/cards/${cardId}/comments`, { body }),
 
-  // grants (owner/admin) — danger-zone for agent write lives in the UI (6.6)
+  // grants: owner/admin may grant any agent; a board-visible member may grant
+  // their OWN agents (Epic 10). Danger-zone for agent write lives in the UI (6.6).
   listGrants: (boardId: number) => api.get<KanbanGrant[]>(`/api/kanban/boards/${boardId}/grants`),
   setGrant: (boardId: number, agent_slug: string, role: string) =>
     api.put<KanbanGrant>(`/api/kanban/boards/${boardId}/grants`, { agent_slug, role }),
   removeGrant: (boardId: number, agentSlug: string) =>
     api.delete<void>(`/api/kanban/boards/${boardId}/grants/${encodeURIComponent(agentSlug)}`),
+
+  // members (per-user board sharing — Epic 10). Management is owner/admin only.
+  listMembers: (boardId: number) =>
+    api.get<KanbanMember[]>(`/api/kanban/boards/${boardId}/members`),
+  addMember: (boardId: number, userId: number) =>
+    api.post<KanbanMember>(`/api/kanban/boards/${boardId}/members`, { user_id: userId }),
+  removeMember: (boardId: number, userId: number) =>
+    api.delete<void>(`/api/kanban/boards/${boardId}/members/${userId}`),
 };
 
 /** Columns sorted left→right by rank (the server's ordering). */

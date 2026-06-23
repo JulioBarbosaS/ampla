@@ -251,13 +251,13 @@ export function BoardPage() {
               + Novo quadro
             </button>
           )}
-          {canManage && (
+          {full && (
             <button
               type="button"
               className="rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-300 hover:bg-zinc-700"
               onClick={() => setShowSettings((s) => !s)}
             >
-              Permissões
+              {canManage ? "Configurar" : "Meus agentes"}
             </button>
           )}
         </span>
@@ -265,9 +265,10 @@ export function BoardPage() {
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      {showSettings && canManage && full && (
+      {showSettings && full && (
         <BoardSettings
           board={full.board}
+          canManage={canManage}
           onBoardChange={(b) => setFull((cur) => (cur ? { ...cur, board: b } : cur))}
           onBoardDeleted={() => {
             const deletedId = full.board.id;

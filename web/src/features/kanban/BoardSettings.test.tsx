@@ -12,6 +12,18 @@ vi.mock("../../lib/api/kanban", () => ({
     removeGrant: vi.fn().mockResolvedValue(undefined),
     updateBoard: vi.fn(),
     deleteBoard: vi.fn().mockResolvedValue(undefined),
+    listMembers: vi.fn(),
+    addMember: vi.fn().mockResolvedValue({}),
+    removeMember: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
+vi.mock("../../lib/api/users", () => ({
+  usersApi: {
+    list: vi.fn().mockResolvedValue([
+      { id: 1, email: "owner@amp.local", name: "Owner", role: "admin", created_at: "" },
+      { id: 2, email: "joao@amp.local", name: "João", role: "member", created_at: "" },
+    ]),
   },
 }));
 
@@ -26,12 +38,13 @@ const BOARD: KanbanBoard = {
   created_at: "",
 };
 
-function renderSettings(overrides: { onBoardDeleted?: () => void } = {}) {
+function renderSettings(overrides: { onBoardDeleted?: () => void; canManage?: boolean } = {}) {
   return render(
     <BoardSettings
       board={BOARD}
       onBoardChange={vi.fn()}
       onBoardDeleted={overrides.onBoardDeleted ?? vi.fn()}
+      canManage={overrides.canManage ?? true}
     />,
   );
 }
@@ -42,11 +55,13 @@ vi.mock("../../lib/api/agents", () => ({
       { slug: "backend-ana", display_name: "Ana", online: true },
       { slug: "mobile-edu", display_name: "Edu", online: false },
     ]),
+    mine: vi.fn().mockResolvedValue([{ slug: "backend-ana", display_name: "Ana" }]),
   },
 }));
 
 beforeEach(() => {
   vi.mocked(kanbanApi.listGrants).mockResolvedValue([]);
+  vi.mocked(kanbanApi.listMembers).mockResolvedValue([]);
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -124,5 +139,61 @@ describe("BoardSettings (grants + danger-zone)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Aplicar" }));
     expect(kanbanApi.deleteBoard).toHaveBeenCalledWith(1);
     await waitFor(() => expect(onBoardDeleted).toHaveBeenCalled());
+  });
+});
+
+describe("BoardSettings · members (Epic 10)", () => {
+  it("owner shares the board with a specific person", async () => {
+    renderSettings({ canManage: true });
+    // the owner (id 1) is excluded from the picker; João (id 2) is addable
+    await userEvent.selectOptions(await screen.findByLabelText("Pessoa"), "2");
+    await userEvent.click(screen.getByRole("button", { name: "Adicionar" }));
+    expect(kanbanApi.addMember).toHaveBeenCalledWith(1, 2);
+  });
+
+  it("owner removes a member", async () => {
+    vi.mocked(kanbanApi.listMembers).mockResolvedValue([
+      { board_id: 1, user_id: 2, name: "João", email: "joao@amp.local", created_at: "" },
+    ]);
+    renderSettings({ canManage: true });
+    await userEvent.click(await screen.findByRole("button", { name: "Remover João do quadro" }));
+    await waitFor(() => expect(kanbanApi.removeMember).toHaveBeenCalledWith(1, 2));
+  });
+});
+
+describe("BoardSettings · member-limited panel (Epic 10)", () => {
+  it("hides governance (visibility, members, danger-zone) for a non-owner", async () => {
+    renderSettings({ canManage: false });
+    await screen.findByText(/seus próprios agentes/i);
+    expect(screen.queryByLabelText("Visibilidade")).not.toBeInTheDocument();
+    expect(screen.queryByText("Membros do quadro")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Excluir este quadro" })).not.toBeInTheDocument();
+  });
+
+  it("limits the grant picker to the member's own agents", async () => {
+    renderSettings({ canManage: false });
+    const picker = await screen.findByLabelText("Agente");
+    // own agent present; a directory-only agent (mobile-edu) is not offered
+    expect(within(picker as HTMLElement).getByRole("option", { name: "backend-ana" })).toBeTruthy();
+    expect(
+      within(picker as HTMLElement).queryByRole("option", { name: "mobile-edu" }),
+    ).not.toBeInTheDocument();
+    await userEvent.selectOptions(picker, "backend-ana");
+    await userEvent.click(screen.getByRole("button", { name: "Conceder" }));
+    expect(kanbanApi.setGrant).toHaveBeenCalledWith(1, "backend-ana", "viewer");
+  });
+
+  it("a member cannot revoke another user's agent grant", async () => {
+    vi.mocked(kanbanApi.listGrants).mockResolvedValue([
+      { board_id: 1, agent_slug: "backend-ana", role: "viewer" }, // own → revocable
+      { board_id: 1, agent_slug: "maria-front", role: "viewer" }, // not own → no button
+    ]);
+    renderSettings({ canManage: false });
+    expect(
+      await screen.findByRole("button", { name: "Remover acesso de backend-ana" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Remover acesso de maria-front" }),
+    ).not.toBeInTheDocument();
   });
 });

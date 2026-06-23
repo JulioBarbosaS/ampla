@@ -329,6 +329,15 @@ export interface KanbanGrant {
   role: "viewer" | "contributor" | "editor";
 }
 
+/** A human shared onto a board (Epic 10 · per-user board sharing). */
+export interface KanbanMember {
+  board_id: number;
+  user_id: number;
+  name: string;
+  email: string;
+  created_at: string;
+}
+
 /** A card's `origin` resolved to a panel deep-link (Epic 07). */
 export interface KanbanCardOrigin {
   kind: string | null;
