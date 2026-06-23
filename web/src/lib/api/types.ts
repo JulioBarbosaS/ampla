@@ -75,6 +75,28 @@ export interface Preset {
   created_at: string;
 }
 
+/** A scheduled agent task (Epic 08): the agent wakes on a schedule and runs a
+ * trusted, owner-authored prompt. `tools` = "write" is the danger-zone case. */
+export type ScheduleKind = "cron" | "interval" | "once";
+
+export interface ScheduledTask {
+  id: number;
+  owner_id: number;
+  agent_slug: string;
+  name: string;
+  kind: ScheduleKind;
+  spec: string;
+  prompt: string;
+  tools: "read" | "write";
+  enabled: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  last_status: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export type DelegationStatus = "open" | "completed" | "declined";
 
 /** An agent-to-agent task hand-off (Epic 04 · 4.4). */

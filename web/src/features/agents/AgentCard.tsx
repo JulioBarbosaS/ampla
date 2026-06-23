@@ -12,6 +12,7 @@ import { AgentDelegations } from "./AgentDelegations";
 import { AgentEscalation } from "./AgentEscalation";
 import { AgentPresets } from "./AgentPresets";
 import { AgentSchedule } from "./AgentSchedule";
+import { AgentScheduledTasks } from "./AgentScheduledTasks";
 import { AutorespondRuns } from "./AutorespondRuns";
 
 export function AgentCard({
@@ -364,6 +365,7 @@ pnpm daemon   # deixe rodando`;
       <AgentEscalation slug={agent.slug} escalateOn={agent.escalate_on} onChanged={onChanged} />
       <AgentApprovals slug={agent.slug} />
       <AgentDelegations slug={agent.slug} />
+      <AgentScheduledTasks slug={agent.slug} />
       <AutorespondRuns slug={agent.slug} />
 
       <div className="mt-4 border-t border-zinc-800 pt-3">
