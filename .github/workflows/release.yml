@@ -9,10 +9,34 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # github-release creates a Release
   packages: write
 
 jobs:
+  # Publish a GitHub Release whose notes are the CHANGELOG section for the tag
+  # (Epic 09 · 9.4). scripts/changelog.sh extract is the single source of the
+  # notes — the same file release.sh just cut. Inert without a remote.
+  github-release:
+    name: GitHub Release (notes from CHANGELOG)
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - name: extract the CHANGELOG section for this tag
+        id: notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          {
+            echo "body<<__EOF__"
+            scripts/changelog.sh extract "$version" || echo "See CHANGELOG.md."
+            echo "__EOF__"
+          } >> "$GITHUB_OUTPUT"
+      - name: create the release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body: ${{ steps.notes.outputs.body }}
+
   image:
     name: build + push multi-arch image (ghcr.io)
     runs-on: ubuntu-latest
