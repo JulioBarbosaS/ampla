@@ -236,6 +236,30 @@ class TestAuthorization:
         )
         assert resp.status_code == 201, resp.text
 
+    def test_user_cannot_delete_someone_elses_board(self, client):
+        # "cada um manda no seu": deleting a board is owner/admin only, on every
+        # visibility. A private board isn't even visible (404); a team board is
+        # visible but governance is still owner-only (403).
+        admin = do_setup(client)
+        member = register_member(client, admin)
+        private = _create_board(client, admin, name="Privado", visibility="private")
+        team = _create_board(client, admin, name="Time", visibility="team")
+        assert (
+            client.delete(
+                f"/api/kanban/boards/{private['id']}", headers=auth(member)
+            ).status_code
+            == 404
+        )
+        assert (
+            client.delete(f"/api/kanban/boards/{team['id']}", headers=auth(member)).status_code
+            == 403
+        )
+        # the owner still can
+        assert (
+            client.delete(f"/api/kanban/boards/{team['id']}", headers=auth(admin)).status_code
+            == 204
+        )
+
 
 class TestGrants:
     def test_set_list_remove_grant(self, client):
