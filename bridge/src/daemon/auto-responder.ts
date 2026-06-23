@@ -512,6 +512,38 @@ export class AutoResponder {
     return { kind: "replied", reply: parsed.text, ...usagePatch };
   }
 
+  /** Run an owner-authored scheduled task (Epic 08 · 8.4). Unlike an auto-reply
+   * (untrusted incoming message), the prompt is TRUSTED — stored server-side by
+   * the owner — so the schedule's tools posture may grant `writable` deliberately.
+   * The guardrail deny rules still apply (the "__scheduler__" sender is never a
+   * trusted_sender). Returns the outcome + a bounded summary; never throws. */
+  async runTask(
+    prompt: string,
+    settings: AgentSettings,
+    writable: boolean,
+  ): Promise<{ status: "ok" | "failed"; summary: string }> {
+    const guardrails = buildGuardrails({ ...settings, allow_write: writable }, "__scheduler__");
+    const cwd = this.opts.projectDir;
+    let raw: string;
+    try {
+      raw = await this.runner(prompt, {
+        bin: this.opts.bin,
+        ...(cwd ? { cwd } : {}),
+        timeoutMs: settings.auto_timeout_secs * 1000,
+        allowedTools: guardrails.allowedTools,
+        disallowedTools: guardrails.disallowedTools,
+        settingsJson: guardrails.settingsJson,
+        writable,
+        captureUsage: false,
+      });
+    } catch (error) {
+      return { status: "failed", summary: error instanceof Error ? error.message : String(error) };
+    }
+    const parsed = parseClaudeOutput(raw, false);
+    if (!parsed.ok) return { status: "failed", summary: parsed.reason };
+    return { status: "ok", summary: (parsed.text ?? "").slice(0, 280) };
+  }
+
   private allowByRate(maxPerHour: number): boolean {
     const cutoff = this.now() - 3_600_000;
     this.repliesThisHour = this.repliesThisHour.filter((t) => t > cutoff);

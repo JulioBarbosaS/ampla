@@ -75,6 +75,34 @@ function makeResponder(
   );
 }
 
+describe("AutoResponder.runTask (Epic 08 · scheduled tasks)", () => {
+  it("runs the trusted prompt read-only and reports ok", async () => {
+    const runner = vi.fn().mockResolvedValue("relatório pronto");
+    const res = await makeResponder(runner).runTask("Gere o relatório diário", settings(), false);
+    expect(res.status).toBe("ok");
+    expect(res.summary).toBe("relatório pronto");
+    // read posture: no Edit/Write in allowedTools
+    const opts = runner.mock.calls[0][1];
+    expect(opts.allowedTools).not.toContain("Write");
+    expect(opts.writable).toBe(false);
+  });
+
+  it("grants write tools when the schedule's posture is write", async () => {
+    const runner = vi.fn().mockResolvedValue("ok");
+    await makeResponder(runner).runTask("Atualize o CHANGELOG", settings(), true);
+    const opts = runner.mock.calls[0][1];
+    expect(opts.allowedTools).toContain("Write");
+    expect(opts.writable).toBe(true);
+  });
+
+  it("reports failed when the runner throws (never throws out)", async () => {
+    const runner = vi.fn().mockRejectedValue(new Error("claude caiu"));
+    const res = await makeResponder(runner).runTask("x", settings(), false);
+    expect(res.status).toBe("failed");
+    expect(res.summary).toContain("claude caiu");
+  });
+});
+
 describe("withinSchedule (availability window)", () => {
   const schedule = {
     tz: "UTC",

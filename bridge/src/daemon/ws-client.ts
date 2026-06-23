@@ -14,6 +14,7 @@ import {
   type MessageType,
   type Priority,
   parseServerFrame,
+  type ScheduledTaskFrame,
   type WireMessage,
 } from "../shared/protocol.js";
 
@@ -26,6 +27,7 @@ export interface HubClientEvents {
   broadcastResult: [{ group: string; sent: string[]; skipped: string[]; offline: string[] }];
   hubError: [{ code: string; detail: string }];
   killSwitch: [{ autoResponderEnabled: boolean }];
+  scheduledTask: [ScheduledTaskFrame];
   down: [{ willRetry: boolean; delayMs: number }];
 }
 
@@ -159,6 +161,26 @@ export class HubClient extends EventEmitter<HubClientEvents> {
     return true;
   }
 
+  /** Reports the outcome of a scheduled run (Epic 08 · 8.4). No agent_id — the
+   * hub attributes it to this authenticated agent and verifies the schedule
+   * belongs to it (anti-spoof). Best-effort, like the autorespond report. */
+  sendScheduledTaskReport(
+    scheduleId: number,
+    status: "ok" | "failed" | "blocked",
+    summary: string,
+  ): boolean {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const frame: ClientFrame = {
+      type: "scheduled_task_report",
+      schedule_id: scheduleId,
+      status,
+      summary,
+    };
+    ws.send(JSON.stringify(frame));
+    return true;
+  }
+
   /** Reads the board over the hub's REST API using THIS agent's key (Epic 06 ·
    * 6.4). Writes go over the WS; reads need real data, so the daemon proxies the
    * agent-key-authenticated GETs. The hub applies the same per-agent capability. */
@@ -239,6 +261,10 @@ export class HubClient extends EventEmitter<HubClientEvents> {
         case "kill_switch":
           this.autoResponderEnabled = frame.auto_responder_enabled;
           this.emit("killSwitch", { autoResponderEnabled: frame.auto_responder_enabled });
+          break;
+        case "scheduled_task":
+          // Epic 08 · 8.4: the hub asks this agent to run an owner-authored task.
+          this.emit("scheduledTask", frame);
           break;
         case "ping":
           // heartbeat: respond immediately so we are not considered a zombie

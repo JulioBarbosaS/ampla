@@ -362,6 +362,7 @@ export const serverFrameSchema = z.discriminatedUnion("type", [
 ]);
 export type ServerFrame = z.infer<typeof serverFrameSchema>;
 export type HelloAckFrame = z.infer<typeof helloAckFrameSchema>;
+export type ScheduledTaskFrame = z.infer<typeof scheduledTaskFrameSchema>;
 
 /** Safe parse of a frame coming from the hub; null for an unknown/invalid frame. */
 export function parseServerFrame(raw: string): ServerFrame | null {

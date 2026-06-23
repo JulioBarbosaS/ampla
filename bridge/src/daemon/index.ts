@@ -16,7 +16,7 @@ import {
   storePath,
   usagePath,
 } from "../shared/config.js";
-import type { AutorespondRecord, WireMessage } from "../shared/protocol.js";
+import type { AutorespondRecord, ScheduledTaskFrame, WireMessage } from "../shared/protocol.js";
 import {
   AutoResponder,
   buildGuardrails,
@@ -327,6 +327,22 @@ export function createDaemon(
         (skipped.length ? `, pulados pela allowlist: ${skipped.join(", ")}` : ""),
     );
   });
+  // Scheduled tasks (Epic 08 · 8.4): the hub asks this agent to run an
+  // owner-authored (trusted) prompt and reports the outcome back.
+  hub.on("scheduledTask", (task: ScheduledTaskFrame) => {
+    void runScheduledTask(task);
+  });
+
+  async function runScheduledTask(task: ScheduledTaskFrame): Promise<void> {
+    const settings = hub.settings;
+    if (!settings) {
+      hub.sendScheduledTaskReport(task.schedule_id, "failed", "settings indisponíveis");
+      return;
+    }
+    console.error(`[amp] tarefa agendada "${task.name}" (#${task.schedule_id}) → claude -p`);
+    const result = await responder.runTask(task.prompt, settings, task.tools === "write");
+    hub.sendScheduledTaskReport(task.schedule_id, result.status, result.summary);
+  }
 
   return {
     hub,
