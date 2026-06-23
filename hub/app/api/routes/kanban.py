@@ -5,7 +5,12 @@ Move (§6.2) and grants (§6.3) are added in their own slices."""
 
 from fastapi import APIRouter, Depends
 
-from app.api.deps import get_current_agent, get_current_user, get_kanban_service
+from app.api.deps import (
+    get_current_agent,
+    get_current_user,
+    get_kanban_service,
+    get_message_service,
+)
 from app.models.agent import Agent
 from app.models.user import User
 from app.schemas.kanban import (
@@ -15,6 +20,7 @@ from app.schemas.kanban import (
     BoardUpdate,
     CardCreate,
     CardMove,
+    CardOriginOut,
     CardOut,
     CardUpdate,
     ColumnCreate,
@@ -27,6 +33,7 @@ from app.schemas.kanban import (
     GrantSet,
 )
 from app.services.kanban_service import KanbanService
+from app.services.message_service import MessageService
 
 router = APIRouter(prefix="/api/kanban", tags=["kanban"])
 
@@ -147,6 +154,20 @@ async def get_card(
     svc: KanbanService = Depends(get_kanban_service),
 ) -> CardOut:
     return CardOut.model_validate(await svc.get_card(user, card_id))
+
+
+@router.get("/cards/{card_id}/origin", response_model=CardOriginOut)
+async def get_card_origin(
+    card_id: int,
+    user: User = Depends(get_current_user),
+    svc: KanbanService = Depends(get_kanban_service),
+    messages: MessageService = Depends(get_message_service),
+) -> CardOriginOut:
+    """Resolve the card's `origin` into a deep-link to its source conversation
+    (Epic 07). KanbanService authorizes the card (board visibility); MessageService
+    authorizes + resolves the conversation, so a private conversation never leaks."""
+    card = await svc.get_card(user, card_id)  # 404 + board visibility
+    return CardOriginOut.model_validate(await messages.resolve_origin(user, card.origin))
 
 
 @router.patch("/cards/{card_id}", response_model=CardOut)

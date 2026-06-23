@@ -18,6 +18,9 @@ class DelegationRepository:
         self._session.add(delegation)
         await self._session.commit()
 
+    async def get(self, delegation_id: int) -> Delegation | None:
+        return await self._session.get(Delegation, delegation_id)
+
     async def count_open_from(self, from_agent: str) -> int:
         """Open delegations the agent currently has outstanding (defensive cap)."""
         stmt = select(Delegation).where(

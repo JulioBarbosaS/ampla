@@ -107,6 +107,8 @@ def build_message_service(session: AsyncSession, settings, manager=None) -> Mess
         notifications=build_notification_service(session, settings, manager),
         # delegations lets a reply close a delegated task (Epic 04 · 4.4).
         delegations=DelegationRepository(session),
+        # and completing it moves the delegation's event card to Done (Epic 07).
+        kanban=build_kanban_service(session, settings, manager),
     )
 
 

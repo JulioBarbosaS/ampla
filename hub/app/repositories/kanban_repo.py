@@ -114,6 +114,17 @@ class KanbanRepository:
         )
         return (await self._session.execute(stmt)).scalars().first()
 
+    async def first_done_column(self, board_id: int) -> KanbanColumn | None:
+        """The leftmost terminal column (the lifecycle target, Epic 07). A board
+        may have several `is_done` columns; the lowest rank is the default Done."""
+        stmt = (
+            select(KanbanColumn)
+            .where(KanbanColumn.board_id == board_id, KanbanColumn.is_done.is_(True))
+            .order_by(KanbanColumn.rank)
+            .limit(1)
+        )
+        return (await self._session.execute(stmt)).scalars().first()
+
     async def save_column(self, column: KanbanColumn) -> None:
         self._session.add(column)
         await self._session.commit()
@@ -141,6 +152,22 @@ class KanbanRepository:
 
     async def get_card(self, card_id: int) -> KanbanCard | None:
         return await self._session.get(KanbanCard, card_id)
+
+    async def card_by_origin_kind_id(self, kind: str, ref_id: int) -> KanbanCard | None:
+        """The event card whose `origin` is {kind, id: ref_id} — the lifecycle
+        lookup (Epic 07). Matches on the JSON `origin` via json_extract, so a NULL
+        origin (a normal card) is never matched. At most one (origin ids are
+        unique per event); newest wins defensively."""
+        stmt = (
+            select(KanbanCard)
+            .where(
+                func.json_extract(KanbanCard.origin, "$.kind") == kind,
+                func.json_extract(KanbanCard.origin, "$.id") == ref_id,
+            )
+            .order_by(KanbanCard.id.desc())
+            .limit(1)
+        )
+        return (await self._session.execute(stmt)).scalars().first()
 
     async def list_cards(self, board_id: int) -> list[KanbanCard]:
         stmt = (

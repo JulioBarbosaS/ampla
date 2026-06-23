@@ -8,8 +8,10 @@ from app.models.agent import Agent
 from app.models.delegation import Delegation
 from app.models.message import Message
 from app.models.user import User
+from app.schemas.kanban import BoardCreate, BoardUpdate
 from app.services.delegation_service import DelegationService
 from app.services.errors import InvalidInputError, PermissionDeniedError
+from app.services.kanban_service import KanbanService
 from app.services.message_service import MessageService
 from app.services.notification_service import NotificationService
 from tests.conftest import make_settings
@@ -17,6 +19,7 @@ from tests.unit.fakes import (
     FakeAgentRepository,
     FakeAuditRepository,
     FakeDelegationRepository,
+    FakeKanbanRepository,
     FakeMessageRepository,
     FakeNotificationRepository,
     FakeUserRepository,
@@ -143,6 +146,56 @@ class TestCompletion:
         assert completed.result_message_id is not None
         # the delegator's owner is notified the result came back
         assert any(n.reason == "task_assigned" for n in notifications._items.values())
+
+    async def test_completion_moves_the_event_card_to_done(self):
+        """Epic 07: completing a delegation moves its opt-in event card to Done."""
+        agents = FakeAgentRepository()
+        delegations = FakeDelegationRepository()
+        users = FakeUserRepository()
+        owner = await users.add(User(email="o@amp.local", name="O", password_hash="x"))
+        await agents.add(Agent(slug="backend-julio", user_id=owner.id, display_name="B"))
+        await agents.add(Agent(slug="mobile-eduardo", user_id=owner.id, display_name="M"))
+        # a board that opted in, with the delegation's event card already on it
+        kanban = KanbanService(boards=FakeKanbanRepository(), audit=FakeAuditRepository())
+        board = await kanban.create_board(owner, BoardCreate(name="Tarefas"))
+        await kanban.update_board(owner, board.id, BoardUpdate(auto_card_on_delegation=True))
+        messages = FakeMessageRepository()
+        task = await messages.add(
+            Message(from_agent="backend-julio", to_agent="mobile-eduardo", body="t", type="task")
+        )
+        deleg = await delegations.add(
+            Delegation(
+                from_agent="backend-julio",
+                to_agent="mobile-eduardo",
+                task="t",
+                root_message_id=task.id,
+                status="open",
+            )
+        )
+        card = await kanban.create_card_for_event(
+            owner_id=owner.id,
+            flag=KanbanService.DELEGATION_FLAG,
+            title="task",
+            body="t",
+            assignee="mobile-eduardo",
+            origin={"kind": "delegation", "id": deleg.id},
+        )
+        svc = MessageService(
+            messages=messages,
+            agents=agents,
+            audit=FakeAuditRepository(),
+            settings=make_settings(message_max_body_bytes=10_000),
+            delegations=delegations,
+            kanban=kanban,
+        )
+        await svc.send(
+            "mobile-eduardo", "backend-julio", "pronto", type="response", in_reply_to=task.id
+        )
+        assert delegations._items[deleg.id].status == "completed"
+        _, columns, _ = await kanban.get_board_full(owner, board.id)
+        done = next(c for c in columns if c.is_done)
+        reread = await kanban.get_card(owner, card.id)
+        assert reread.column_id == done.id
 
     async def test_unrelated_reply_does_not_complete(self):
         svc, messages, delegations, _notifications = await self._message_service()

@@ -18,6 +18,7 @@ from app.services.errors import (
     NotFoundError,
     PermissionDeniedError,
 )
+from app.services.kanban_service import KanbanService
 from app.services.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,7 @@ class MessageService:
         settings: Settings,
         notifications: NotificationService | None = None,
         delegations: DelegationRepository | None = None,
+        kanban: KanbanService | None = None,
     ) -> None:
         self._messages = messages
         self._agents = agents
@@ -42,6 +44,8 @@ class MessageService:
         self._settings = settings
         self._notifications = notifications
         self._delegations = delegations
+        # Lifecycle: a completed delegation moves its event card to Done (Epic 07).
+        self._kanban = kanban
 
     async def send(
         self,
@@ -123,6 +127,10 @@ class MessageService:
             delegation.result_message_id = message.id
             delegation.updated_at = utcnow()
             await self._delegations.save(delegation)
+            # Lifecycle (Epic 07): move the delegation's event card to Done. No-op
+            # if no board opted in (no card exists) or the card is blocked.
+            if self._kanban is not None:
+                await self._kanban.complete_card_for_event(kind="delegation", ref_id=delegation.id)
             if self._notifications is not None:
                 delegator = await self._agents.get(delegation.from_agent)
                 if delegator is not None:
@@ -330,3 +338,49 @@ class MessageService:
         owned = {agent.slug for agent in await self._agents.list_by_user(actor.id)}
         if not (owned & slugs):
             raise PermissionDeniedError("Você não participa desta conversa.")
+
+    # ---- origin resolution (Epic 07: surface a card's source conversation) ----
+
+    async def resolve_origin(self, actor: User, origin: dict | None) -> dict:
+        """Resolve a kanban card's `origin` into a panel deep-link the viewer is
+        authorized to open. Conversation authorization lives here (MessageService
+        owns conversations/delegations), so a card on a shared board can never leak
+        a private conversation: an unauthorized or vanished source resolves to
+        `available: false` (never an error, never an existence leak)."""
+        kind = origin.get("kind") if isinstance(origin, dict) else None
+        if kind is None:
+            return _origin_out(None, "Sem origem", None, available=False)
+        try:
+            if kind == "delegation":
+                deleg = await self._delegations.get(origin["id"]) if self._delegations else None
+                if deleg is None:
+                    return _origin_out(kind, "Delegação indisponível", None, available=False)
+                await self._authorize_view(actor, {deleg.from_agent, deleg.to_agent})
+                link = f"/?perspective={deleg.from_agent}&partner={deleg.to_agent}"
+                if deleg.root_message_id is not None:
+                    link += f"&msg={deleg.root_message_id}"
+                return _origin_out(kind, f"Delegação para {deleg.to_agent}", link)
+            if kind == "escalation":
+                agent, sender = origin.get("agent"), origin.get("from")
+                if not agent or not sender:
+                    return _origin_out(kind, "Escalação", None, available=False)
+                await self._authorize_view(actor, {agent, sender})
+                return _origin_out(
+                    kind, f"Escalação de {sender}", f"/?perspective={agent}&partner={sender}"
+                )
+            if kind in ("message", "thread"):
+                msg = await self._messages.get(origin["id"])
+                if msg is None:
+                    return _origin_out(kind, "Conversa indisponível", None, available=False)
+                await self._authorize_view(actor, {msg.from_agent, msg.to_agent})
+                link = f"/?perspective={msg.to_agent}&partner={msg.from_agent}&msg={msg.id}"
+                return _origin_out(kind, "Conversa", link)
+        except (PermissionDeniedError, KeyError, TypeError):
+            return _origin_out(kind, "Origem indisponível", None, available=False)
+        return _origin_out(kind, "Origem desconhecida", None, available=False)
+
+
+def _origin_out(
+    kind: str | None, label: str, deep_link: str | None, *, available: bool = True
+) -> dict:
+    return {"kind": kind, "label": label, "deep_link": deep_link, "available": available}

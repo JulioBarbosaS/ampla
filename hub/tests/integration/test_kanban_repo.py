@@ -87,6 +87,54 @@ class TestCommitMove:
         assert fresh.column_id == dest.id and fresh.rank == "k" and fresh.version == 2
 
 
+class TestOriginLookup:
+    """Epic 07 lifecycle lookups against real SQLite json_extract."""
+
+    async def test_card_by_origin_kind_id_matches_only_the_right_card(self, session):
+        board_id, col_id = await _board_with_column(session)
+        repo = KanbanRepository(session)
+        target = await repo.add_card(
+            KanbanCard(
+                board_id=board_id,
+                column_id=col_id,
+                rank="a",
+                title="event",
+                created_by="system",
+                origin={"kind": "delegation", "id": 42},
+            )
+        )
+        # a plain card (origin NULL) and a different-id event card must NOT match
+        await repo.add_card(
+            KanbanCard(board_id=board_id, column_id=col_id, rank="b", title="plain", created_by="u")
+        )
+        await repo.add_card(
+            KanbanCard(
+                board_id=board_id,
+                column_id=col_id,
+                rank="c",
+                title="other",
+                created_by="system",
+                origin={"kind": "delegation", "id": 99},
+            )
+        )
+        found = await repo.card_by_origin_kind_id("delegation", 42)
+        assert found is not None and found.id == target.id
+        assert await repo.card_by_origin_kind_id("delegation", 7) is None
+        assert await repo.card_by_origin_kind_id("escalation", 42) is None
+
+    async def test_first_done_column_picks_the_leftmost_terminal(self, session):
+        board_id, col_id = await _board_with_column(session)
+        repo = KanbanRepository(session)
+        await repo.add_column(
+            KanbanColumn(board_id=board_id, name="done-2", rank="z", is_done=True)
+        )
+        first = await repo.add_column(
+            KanbanColumn(board_id=board_id, name="done-1", rank="t", is_done=True)
+        )
+        done = await repo.first_done_column(board_id)
+        assert done is not None and done.id == first.id  # lowest rank wins
+
+
 class TestRebalance:
     async def test_rebalance_reassigns_overlapping_ranks_without_unique_violation(self, session):
         board_id, col_id = await _board_with_column(session)

@@ -142,7 +142,9 @@ class AutorespondService:
                     title=_ESCALATION_TITLES[token].format(agent=agent_slug, sender=sender),
                     body=record.reply_preview or "",
                     assignee=f"user:{agent.user_id}",
-                    origin={"kind": "escalation", "from": sender},
+                    # `agent` lets the panel deep-link back to the conversation
+                    # (Epic 07 origin resolution); `from` keys the resolution.
+                    origin={"kind": "escalation", "from": sender, "agent": agent_slug},
                     priority="high",
                 )
             except Exception:

@@ -98,6 +98,10 @@ class CardCreate(BaseModel):
     column_id: int | None = None
     assignee: str | None = Field(default=None, max_length=KANBAN_ACTOR_MAX)
     priority: str = Field(default="normal", pattern=PRIORITY_PATTERN)
+    # Provenance (Epic 07): turn a conversation into a card. Clients may only set
+    # `message`/`thread` origins (delegation/escalation are system-stamped); the
+    # service validates and the resolver re-authorizes the link on read.
+    origin: dict | None = None
 
 
 class CardUpdate(BaseModel):
@@ -145,6 +149,17 @@ class CardOut(BaseModel):
 
 class DepCreate(BaseModel):
     depends_on_id: int
+
+
+class CardOriginOut(BaseModel):
+    """A card's `origin` resolved into a panel deep-link (Epic 07). `available`
+    is false when the source was deleted/expired or the viewer can't see it —
+    the panel shows "origem indisponível" rather than a dead link."""
+
+    kind: str | None
+    label: str
+    deep_link: str | None
+    available: bool
 
 
 # ---- comments ----

@@ -320,6 +320,9 @@ class FakeDelegationRepository:
     async def save(self, delegation: Delegation) -> None:
         self._items[delegation.id] = delegation
 
+    async def get(self, delegation_id: int) -> Delegation | None:
+        return self._items.get(delegation_id)
+
     async def count_open_from(self, from_agent: str) -> int:
         return sum(
             1 for d in self._items.values() if d.from_agent == from_agent and d.status == "open"
@@ -547,6 +550,11 @@ class FakeKanbanRepository:
         landing.sort(key=lambda c: c.rank)
         return landing[0] if landing else None
 
+    async def first_done_column(self, board_id: int) -> KanbanColumn | None:
+        done = [c for c in self._columns.values() if c.board_id == board_id and c.is_done]
+        done.sort(key=lambda c: c.rank)
+        return done[0] if done else None
+
     async def save_column(self, column: KanbanColumn) -> None:
         self._columns[column.id] = column
 
@@ -573,6 +581,17 @@ class FakeKanbanRepository:
 
     async def get_card(self, card_id: int) -> KanbanCard | None:
         return self._cards.get(card_id)
+
+    async def card_by_origin_kind_id(self, kind: str, ref_id: int) -> KanbanCard | None:
+        found = [
+            c
+            for c in self._cards.values()
+            if isinstance(getattr(c, "origin", None), dict)
+            and c.origin.get("kind") == kind
+            and c.origin.get("id") == ref_id
+        ]
+        found.sort(key=lambda c: c.id, reverse=True)
+        return found[0] if found else None
 
     async def list_cards(self, board_id: int) -> list[KanbanCard]:
         found = [c for c in self._cards.values() if c.board_id == board_id]

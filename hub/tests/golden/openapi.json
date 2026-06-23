@@ -1079,6 +1079,18 @@
             ],
             "title": "Column Id"
           },
+          "origin": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          },
           "priority": {
             "default": "normal",
             "pattern": "^(urgent|high|normal|low)$",
@@ -1138,6 +1150,49 @@
           "expected_version"
         ],
         "title": "CardMove",
+        "type": "object"
+      },
+      "CardOriginOut": {
+        "description": "A card's `origin` resolved into a panel deep-link (Epic 07). `available`\nis false when the source was deleted/expired or the viewer can't see it —\nthe panel shows \"origem indisponível\" rather than a dead link.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "deep_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deep Link"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "deep_link",
+          "available"
+        ],
+        "title": "CardOriginOut",
         "type": "object"
       },
       "CardOut": {
@@ -5584,6 +5639,54 @@
           }
         ],
         "summary": "Move Card",
+        "tags": [
+          "kanban"
+        ]
+      }
+    },
+    "/api/kanban/cards/{card_id}/origin": {
+      "get": {
+        "description": "Resolve the card's `origin` into a deep-link to its source conversation\n(Epic 07). KanbanService authorizes the card (board visibility); MessageService\nauthorizes + resolves the conversation, so a private conversation never leaks.",
+        "operationId": "get_card_origin_api_kanban_cards__card_id__origin_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardOriginOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Card Origin",
         "tags": [
           "kanban"
         ]

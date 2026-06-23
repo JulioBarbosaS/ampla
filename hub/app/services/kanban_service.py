@@ -238,18 +238,44 @@ class KanbanService:
 
     # ---- cards ----
 
+    # Origin kinds a human may stamp when turning a conversation into a card
+    # (Epic 07). delegation/escalation are system-only, never client-settable.
+    _CLIENT_ORIGIN_KINDS = ("message", "thread")
+
     async def create_card(self, user: User, board_id: int, data: CardCreate) -> KanbanCard:
         await self._visible_board(user, board_id)
         return await self._insert_card(
-            board_id, data, created_by=f"user:{user.id}", audit_actor=user.email
+            board_id,
+            data,
+            created_by=f"user:{user.id}",
+            audit_actor=user.email,
+            origin=self._validate_client_origin(data.origin),
         )
 
+    def _validate_client_origin(self, origin: dict | None) -> dict | None:
+        """A human-supplied origin (conversation → card) may only reference a
+        message/thread; the resolver re-authorizes it on read (Epic 07)."""
+        if origin is None:
+            return None
+        if origin.get("kind") not in self._CLIENT_ORIGIN_KINDS or not isinstance(
+            origin.get("id"), int
+        ):
+            raise InvalidInputError("Origem inválida para um card.")
+        return {"kind": origin["kind"], "id": origin["id"]}
+
     async def _insert_card(
-        self, board_id: int, data: CardCreate, *, created_by: str, audit_actor: str
+        self,
+        board_id: int,
+        data: CardCreate,
+        *,
+        created_by: str,
+        audit_actor: str,
+        origin: dict | None = None,
     ) -> KanbanCard:
         """Append a card to its column (authz already decided by the caller).
         `created_by` is the authenticated actor — `user:<id>` or an agent slug —
-        never client-claimed (anti-spoof)."""
+        never client-claimed (anti-spoof). `origin` is decided by the caller, never
+        read from the client `data` (so agents can't stamp provenance)."""
         column = await self._resolve_landing(board_id, data.column_id)
         rank = rank_between(await self._boards.last_rank_in_column(column.id), None)
         card = await self._boards.add_card(
@@ -262,6 +288,7 @@ class KanbanService:
                 created_by=created_by,
                 assignee=data.assignee,
                 priority=data.priority,
+                origin=origin,
             )
         )
         await self._audit.record(
@@ -417,6 +444,20 @@ class KanbanService:
                 "version": card.version,
             },
         )
+        # Lifecycle (Epic 07): an escalation card reaching a Done column IS the
+        # resolution — the escalation has no row of its own, so the board is the
+        # state. Audited whoever moved it (human, agent, or the system).
+        origin = card.origin if isinstance(card.origin, dict) else {}
+        if dest.is_done and origin.get("kind") == "escalation":
+            await self._audit.record(
+                "escalation_resolved",
+                actor=audit_actor,
+                detail={
+                    "board_id": card.board_id,
+                    "card_id": card.id,
+                    "from": card.origin.get("from"),
+                },
+            )
         return card
 
     async def _move_bounds(
@@ -719,6 +760,65 @@ class KanbanService:
             },
         )
         return card
+
+    # ---- lifecycle: event card → Done (Epic 07) ----
+    #
+    # The other half of event cards: when the work an event card represents
+    # finishes (a delegation completes, an escalation is resolved), the hub moves
+    # the card to a Done column — audited and (like create_event_card) hub-side, so
+    # it bypasses the per-agent capability gate but never the dependency gate.
+
+    async def complete_card_for_event(
+        self, *, kind: str, ref_id: int, audit_actor: str = "system"
+    ) -> KanbanCard | None:
+        """Move the card a given event opened to its board's Done column. No-op
+        when there is no such card, it is already done, or its dependencies aren't
+        met (the Done⇒deps-Done invariant is never broken). Best-effort: callers
+        run it after the event's source of truth is already committed."""
+        card = await self._boards.card_by_origin_kind_id(kind, ref_id)
+        if card is None:
+            return None
+        return await self._move_card_to_done(card, audit_actor=audit_actor, trigger=kind)
+
+    async def _move_card_to_done(
+        self, card: KanbanCard, *, audit_actor: str, trigger: str
+    ) -> KanbanCard | None:
+        """Move one card to the board's first Done column as the system, reusing
+        the race-safe move core. Skips (and audits) a blocked card so a lifecycle
+        move can never put an unmet card in Done."""
+        current = await self._boards.get_column(card.column_id)
+        if current is not None and current.is_done:
+            return None  # already finished — idempotent
+        done = await self._boards.first_done_column(card.board_id)
+        if done is None:
+            return None  # board has no terminal column
+        if await self._is_blocked(card):
+            await self._audit.record(
+                "kanban_event_card_done_blocked",
+                actor=audit_actor,
+                detail={"board_id": card.board_id, "card_id": card.id, "trigger": trigger},
+            )
+            return None
+        moved = await self._move(
+            card,
+            done.id,
+            before_id=None,
+            after_id=None,
+            expected_version=card.version,
+            audit_actor=audit_actor,
+        )
+        await self._audit.record(
+            "kanban_event_card_done",
+            actor=audit_actor,
+            detail={
+                "board_id": moved.board_id,
+                "card_id": moved.id,
+                "trigger": trigger,
+                "origin": moved.origin,
+            },
+        )
+        await self._notify_assignee(moved, reason="state_change", actor=audit_actor)
+        return moved
 
     # ---- dependencies (DAG — Epic 06 · 6.7) ----
 
