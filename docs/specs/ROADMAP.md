@@ -33,13 +33,13 @@ project-suggestions list discussed with the maintainer.
 | [07](07-kanban-lifecycle.md) | Kanban Lifecycle & Origin Linking | delegation-complete → card to Done · escalation resolution → Done · `origin` surfacing (card ↔ conversation) · conversation → card (fills `message`/`thread` kinds) | #10 | Med |
 | [08](08-scheduled-agent-tasks.md) | Scheduled Agent Tasks | real scheduler engine (cron/interval) · maintenance sweeps folded in · `agent_schedules` model + CRUD · `scheduled_task` frame → daemon runs the agent · schedule UI | #9 (+#5) | Med–High |
 | [09](09-release-engineering.md) | Release Engineering & Dev Hooks | version single-source + sync gate · pre-commit format + commit-msg validator · `release.sh` (cut/changelog/tag) · GitHub Release from CHANGELOG | #8 | Low–Med |
-| [10](10-board-sharing.md) | Board Sharing | per-user board membership (share a private board with specific people) · members grant their **own** agents onto it | maintainer ask | Med · **planned, not built** |
+| [10](10-board-sharing.md) | Board Sharing | per-user board membership (share a private board with specific people) · members grant their **own** agents onto it | maintainer ask | Med · **done** |
 
 > Epics 01–06 are **done**. Epic 06 shipped 6.1–6.6 (core data, race-safe
 > ordering, per-agent permissions, MCP + agent-key reads, inbox integration,
 > live board UI) plus the deferred follow-ups (event cards, grants/danger-zone
 > UI, card detail + comments, full board/column management, card dependencies/
-> DAG). Epics **07–09 are also done** (each spec's checklist links its commits);
+> DAG). Epics **07–10 are also done** (each spec's checklist links its commits);
 > a few sub-items are noted as deferred follow-ups in their specs.
 >
 > CI/CD (suggestion #1) is partly in place already: `.github/workflows/ci.yml` +

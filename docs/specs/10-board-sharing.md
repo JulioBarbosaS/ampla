@@ -1,9 +1,9 @@
 # Epic 10 — Board Sharing (per-user membership + member-owned agent grants)
 
-> **Status: planned, not built.** Captured mid-discussion (the design below is
-> settled) so it survives a context compaction. Requested by the maintainer:
-> *"quero compartilhar um quadro com pessoas específicas, e cada pessoa com
-> acesso também pode plugar os próprios agentes."*
+> **Status: done (2026-06-23).** Backend `a55701f`, web `a923424`. Requested by
+> the maintainer: *"quero compartilhar um quadro com pessoas específicas, e cada
+> pessoa com acesso também pode plugar os próprios agentes."* The design below is
+> what shipped.
 
 ## Problem
 
@@ -96,6 +96,32 @@ New table `kanban_board_members` (one Alembic revision; new table, no backfill):
 model + migration → repo → service authz (membership + relaxed grants) → routes →
 web (members section + member grant panel) → tests + golden. Backend-first, green
 commit per slice, like Epics 06–09.
+
+## As built
+
+- **Backend** (`a55701f`): `kanban_board_members` table + migration
+  `f2b4d6c8e0a1`; repo membership methods + `list_visible_boards` includes shared
+  boards; `KanbanService._visible_board` passes for members; `add/remove/list_member`
+  (owner/admin, audited `kanban_member_added`/`_removed`); relaxed
+  `set_grant`/`remove_grant` via `_authorize_grant` (owner=any agent, member=own
+  agent only) + `list_grants` open to any board-visible user; `notify_board` gains
+  `member_ids` so a private board's WS deltas reach its members. REST
+  `GET/POST /boards/{id}/members` + `DELETE /boards/{id}/members/{user_id}`.
+  Tests: `tests/unit/test_kanban_members.py`, `TestMembers` in
+  `tests/integration/test_kanban_api.py`, regenerated `openapi.json`.
+- **Web** (`a923424`): `BoardSettings` "Membros do quadro" section (owner/admin)
+  + member-limited grant panel (picker from `agentsApi.mine`, revoke gated to own
+  agents); settings button reachable by any board-visible user;
+  `kanbanApi.{listMembers,addMember,removeMember}` + `KanbanMember` type.
+
+> Not a WS-frame change (only `notify_board` routing), so `protocol.ts` /
+> `ws_frames.json` are untouched. The bridge daemon needs no change.
+
+## Deferred (noted, not built)
+- A member-side "sair do quadro" (leave) affordance — today only the owner/admin
+  removes members.
+- Removing a member does **not** auto-revoke their agents' grants (left as-is by
+  design); revisit if it proves surprising.
 
 ## Sources
 - Builds on Epic 06 grants ([`06-kanban.md`](06-kanban.md)) and the human/agent
