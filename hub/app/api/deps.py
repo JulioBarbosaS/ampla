@@ -26,6 +26,7 @@ from app.repositories.invite_repo import InviteRepository
 from app.repositories.kanban_repo import KanbanRepository
 from app.repositories.message_repo import MessageRepository
 from app.repositories.notification_repo import NotificationRepository
+from app.repositories.schedule_repo import ScheduleRepository
 from app.repositories.user_repo import UserRepository
 from app.schemas.message import MessageOut
 from app.services.admin_service import AdminService
@@ -39,6 +40,7 @@ from app.services.kanban_service import KanbanService
 from app.services.message_service import MessageService
 from app.services.notification_service import NotificationService
 from app.services.preset_service import PresetService
+from app.services.schedule_service import ScheduleService
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -122,6 +124,15 @@ def build_preset_service(session: AsyncSession) -> PresetService:
 
 def build_admin_service(session: AsyncSession) -> AdminService:
     return AdminService(state=HubStateRepository(session), audit=AuditRepository(session))
+
+
+def build_schedule_service(session: AsyncSession, settings=None) -> ScheduleService:
+    return ScheduleService(
+        schedules=ScheduleRepository(session),
+        agents=AgentRepository(session),
+        audit=AuditRepository(session),
+        min_interval_secs=(settings.schedule_min_interval_secs if settings is not None else 60),
+    )
 
 
 def build_kanban_service(session: AsyncSession, settings=None, manager=None) -> KanbanService:
@@ -256,6 +267,12 @@ def get_kanban_service(
 
 def get_preset_service(session: AsyncSession = Depends(get_session)) -> PresetService:
     return build_preset_service(session)
+
+
+def get_schedule_service(
+    request: Request, session: AsyncSession = Depends(get_session)
+) -> ScheduleService:
+    return build_schedule_service(session, request.app.state.settings)
 
 
 def get_autorespond_service(session: AsyncSession = Depends(get_session)) -> AutorespondService:

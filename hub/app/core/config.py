@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     # after this many hours (swept at startup) so nothing hangs forever. 0 = never.
     approval_ttl_hours: int = 48
 
+    # Scheduler (Epic 08): an in-process tick loop fires due agent schedules and
+    # runs the maintenance sweeps periodically (not just at startup).
+    scheduler_enabled: bool = True
+    scheduler_tick_secs: float = 30.0  # how often the loop checks for due work
+    retention_sweep_interval_hours: int = 24  # recurring prune/expire cadence
+    schedule_min_interval_secs: int = 60  # anti-flood floor for interval schedules
+
     cors_origins: list[str] = ["http://localhost:5173"]
 
     def validate_for_environment(self) -> None:

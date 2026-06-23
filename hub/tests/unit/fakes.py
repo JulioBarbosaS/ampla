@@ -23,6 +23,7 @@ from app.models.kanban import (
 )
 from app.models.message import Message
 from app.models.notification import Notification, NotificationSubscription
+from app.models.schedule import AgentSchedule
 from app.models.user import Invite, PasswordReset, User, utcnow
 
 
@@ -763,4 +764,45 @@ class FakeMessageRepository:
         slugs = set(agent_slugs)
         found = [m for m in self._messages.values() if m.from_agent in slugs or m.to_agent in slugs]
         found.sort(key=lambda m: (m.created_at, m.id), reverse=True)
+        return found[:limit]
+
+
+class FakeScheduleRepository:
+    """In-memory mirror of ScheduleRepository (Epic 08)."""
+
+    def __init__(self) -> None:
+        self._items: dict[int, AgentSchedule] = {}
+        self._seq = 0
+
+    async def add(self, schedule: AgentSchedule) -> AgentSchedule:
+        self._seq += 1
+        schedule.id = self._seq
+        _default(schedule, "tools", "read")
+        _default(schedule, "enabled", True)
+        _default(schedule, "created_at", utcnow())
+        _default(schedule, "updated_at", utcnow())
+        self._items[schedule.id] = schedule
+        return schedule
+
+    async def get(self, schedule_id: int) -> AgentSchedule | None:
+        return self._items.get(schedule_id)
+
+    async def save(self, schedule: AgentSchedule) -> None:
+        self._items[schedule.id] = schedule
+
+    async def delete(self, schedule: AgentSchedule) -> None:
+        self._items.pop(schedule.id, None)
+
+    async def list_for_agent(self, agent_slug: str) -> list[AgentSchedule]:
+        found = [s for s in self._items.values() if s.agent_slug == agent_slug]
+        found.sort(key=lambda s: (s.created_at, s.id), reverse=True)
+        return found
+
+    async def due(self, now, *, limit: int = 100) -> list[AgentSchedule]:
+        found = [
+            s
+            for s in self._items.values()
+            if s.enabled and s.next_run_at is not None and s.next_run_at <= now
+        ]
+        found.sort(key=lambda s: s.next_run_at)
         return found[:limit]

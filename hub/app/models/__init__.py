@@ -16,11 +16,13 @@ from app.models.kanban import (
 )
 from app.models.message import Message
 from app.models.notification import Notification, NotificationSubscription
+from app.models.schedule import AgentSchedule
 from app.models.user import Invite, User
 
 __all__ = [
     "Agent",
     "AgentKey",
+    "AgentSchedule",
     "Approval",
     "AuditLog",
     "AutorespondRun",
