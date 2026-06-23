@@ -166,18 +166,22 @@ present, else by review.
 
 ## Epic 09 milestone checklist
 
-- [ ] 9.1 `scripts/version.sh` + version-sync gate in `scripts/ci.sh`/CI + test
-- [ ] 9.2 `.githooks/pre-commit` (staged format/lint) + `.githooks/commit-msg`
-  (Conventional Commits validator) + validator test; CONTRIBUTING updated
-- [ ] 9.3 `scripts/release.sh` (preconditions → bump → CHANGELOG cut → commit +
-  tag; never pushes) + temp-repo test
-- [ ] 9.4 `release.yml` publishes GitHub Release from the CHANGELOG section
-  (remote-ready, inert without one) + extraction test
-- [ ] No new runtime deps; hooks run for hub-only contributors (no `pnpm` required)
-- [ ] Tooling tests run inside `scripts/ci.sh` core like every other gate
+- [x] 9.1 `scripts/version.sh` (print/check/bump) + `version.sh --check` as a
+  `scripts/ci.sh` core gate + selftest (`aac449d`)
+- [x] 9.2 `.githooks/commit-msg` (dependency-free Conventional Commits validator)
+  + `.githooks/pre-commit` (staged-package format/lint) + selftest; CONTRIBUTING
+  documents both (`aac449d`)
+- [x] 9.3 `scripts/release.sh` (clean-tree/on-main/green-ci → bump → CHANGELOG cut
+  → commit + tag; never pushes) + `scripts/changelog.sh` + temp-repo selftest
+  (`aac449d`)
+- [x] 9.4 `release.yml` github-release job publishes a Release from the CHANGELOG
+  section (remote-ready, inert without one); extraction covered by selftest
+  (`4a36de8`)
+- [x] No new runtime deps; hooks run for hub-only contributors (no `pnpm` needed)
+- [x] Tooling tests run inside `scripts/ci.sh` core (`scripts/selftest.sh`, 20
+  checks) like every other gate
 
-Recommended order: 9.1 (unblocks the rest) → 9.2 (independent, immediate value) →
-9.3 (the ritual) → 9.4 (remote-only polish).
+Built in order: 9.1 → 9.2 → 9.3 → 9.4.
 
 ---
 

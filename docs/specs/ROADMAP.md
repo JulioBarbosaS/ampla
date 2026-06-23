@@ -23,10 +23,10 @@ code is written until an epic is approved.
 | [05](05-account-auth.md) | Account & Auth | `PATCH /api/auth/me` (name) · change password · avatar upload (server-side) · forgot-password reset | **yes** | Med |
 | [06](06-kanban.md) | Kanban / Task Board | Boards/columns/cards + comments · fractional-rank ordering w/ concurrency control · per-agent per-board role grants (dev-only default) · `amp_kanban_*` MCP · WS deltas + inbox notifications · live board view | **yes** | Med–High |
 
-### Proposed follow-ups (from the project-suggestions list)
+### Follow-ups (from the project-suggestions list) — **done**
 
-These three are **proposals** drafted after Epics 01–06 shipped; numbers in
-parentheses map to the project-suggestions list discussed with the maintainer.
+These three shipped after Epics 01–06; numbers in parentheses map to the
+project-suggestions list discussed with the maintainer.
 
 | # | Epic | Features | From | Risk |
 |---|---|---|---|---|
@@ -38,7 +38,8 @@ parentheses map to the project-suggestions list discussed with the maintainer.
 > ordering, per-agent permissions, MCP + agent-key reads, inbox integration,
 > live board UI) plus the deferred follow-ups (event cards, grants/danger-zone
 > UI, card detail + comments, full board/column management, card dependencies/
-> DAG). Epics **07–09 are proposals** — no code until approved.
+> DAG). Epics **07–09 are also done** (each spec's checklist links its commits);
+> a few sub-items are noted as deferred follow-ups in their specs.
 >
 > CI/CD (suggestion #1) is partly in place already: `.github/workflows/ci.yml` +
 > `release.yml` + `dependabot.yml` exist, and `scripts/ci.sh` + `.githooks/pre-push`
