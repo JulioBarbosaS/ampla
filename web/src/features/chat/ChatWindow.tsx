@@ -5,6 +5,7 @@ import { messagesApi } from "../../lib/api/messages";
 import type { Message, MessageType, Priority } from "../../lib/api/types";
 import { conversationKey, groupThreads, useChatStore } from "../../stores/chat";
 import { BroadcastPanel } from "./BroadcastPanel";
+import { CreateCardButton } from "./CreateCardButton";
 import { PresenceDot } from "./Sidebar";
 
 /** Prefix for automatic replies (mirrors the daemon's AUTO_REPLY_PREFIX). */
@@ -318,6 +319,12 @@ export function ChatWindow() {
             conversando como <span className="text-zinc-300">{perspective}</span>
           </span>
         )}
+        <div className="ml-auto">
+          <CreateCardButton
+            partner={partner}
+            lastMessageId={messages.length > 0 ? messages[messages.length - 1].id : null}
+          />
+        </div>
       </header>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3">

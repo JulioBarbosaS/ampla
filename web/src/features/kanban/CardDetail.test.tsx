@@ -5,6 +5,9 @@ import { kanbanApi } from "../../lib/api/kanban";
 import type { KanbanCard } from "../../lib/api/types";
 import { CardDetail } from "./CardDetail";
 
+const navigate = vi.fn();
+vi.mock("react-router-dom", () => ({ useNavigate: () => navigate }));
+
 vi.mock("../../lib/api/kanban", () => ({
   kanbanApi: {
     listComments: vi.fn(),
@@ -14,6 +17,7 @@ vi.mock("../../lib/api/kanban", () => ({
     listDependencies: vi.fn().mockResolvedValue([]),
     addDependency: vi.fn().mockResolvedValue([]),
     removeDependency: vi.fn().mockResolvedValue(undefined),
+    getCardOrigin: vi.fn(),
   },
 }));
 
@@ -110,6 +114,26 @@ describe("CardDetail", () => {
     );
     await userEvent.selectOptions(screen.getByLabelText("Adicionar dependência"), "9");
     expect(kanbanApi.addDependency).toHaveBeenCalledWith(7, 9);
+  });
+
+  it("shows the origin link and navigates to the source conversation", async () => {
+    vi.mocked(kanbanApi.getCardOrigin).mockResolvedValue({
+      kind: "delegation",
+      label: "Delegação para mobile-ana",
+      deep_link: "/?perspective=backend-julio&partner=mobile-ana&msg=5",
+      available: true,
+    });
+    render(
+      <CardDetail
+        card={card({ origin: { kind: "delegation", id: 9 } })}
+        boardCards={[]}
+        onClose={vi.fn()}
+        onChanged={vi.fn()}
+      />,
+    );
+    const link = await screen.findByRole("button", { name: "Delegação para mobile-ana" });
+    await userEvent.click(link);
+    expect(navigate).toHaveBeenCalledWith("/?perspective=backend-julio&partner=mobile-ana&msg=5");
   });
 
   it("closes via the close button", async () => {

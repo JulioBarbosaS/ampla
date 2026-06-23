@@ -3,6 +3,7 @@ import type {
   KanbanBoard,
   KanbanBoardFull,
   KanbanCard,
+  KanbanCardOrigin,
   KanbanColumn,
   KanbanComment,
   KanbanGrant,
@@ -46,8 +47,14 @@ export const kanbanApi = {
       column_id?: number;
       assignee?: string;
       priority?: string;
+      // Provenance (Epic 07): clients may set message/thread origins only.
+      origin?: { kind: "message" | "thread"; id: number };
     },
   ) => api.post<KanbanCard>(`/api/kanban/boards/${boardId}/cards`, data),
+
+  // Resolve a card's origin to a deep-link to its source conversation (Epic 07).
+  getCardOrigin: (cardId: number) =>
+    api.get<KanbanCardOrigin>(`/api/kanban/cards/${cardId}/origin`),
   updateCard: (
     cardId: number,
     data: {

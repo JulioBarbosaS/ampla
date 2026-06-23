@@ -307,6 +307,14 @@ export interface KanbanGrant {
   role: "viewer" | "contributor" | "editor";
 }
 
+/** A card's `origin` resolved to a panel deep-link (Epic 07). */
+export interface KanbanCardOrigin {
+  kind: string | null;
+  label: string;
+  deep_link: string | null;
+  available: boolean;
+}
+
 /** hub→panel live board delta (mirrors KanbanDeltaFrame). */
 export interface KanbanDelta {
   board_id: number;

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Markdown } from "../../components/Markdown";
 import { ApiError } from "../../lib/api/client";
 import { kanbanApi } from "../../lib/api/kanban";
-import type { KanbanCard, KanbanComment } from "../../lib/api/types";
+import type { KanbanCard, KanbanCardOrigin, KanbanComment } from "../../lib/api/types";
 
 const PRIORITIES = ["urgent", "high", "normal", "low"] as const;
 
@@ -30,9 +31,11 @@ export function CardDetail({
   const [priority, setPriority] = useState(card.priority);
   const [comments, setComments] = useState<KanbanComment[]>([]);
   const [deps, setDeps] = useState<KanbanCard[]>([]);
+  const [origin, setOrigin] = useState<KanbanCardOrigin | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     kanbanApi
@@ -43,7 +46,16 @@ export function CardDetail({
       .listDependencies(card.id)
       .then(setDeps)
       .catch(() => {});
-  }, [card.id]);
+    // Resolve the card's origin to a deep-link (Epic 07) — only if it has one.
+    if (card.origin) {
+      kanbanApi
+        .getCardOrigin(card.id)
+        .then(setOrigin)
+        .catch(() => setOrigin(null));
+    } else {
+      setOrigin(null);
+    }
+  }, [card.id, card.origin]);
 
   function syncDeps(next: KanbanCard[]) {
     setDeps(next);
@@ -176,6 +188,23 @@ export function CardDetail({
             ))}
           </select>
         </div>
+
+        {origin && (
+          <p className="text-xs text-zinc-400">
+            <span className="text-zinc-500">Origem: </span>
+            {origin.available && origin.deep_link ? (
+              <button
+                type="button"
+                className="text-indigo-400 hover:underline"
+                onClick={() => origin.deep_link && navigate(origin.deep_link)}
+              >
+                {origin.label}
+              </button>
+            ) : (
+              <span>{origin.label}</span>
+            )}
+          </p>
+        )}
 
         <textarea
           aria-label="Descrição"
