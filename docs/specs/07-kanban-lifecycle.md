@@ -231,6 +231,10 @@ origin. Golden `openapi.json` for the new endpoint.
 
 ## Deferred to a follow-up (noted, not built)
 
+- **Auto-resolve on owner reply** (7.3 §2): moving the escalation card to Done is
+  the resolution shipped; auto-closing it when the owner replies in the escalated
+  conversation was dropped from v1 — it couples the hot message-send path and is a
+  convenience over the manual move. Revisit with a per-board flag.
 - **Auto-chaining** (`next_card`): completing a card spawns the next in a defined
   pipeline — powerful with delegation, but needs a pipeline model (Epic 06 §6.7).
 - **Routing declines/failures** to a board-configured column (7.2 leaves declines
@@ -241,20 +245,22 @@ origin. Golden `openapi.json` for the new endpoint.
 
 ## Epic 07 milestone checklist
 
-- [ ] 7.1 `card_by_origin` + `complete_card_for_event` (system move, dep-gate
-  respected, audited, delta) — unit + integration
-- [ ] 7.2 Delegation completion → card to Done (best-effort hook in
-  `_maybe_complete_delegation`, gated by `auto_card_on_delegation`)
-- [ ] 7.3 Escalation resolution (card-to-Done = resolved + opt-in auto-resolve on
-  owner reply) — audited
-- [ ] 7.4 Origin resolver endpoint + conversation→card action + `CardDetail`
-  "Origem" link — fills `message`/`thread` kinds; golden openapi; web tests
-- [ ] Every lifecycle move audited (`kanban_event_card_done` /
-  `escalation_resolved`); no Done ⇒ deps-Done invariant broken
-- [ ] UI exposes `origin` (standing "UI covers backend" rule)
+- [x] 7.1 `card_by_origin_kind_id` + `complete_card_for_event` (system move,
+  dep-gate respected, audited) — unit + repo integration (`bb340e1`)
+- [x] 7.2 Delegation completion → card to Done (best-effort hook in
+  `_maybe_complete_delegation`, KanbanService injected via deps) (`bb340e1`)
+- [x] 7.3 Escalation resolution (card-to-Done = resolved, audited
+  `escalation_resolved` from `_record_move`); auto-resolve on owner reply
+  deferred — see above (`bb340e1`)
+- [x] 7.4 Origin resolver `GET /cards/{id}/origin` (MessageService.resolve_origin)
+  + conversation→card (`CardCreate.origin`, message/thread only) + `CardDetail`
+  "Origem" link + chat `CreateCardButton`; golden openapi; web tests
+  (`bb340e1`, `51bd522`)
+- [x] Every lifecycle move audited (`kanban_event_card_done` /
+  `escalation_resolved`); Done ⇒ deps-Done invariant kept (blocked → skip + audit)
+- [x] UI exposes `origin` (standing "UI covers backend" rule)
 
-Recommended order: 7.1 (the primitive) → 7.2 (cheapest, highest value) → 7.4
-(surfacing) → 7.3 (escalation, the fuzziest).
+Built in order: 7.1 (the primitive) → 7.2 → 7.3 → 7.4 (surfacing).
 
 ---
 
