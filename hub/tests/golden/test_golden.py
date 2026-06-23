@@ -34,6 +34,7 @@ from app.schemas.ws import (
     NotificationReadFrame,
     PingFrame,
     PresenceFrame,
+    ScheduledTaskFrame,
     SettingsUpdateFrame,
 )
 
@@ -167,6 +168,11 @@ def test_ws_frames_contract() -> None:
                 "payload": {"title": "Investigar erro 500 no login", "priority": "high"},
             }
         ),
+        # scheduled task report (Epic 08 · 8.4) — the daemon reports a run's
+        # outcome; no agent_id (the hub attributes it to the authenticated socket).
+        "client.scheduled_task_report": _accepted_client_frame(
+            {"type": "scheduled_task_report", "schedule_id": 1, "status": "ok", "summary": "feito"}
+        ),
         "server.hello_ack": HelloAckFrame(
             agent_id="backend-julio",
             online=["backend-julio", "mobile-eduardo"],
@@ -246,6 +252,14 @@ def test_ws_frames_contract() -> None:
                 created_at=datetime(2026, 6, 6, 12, 0, 0, tzinfo=UTC),
                 updated_at=datetime(2026, 6, 6, 12, 0, 0, tzinfo=UTC),
             ),
+        ).model_dump(mode="json"),
+        # scheduled task fired to the daemon (Epic 08 · 8.4) — owner-authored
+        # (trusted) prompt; `tools` selects the guardrail posture.
+        "server.scheduled_task": ScheduledTaskFrame(
+            schedule_id=1,
+            name="Standup diário",
+            prompt="Poste um resumo do status no board.",
+            tools="read",
         ).model_dump(mode="json"),
     }
     check_golden("ws_frames.json", frames)

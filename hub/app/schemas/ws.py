@@ -134,6 +134,19 @@ class KanbanActionFrame(BaseModel):
     payload: dict = Field(default_factory=dict)
 
 
+class ScheduledTaskReportFrame(BaseModel):
+    """Daemon→hub: the result of a scheduled run (Epic 08 · 8.4). No agent_id — the
+    hub attributes it to the socket's AUTHENTICATED agent and verifies the schedule
+    belongs to that agent before recording (anti-spoof, like the autorespond
+    report). Mirrors AutorespondReportFrame; the run's output already went wherever
+    the task sent it (a message / a board card)."""
+
+    type: Literal["scheduled_task_report"] = "scheduled_task_report"
+    schedule_id: int
+    status: Literal["ok", "failed", "blocked"]
+    summary: str = Field(default="", max_length=4000)
+
+
 ClientFrame = Annotated[
     HelloFrame
     | SendMessageFrame
@@ -143,7 +156,8 @@ ClientFrame = Annotated[
     | AutorespondReportFrame
     | ApprovalRequestFrame
     | DelegateFrame
-    | KanbanActionFrame,
+    | KanbanActionFrame
+    | ScheduledTaskReportFrame,
     Field(discriminator="type"),
 ]
 client_frame_adapter: TypeAdapter[ClientFrame] = TypeAdapter(ClientFrame)
@@ -262,6 +276,21 @@ class KanbanDeltaFrame(BaseModel):
     comment: CommentOut | None = None
 
 
+class ScheduledTaskFrame(BaseModel):
+    """Hub→daemon: run this owner-authored task now (Epic 08 · 8.4). Unlike an
+    auto-reply (untrusted incoming message, --strict-mcp-config, no MCP), the
+    `prompt` is TRUSTED — owner-authored and stored server-side — so this is the
+    one path where an agent may be granted tools deliberately; `tools` selects the
+    guardrail posture (read | write). The daemon runs `claude -p` reusing the
+    auto-respond runner and replies with a scheduled_task_report."""
+
+    type: Literal["scheduled_task"] = "scheduled_task"
+    schedule_id: int
+    name: str
+    prompt: str
+    tools: str = "read"
+
+
 ServerFrame = (
     HelloAckFrame
     | MessageDeliveryFrame
@@ -276,4 +305,5 @@ ServerFrame = (
     | NotificationFrame
     | NotificationReadFrame
     | KanbanDeltaFrame
+    | ScheduledTaskFrame
 )

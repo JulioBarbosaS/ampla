@@ -117,6 +117,25 @@ class ScheduleService:
         await self._audit.record("schedule_run_now", actor=user.email, detail={"id": schedule_id})
         return schedule
 
+    async def record_report(
+        self, agent_slug: str, schedule_id: int, status: str, summary: str = ""
+    ) -> None:
+        """Record a daemon's run report (Epic 08 · 8.4), overwriting last_status.
+        Anti-spoof: silently ignored unless the schedule belongs to the reporting
+        (authenticated) agent — a daemon can't report for someone else's schedule.
+        Best-effort: the run's real output already went to its destination."""
+        schedule = await self._schedules.get(schedule_id)
+        if schedule is None or schedule.agent_slug != agent_slug:
+            return
+        schedule.last_status = status
+        schedule.updated_at = utcnow()
+        await self._schedules.save(schedule)
+        await self._audit.record(
+            "scheduled_task_run",
+            actor=agent_slug,
+            detail={"id": schedule_id, "status": status},
+        )
+
     # ---- queries ----
 
     async def list_for_agent(self, user: User, agent_slug: str) -> list[AgentSchedule]:

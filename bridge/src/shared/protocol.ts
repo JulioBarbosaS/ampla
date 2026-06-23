@@ -181,6 +181,16 @@ export interface KanbanActionFrame {
   payload: Record<string, unknown>;
 }
 
+/** Daemon→hub: the result of a scheduled run (Epic 08 · 8.4). No agent_id — the
+ * hub attributes it to the authenticated socket and checks the schedule belongs
+ * to that agent (anti-spoof). Mirrors ScheduledTaskReportFrame. */
+export interface ScheduledTaskReportFrame {
+  type: "scheduled_task_report";
+  schedule_id: number;
+  status: "ok" | "failed" | "blocked";
+  summary: string;
+}
+
 export type ClientFrame =
   | HelloFrame
   | SendMessageFrame
@@ -190,7 +200,8 @@ export type ClientFrame =
   | AutorespondReportFrame
   | ApprovalRequestFrame
   | DelegateFrame
-  | KanbanActionFrame;
+  | KanbanActionFrame
+  | ScheduledTaskReportFrame;
 
 // ---------- hub → daemon ----------
 
@@ -300,6 +311,7 @@ export const kanbanCardSchema = z.object({
   priority: prioritySchema,
   origin: z.record(z.unknown()).nullable(),
   version: z.number().int(),
+  depends_on: z.array(z.number().int()),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -320,6 +332,18 @@ export const kanbanDeltaFrameSchema = z.object({
   comment: kanbanCommentSchema.nullable(),
 });
 
+/** Hub→daemon: run an owner-authored scheduled task now (Epic 08 · 8.4). The
+ * prompt is TRUSTED (owner-authored), so `tools` may grant write deliberately —
+ * unlike an auto-reply. The daemon reuses the claude runner + guardrails and
+ * replies with a scheduled_task_report. Mirrors ScheduledTaskFrame. */
+export const scheduledTaskFrameSchema = z.object({
+  type: z.literal("scheduled_task"),
+  schedule_id: z.number().int(),
+  name: z.string(),
+  prompt: z.string(),
+  tools: z.string(),
+});
+
 export const serverFrameSchema = z.discriminatedUnion("type", [
   helloAckFrameSchema,
   messageDeliveryFrameSchema,
@@ -334,6 +358,7 @@ export const serverFrameSchema = z.discriminatedUnion("type", [
   notificationFrameSchema,
   notificationReadFrameSchema,
   kanbanDeltaFrameSchema,
+  scheduledTaskFrameSchema,
 ]);
 export type ServerFrame = z.infer<typeof serverFrameSchema>;
 export type HelloAckFrame = z.infer<typeof helloAckFrameSchema>;

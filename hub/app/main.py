@@ -1,8 +1,9 @@
 """Hub app factory. Application state: engine, session_factory,
 ConnectionManager and the auth rate limiter."""
 
+import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response, status
@@ -65,8 +66,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             hub_state = await HubStateRepository(session).get()
             app.state.auto_responder_enabled = hub_state.auto_responder_enabled
             # Retention: prune old `done` notifications at startup (best-effort —
-            # a failure here must never block boot). A live scheduler is future
-            # work; for a local hub a startup sweep keeps the table bounded.
+            # a failure here must never block boot). The SchedulerEngine then keeps
+            # doing this on an interval (Epic 08 · 8.2); this boot sweep is the
+            # immediate catch-up so a long-stopped hub cleans up at once.
             try:
                 pruned = await build_notification_service(session, settings).prune_done(
                     settings.notification_done_ttl_days
@@ -91,7 +93,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     logger.info("seeded %s built-in guardrail presets", seeded)
             except Exception:
                 logger.warning("guardrail preset seeding failed", exc_info=True)
+        # Scheduler engine (Epic 08): fires due agent schedules + runs the
+        # maintenance sweeps on an interval. Disabled in tests unless asked.
+        scheduler_task = None
+        if settings.scheduler_enabled:
+            from app.services.scheduler_engine import SchedulerEngine
+
+            engine_loop = SchedulerEngine(app.state.session_factory, app.state.manager, settings)
+            scheduler_task = asyncio.create_task(engine_loop.run_forever())
         yield
+        if scheduler_task is not None:
+            scheduler_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await scheduler_task
         await engine.dispose()
 
     app = FastAPI(title="Ampla Hub", version="0.1.0", lifespan=lifespan)

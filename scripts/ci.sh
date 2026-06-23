@@ -102,8 +102,10 @@ if [ "$RUN_CORE" = 1 ]; then
   section "bridge · lint + tipos + testes (unit + integração)"
   run "biome ci" bridge pnpm exec biome ci .
   run "tsc --noEmit" bridge pnpm exec tsc --noEmit
-  # full-stack (tests/e2e) fica no escopo --e2e; aqui só unit + integração
-  run "vitest (unit+integração)" bridge pnpm exec vitest run tests/unit tests/integration
+  # full-stack (tests/e2e) fica no escopo --e2e; aqui unit + integração + golden
+  # (o golden trava o mirror ws.py↔protocol.ts; só o full-stack precisa do venv).
+  run "vitest (unit+integração+golden)" bridge \
+    pnpm exec vitest run tests/unit tests/integration tests/golden
 fi
 
 # ── web (React · painel) ─────────────────────────────────────────────────────

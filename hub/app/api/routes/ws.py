@@ -24,6 +24,7 @@ from app.api.deps import (
     build_group_service,
     build_kanban_service,
     build_message_service,
+    build_schedule_service,
 )
 from app.core.cookies import SESSION_COOKIE
 from app.core.ratelimit import TokenBucket
@@ -48,6 +49,7 @@ from app.schemas.ws import (
     MessageDeliveryFrame,
     PingFrame,
     PongFrame,
+    ScheduledTaskReportFrame,
     SendMessageFrame,
     client_frame_adapter,
 )
@@ -251,6 +253,12 @@ async def _run_agent_connection(ws: WebSocket, hello: HelloFrame) -> None:
                 await _handle_kanban_action(ws, slug, frame)
                 continue
 
+            # scheduled task report: the daemon ran a scheduled task and reports
+            # its outcome (Epic 08 · 8.4). Recorded under the authenticated slug.
+            if isinstance(frame, ScheduledTaskReportFrame):
+                await _handle_scheduled_task_report(ws, slug, frame)
+                continue
+
             if not isinstance(frame, SendMessageFrame):
                 await _send_error(ws, "bad_frame", "Frame inesperado.")
                 continue
@@ -351,6 +359,23 @@ async def _handle_autorespond_report(
         async with session_factory() as session:
             await build_autorespond_service(session, state.settings, state.manager).record_run(
                 slug, frame.record
+            )
+
+    await asyncio.shield(_persist())
+
+
+async def _handle_scheduled_task_report(
+    ws: WebSocket, slug: str, frame: ScheduledTaskReportFrame
+) -> None:
+    """Records a scheduled run's outcome under the authenticated agent (Epic 08 ·
+    8.4). The service verifies the schedule belongs to that agent (anti-spoof).
+    Shielded so a mid-write disconnect doesn't half-apply it."""
+    state = ws.app.state
+
+    async def _persist():
+        async with state.session_factory() as session:
+            await build_schedule_service(session, state.settings).record_report(
+                slug, frame.schedule_id, frame.status, frame.summary
             )
 
     await asyncio.shield(_persist())

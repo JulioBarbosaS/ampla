@@ -79,6 +79,12 @@
   "client.pong": {
     "type": "pong"
   },
+  "client.scheduled_task_report": {
+    "schedule_id": 1,
+    "status": "ok",
+    "summary": "feito",
+    "type": "scheduled_task_report"
+  },
   "server.agent_activity": {
     "agent_id": "backend-julio",
     "state": "responding",
@@ -235,6 +241,13 @@
     "agent_id": "infra-maria",
     "status": "offline",
     "type": "presence"
+  },
+  "server.scheduled_task": {
+    "name": "Standup diário",
+    "prompt": "Poste um resumo do status no board.",
+    "schedule_id": 1,
+    "tools": "read",
+    "type": "scheduled_task"
   },
   "server.settings_update": {
     "settings": {
