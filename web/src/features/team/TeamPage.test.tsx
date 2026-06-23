@@ -9,7 +9,7 @@ import { useKillSwitchStore } from "../../stores/killSwitch";
 import { TeamPage } from "./TeamPage";
 
 vi.mock("../../lib/api/users", () => ({
-  usersApi: { list: vi.fn(), setRole: vi.fn().mockResolvedValue({}) },
+  usersApi: { list: vi.fn(), setRole: vi.fn().mockResolvedValue({}), auditLog: vi.fn() },
 }));
 
 vi.mock("../../lib/api/auth", () => ({
@@ -17,7 +17,7 @@ vi.mock("../../lib/api/auth", () => ({
 }));
 
 vi.mock("../../lib/api/admin", () => ({
-  adminApi: { getKillSwitch: vi.fn(), setKillSwitch: vi.fn() },
+  adminApi: { getKillSwitch: vi.fn(), setKillSwitch: vi.fn(), autorespondRuns: vi.fn() },
 }));
 
 const ADMIN = {
@@ -42,6 +42,8 @@ beforeEach(() => {
   vi.mocked(authApi.listInvites).mockResolvedValue([]);
   vi.mocked(adminApi.getKillSwitch).mockResolvedValue({ auto_responder_enabled: true });
   vi.mocked(adminApi.setKillSwitch).mockResolvedValue({ auto_responder_enabled: false });
+  vi.mocked(adminApi.autorespondRuns).mockResolvedValue([]);
+  vi.mocked(usersApi.auditLog).mockResolvedValue([]);
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -119,6 +121,14 @@ describe("TeamPage", () => {
     const btn = await screen.findByRole("button", { name: "Reativar respostas automáticas" });
     await userEvent.click(btn);
     expect(adminApi.setKillSwitch).toHaveBeenCalledWith(true);
+  });
+
+  it("shows the admin oversight sections (global runs + audit log)", async () => {
+    render(<TeamPage />);
+    expect(await screen.findByText("Atividade automática (todos)")).toBeInTheDocument();
+    expect(screen.getByText("Log de auditoria")).toBeInTheDocument();
+    expect(adminApi.autorespondRuns).toHaveBeenCalled();
+    expect(usersApi.auditLog).toHaveBeenCalled();
   });
 
   it("hides everything from non-admins", () => {

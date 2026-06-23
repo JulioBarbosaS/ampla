@@ -215,6 +215,15 @@ export interface AgentKey {
   revoked_at: string | null;
 }
 
+/** One row of the instance audit trail (admin-only — GET /api/users/audit). */
+export interface AuditEntry {
+  id: number;
+  event: string;
+  actor: string;
+  detail: Record<string, unknown> | null;
+  created_at: string;
+}
+
 export interface AgentKeyCreated {
   id: number;
   label: string;

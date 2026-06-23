@@ -43,7 +43,9 @@ function todaySummary(runs: AutorespondRun[]): { runs: number; tokens: number; c
   return { runs: count, tokens, cost };
 }
 
-function RunRow({ run }: { run: AutorespondRun }) {
+/** One run row. `showAgent` adds the agent slug — used by the instance-wide
+ * admin view, where runs span every agent (Epic 03 · 3.1 / admin oversight). */
+export function RunRow({ run, showAgent = false }: { run: AutorespondRun; showAgent?: boolean }) {
   const chip = RESULT_CHIP[run.result] ?? RESULT_CHIP.skipped;
   const g = run.guardrails ?? {};
   const sandbox = typeof g.sandbox === "string" ? g.sandbox : "host";
@@ -57,6 +59,11 @@ function RunRow({ run }: { run: AutorespondRun }) {
     <li className="space-y-1.5 rounded-md bg-zinc-900 px-3 py-2 text-xs">
       <div className="flex flex-wrap items-center gap-2">
         <span className={`rounded px-1.5 py-0.5 font-medium ${chip.cls}`}>{chip.label}</span>
+        {showAgent && (
+          <span className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-zinc-300">
+            {run.agent_slug}
+          </span>
+        )}
         <span className="text-zinc-400">
           de <span className="font-mono text-zinc-300">{run.from_sender}</span>
         </span>

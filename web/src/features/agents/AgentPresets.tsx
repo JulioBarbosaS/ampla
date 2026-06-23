@@ -37,6 +37,8 @@ export function AgentPresets({ agent, onChanged }: { agent: Agent; onChanged: ()
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [renamingId, setRenamingId] = useState<number | null>(null);
+  const [draftName, setDraftName] = useState("");
 
   function load() {
     setError(null);
@@ -86,6 +88,30 @@ export function AgentPresets({ agent, onChanged }: { agent: Agent; onChanged: ()
     }
   }
 
+  async function commitRename(preset: Preset) {
+    const next = draftName.trim();
+    setRenamingId(null);
+    if (!next || next === preset.name) return;
+    setError(null);
+    try {
+      const updated = await presetsApi.update(preset.id, { name: next });
+      setPresets((prev) => (prev ? prev.map((p) => (p.id === preset.id ? updated : p)) : prev));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao renomear preset.");
+    }
+  }
+
+  /** Overwrite the preset's settings with this agent's current config. */
+  async function updateSettings(preset: Preset) {
+    setError(null);
+    try {
+      const updated = await presetsApi.update(preset.id, { settings: snapshot(agent) });
+      setPresets((prev) => (prev ? prev.map((p) => (p.id === preset.id ? updated : p)) : prev));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao atualizar preset.");
+    }
+  }
+
   return (
     <div className="mt-4 border-t border-zinc-800 pt-3">
       <button
@@ -111,7 +137,20 @@ export function AgentPresets({ agent, onChanged }: { agent: Agent; onChanged: ()
                   key={p.id}
                   className="flex flex-wrap items-center gap-2 rounded-md bg-zinc-900 px-2.5 py-1.5 text-xs"
                 >
-                  <span className="text-zinc-200">{p.name}</span>
+                  {renamingId === p.id ? (
+                    <input
+                      aria-label={`Novo nome do preset ${p.name}`}
+                      value={draftName}
+                      // biome-ignore lint/a11y/noAutofocus: focus the field the user just opened
+                      autoFocus
+                      onChange={(e) => setDraftName(e.target.value)}
+                      onBlur={() => commitRename(p)}
+                      onKeyDown={(e) => e.key === "Enter" && commitRename(p)}
+                      className="min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-950 px-1.5 py-0.5 text-zinc-100"
+                    />
+                  ) : (
+                    <span className="text-zinc-200">{p.name}</span>
+                  )}
                   {p.owner_id === null && (
                     <span className="rounded bg-zinc-800 px-1 text-[10px] text-zinc-500">
                       padrão
@@ -134,14 +173,37 @@ export function AgentPresets({ agent, onChanged }: { agent: Agent; onChanged: ()
                         Aplicar
                       </button>
                     )}
-                    {p.owner_id !== null && (
-                      <button
-                        type="button"
-                        onClick={() => remove(p)}
-                        className="rounded px-2 py-0.5 text-zinc-500 hover:text-zinc-200"
-                      >
-                        Excluir
-                      </button>
+                    {/* Editing a preset is owner-only (default presets are read-only). */}
+                    {p.owner_id !== null && renamingId !== p.id && (
+                      <>
+                        <button
+                          type="button"
+                          aria-label={`Renomear preset ${p.name}`}
+                          onClick={() => {
+                            setRenamingId(p.id);
+                            setDraftName(p.name);
+                          }}
+                          className="rounded px-2 py-0.5 text-zinc-500 hover:text-zinc-200"
+                        >
+                          Renomear
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Atualizar preset ${p.name} com a config atual`}
+                          title="Salvar a configuração atual deste agente neste preset"
+                          onClick={() => updateSettings(p)}
+                          className="rounded px-2 py-0.5 text-zinc-500 hover:text-zinc-200"
+                        >
+                          Atualizar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => remove(p)}
+                          className="rounded px-2 py-0.5 text-zinc-500 hover:text-zinc-200"
+                        >
+                          Excluir
+                        </button>
+                      </>
                     )}
                   </span>
                 </li>

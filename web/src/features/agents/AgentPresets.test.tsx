@@ -8,7 +8,7 @@ import { AgentPresets } from "./AgentPresets";
 
 vi.mock("../../lib/api/agents", () => ({ agentsApi: { applyPreset: vi.fn() } }));
 vi.mock("../../lib/api/presets", () => ({
-  presetsApi: { list: vi.fn(), create: vi.fn(), remove: vi.fn() },
+  presetsApi: { list: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() },
 }));
 
 const AGENT = {
@@ -36,6 +36,14 @@ const SAFE: Preset = {
   created_at: "2026-06-13T10:00:00Z",
 };
 
+const OWNED: Preset = {
+  id: 2,
+  owner_id: 7,
+  name: "Meu preset",
+  settings: { ...AGENT } as unknown as Preset["settings"],
+  created_at: "2026-06-14T10:00:00Z",
+};
+
 const onChanged = vi.fn();
 
 beforeEach(() => {
@@ -43,6 +51,7 @@ beforeEach(() => {
   vi.mocked(presetsApi.list).mockResolvedValue([SAFE]);
   vi.mocked(agentsApi.applyPreset).mockResolvedValue(AGENT);
   vi.mocked(presetsApi.create).mockResolvedValue(SAFE);
+  vi.mocked(presetsApi.update).mockResolvedValue(OWNED);
 });
 afterEach(() => vi.clearAllMocks());
 
@@ -72,6 +81,37 @@ describe("AgentPresets", () => {
     expect(presetsApi.create).toHaveBeenCalledWith(
       "Meu preset",
       expect.objectContaining({ mode: "inbox" }),
+    );
+  });
+
+  it("a default preset is read-only (no edit affordances)", async () => {
+    await open();
+    await screen.findByText("Estrito (padrão)");
+    expect(screen.queryByRole("button", { name: /Renomear preset/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Atualizar preset/ })).not.toBeInTheDocument();
+  });
+
+  it("renames an owned preset", async () => {
+    vi.mocked(presetsApi.list).mockResolvedValue([OWNED]);
+    await open();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Renomear preset Meu preset" }),
+    );
+    const input = screen.getByLabelText("Novo nome do preset Meu preset");
+    await userEvent.clear(input);
+    await userEvent.type(input, "Renomeado{Enter}");
+    expect(presetsApi.update).toHaveBeenCalledWith(2, { name: "Renomeado" });
+  });
+
+  it("updates an owned preset with the agent's current config", async () => {
+    vi.mocked(presetsApi.list).mockResolvedValue([OWNED]);
+    await open();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Atualizar preset Meu preset com a config atual" }),
+    );
+    expect(presetsApi.update).toHaveBeenCalledWith(
+      2,
+      expect.objectContaining({ settings: expect.objectContaining({ mode: "inbox" }) }),
     );
   });
 });
