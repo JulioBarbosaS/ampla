@@ -60,9 +60,31 @@ pnpm lint        # biome
 pnpm e2e         # playwright (spins up a real hub)
 ```
 
-The full suite (lint + tests + coverage + e2e) runs in CI on every PR; run it
-locally before opening one. If you change the OpenAPI surface or a golden,
-regenerate it and **review the diff**: `AMP_UPDATE_GOLDEN=1 pytest tests/golden`.
+### One command for all gates
+
+`scripts/ci.sh` runs every gate — the **same checks** the GitHub Actions
+workflow runs, but on plain local git (no remote required):
+
+```bash
+scripts/ci.sh          # core: lint + format + types + tests (offline)
+scripts/ci.sh --audit  # + supply-chain audits (pip-audit, pnpm audit)
+scripts/ci.sh --e2e    # + real end-to-end (full-stack daemons + Playwright)
+scripts/ci.sh --all    # everything
+```
+
+Wire it as a pre-push gate once (so a broken push can't leave your machine):
+
+```bash
+git config core.hooksPath .githooks   # runs scripts/ci.sh before every push
+git push --no-verify                  # bypass once, in an emergency
+```
+
+`scripts/ci.sh` and `.github/workflows/ci.yml` mirror each other — a gate added
+to one belongs in the other.
+
+The full suite (lint + tests + coverage + e2e) also runs in CI on every PR. If
+you change the OpenAPI surface or a golden, regenerate it and **review the
+diff**: `AMP_UPDATE_GOLDEN=1 pytest tests/golden`.
 
 ## Submitting
 

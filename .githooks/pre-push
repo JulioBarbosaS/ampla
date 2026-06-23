@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#
+# Pre-push gate: run the core CI checks before any code leaves the machine.
+# This is "CI" on plain local git — no remote, no server required. The same
+# checks run in .github/workflows/ci.yml the day a remote exists.
+#
+# Enable once per clone:
+#   git config core.hooksPath .githooks
+# Bypass in an emergency (skips the checks for this push only):
+#   git push --no-verify
+
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+echo "▶ pre-push: rodando os gates do CI (scripts/ci.sh) — pule com 'git push --no-verify'"
+exec "$ROOT/scripts/ci.sh"
