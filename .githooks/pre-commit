@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#
+# Fast pre-commit gate (Epic 09 · 9.2): format + lint the package(s) with staged
+# changes. Kept quick on purpose — the full lint/type/test suite runs at
+# pre-push (scripts/ci.sh). Bypass once: git commit --no-verify.
+
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+_changed() { git diff --cached --name-only --diff-filter=ACM | grep -qE "$1"; }
+
+if _changed '^hub/.*\.py$'; then
+  RUFF="$ROOT/hub/.venv/bin/ruff"
+  [[ -x "$RUFF" ]] || RUFF="ruff"
+  (cd "$ROOT/hub" && "$RUFF" format --check app tests && "$RUFF" check app tests)
+fi
+if _changed '^bridge/.*\.(ts|tsx|json)$'; then
+  (cd "$ROOT/bridge" && pnpm exec biome check .)
+fi
+if _changed '^web/.*\.(ts|tsx|json)$'; then
+  (cd "$ROOT/web" && pnpm exec biome check .)
+fi
+
+echo "✓ pre-commit ok"

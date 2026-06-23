@@ -72,12 +72,18 @@ scripts/ci.sh --e2e    # + real end-to-end (full-stack daemons + Playwright)
 scripts/ci.sh --all    # everything
 ```
 
-Wire it as a pre-push gate once (so a broken push can't leave your machine):
+Wire the git hooks once (one setting enables all of `.githooks/`):
 
 ```bash
-git config core.hooksPath .githooks   # runs scripts/ci.sh before every push
-git push --no-verify                  # bypass once, in an emergency
+git config core.hooksPath .githooks
 ```
+
+- **pre-commit** — formats/lints the package(s) you touched (fast).
+- **commit-msg** — enforces Conventional Commits.
+- **pre-push** — runs the full `scripts/ci.sh`.
+
+Bypass any of them once with `--no-verify` (`git commit --no-verify`,
+`git push --no-verify`).
 
 `scripts/ci.sh` and `.github/workflows/ci.yml` mirror each other — a gate added
 to one belongs in the other.
@@ -85,6 +91,22 @@ to one belongs in the other.
 The full suite (lint + tests + coverage + e2e) also runs in CI on every PR. If
 you change the OpenAPI surface or a golden, regenerate it and **review the
 diff**: `AMP_UPDATE_GOLDEN=1 pytest tests/golden`.
+
+## Releasing
+
+The version lives in three files (`hub/pyproject.toml`, `bridge/package.json`,
+`web/package.json`), kept in lockstep — `scripts/version.sh --check` (part of
+`scripts/ci.sh`) fails if they drift. To cut a release:
+
+```bash
+scripts/release.sh X.Y.Z   # green CI → bump all three → move [Unreleased] into
+                           # a dated CHANGELOG section → commit + tag. No push.
+git push --follow-tags     # publishes the multi-arch image (ghcr.io) + a
+                           # GitHub Release (notes = the CHANGELOG section)
+```
+
+`release.sh` never pushes — you do, deliberately. Until a remote exists the tag
+just sits locally; the day one is added, the same push ships it.
 
 ## Submitting
 

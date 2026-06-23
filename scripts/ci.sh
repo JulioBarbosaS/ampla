@@ -116,6 +116,13 @@ if [ "$RUN_CORE" = 1 ]; then
   run "vitest" web pnpm exec vitest run
 fi
 
+# ── tooling (release scripts + git hooks — Epic 09) ──────────────────────────
+if [ "$RUN_CORE" = 1 ]; then
+  section "tooling · versão em lockstep + selftest"
+  run "version sync" . "$ROOT/scripts/version.sh" --check
+  run "release tooling selftest" . bash "$ROOT/scripts/selftest.sh"
+fi
+
 # ── supply-chain audits (opt-in: rede) ───────────────────────────────────────
 if [ "$RUN_AUDIT" = 1 ]; then
   section "auditoria de dependências (pip-audit / pnpm audit)"

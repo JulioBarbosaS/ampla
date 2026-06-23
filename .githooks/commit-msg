@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#
+# Validate the commit message against Conventional Commits (Epic 09 · 9.2) — the
+# convention the project already follows. A small POSIX-ish validator, no
+# commitlint/Node dependency (so it runs for hub-only contributors too).
+# Bypass once: git commit --no-verify.
+
+set -euo pipefail
+
+MSG_FILE="$1"
+# First meaningful line (skip comments + blanks).
+SUBJECT="$(grep -vE '^[[:space:]]*#' "$MSG_FILE" | grep -vE '^[[:space:]]*$' | head -1)"
+
+# Merge / fixup / squash commits are exempt.
+case "$SUBJECT" in
+  "Merge "* | "Revert "* | "fixup! "* | "squash! "*) exit 0 ;;
+esac
+
+TYPES='feat|fix|docs|test|ci|chore|refactor|perf|build|style|revert'
+if [[ "$SUBJECT" =~ ^(${TYPES})(\([a-z0-9,_/-]+\))?!?:\ .+ ]]; then
+  exit 0
+fi
+
+echo "✗ Mensagem fora do padrão Conventional Commits:" >&2
+echo "    \"${SUBJECT}\"" >&2
+echo "  Use: <tipo>(escopo opcional): descrição" >&2
+echo "  Tipos: ${TYPES//|/, }" >&2
+echo "  Ex.:  feat(hub): adiciona agendamento de tarefas" >&2
+echo "  (emergência: git commit --no-verify)" >&2
+exit 1
