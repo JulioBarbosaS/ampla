@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.kanban import (
     KanbanAgentGrant,
     KanbanBoard,
+    KanbanBoardMember,
     KanbanCard,
     KanbanCardComment,
     KanbanCardDep,
@@ -36,9 +37,17 @@ class KanbanRepository:
     async def list_visible_boards(self, user_id: int, *, is_admin: bool) -> list[KanbanBoard]:
         stmt = select(KanbanBoard)
         if not is_admin:
-            # Own boards + every team-visible board (private boards stay hidden).
+            # Own boards + every team-visible board + any private board this user
+            # was explicitly shared onto as a member (Epic 10).
+            member_board_ids = select(KanbanBoardMember.board_id).where(
+                KanbanBoardMember.user_id == user_id
+            )
             stmt = stmt.where(
-                or_(KanbanBoard.owner_id == user_id, KanbanBoard.visibility == "team")
+                or_(
+                    KanbanBoard.owner_id == user_id,
+                    KanbanBoard.visibility == "team",
+                    KanbanBoard.id.in_(member_board_ids),
+                )
             )
         stmt = stmt.order_by(KanbanBoard.created_at.desc(), KanbanBoard.id.desc())
         return list((await self._session.execute(stmt)).scalars())
@@ -77,6 +86,9 @@ class KanbanRepository:
         )
         await self._session.execute(
             KanbanAgentGrant.__table__.delete().where(KanbanAgentGrant.board_id == board.id)
+        )
+        await self._session.execute(
+            KanbanBoardMember.__table__.delete().where(KanbanBoardMember.board_id == board.id)
         )
         await self._session.delete(board)
         await self._session.commit()
@@ -330,4 +342,42 @@ class KanbanRepository:
 
     async def delete_grant(self, grant: KanbanAgentGrant) -> None:
         await self._session.delete(grant)
+        await self._session.commit()
+
+    # ---- members (per-user board sharing — Epic 10) ----
+
+    async def is_member(self, board_id: int, user_id: int) -> bool:
+        stmt = select(KanbanBoardMember.id).where(
+            KanbanBoardMember.board_id == board_id,
+            KanbanBoardMember.user_id == user_id,
+        )
+        return (await self._session.execute(stmt)).scalars().first() is not None
+
+    async def get_member(self, board_id: int, user_id: int) -> KanbanBoardMember | None:
+        stmt = select(KanbanBoardMember).where(
+            KanbanBoardMember.board_id == board_id,
+            KanbanBoardMember.user_id == user_id,
+        )
+        return (await self._session.execute(stmt)).scalars().first()
+
+    async def list_members(self, board_id: int) -> list[KanbanBoardMember]:
+        stmt = (
+            select(KanbanBoardMember)
+            .where(KanbanBoardMember.board_id == board_id)
+            .order_by(KanbanBoardMember.created_at, KanbanBoardMember.id)
+        )
+        return list((await self._session.execute(stmt)).scalars())
+
+    async def member_user_ids(self, board_id: int) -> list[int]:
+        stmt = select(KanbanBoardMember.user_id).where(KanbanBoardMember.board_id == board_id)
+        return list((await self._session.execute(stmt)).scalars())
+
+    async def add_member(self, member: KanbanBoardMember) -> KanbanBoardMember:
+        self._session.add(member)
+        await self._session.commit()
+        await self._session.refresh(member)
+        return member
+
+    async def delete_member(self, member: KanbanBoardMember) -> None:
+        await self._session.delete(member)
         await self._session.commit()

@@ -467,10 +467,12 @@ async def _handle_kanban_action(ws: WebSocket, slug: str, frame: KanbanActionFra
             board = await svc.get_board_raw(board_id)
             owner_id = board.owner_id if board else 0
             is_team = bool(board and board.visibility == "team")
-            return delta.model_dump(mode="json", by_alias=True), owner_id, is_team
+            # Private boards still reach the people they were shared with (Epic 10).
+            member_ids = set() if is_team else set(await svc.board_member_ids(board_id))
+            return delta.model_dump(mode="json", by_alias=True), owner_id, is_team, member_ids
 
     try:
-        payload, owner_id, is_team = await asyncio.shield(_apply())
+        payload, owner_id, is_team, member_ids = await asyncio.shield(_apply())
     except DomainError as exc:
         await _send_error(ws, exc.code, exc.detail)
         return
@@ -478,7 +480,7 @@ async def _handle_kanban_action(ws: WebSocket, slug: str, frame: KanbanActionFra
         await _send_error(ws, "invalid_input", "Payload de ação inválido.")
         return
 
-    await manager.notify_board(payload, owner_id=owner_id, is_team=is_team)
+    await manager.notify_board(payload, owner_id=owner_id, is_team=is_team, member_ids=member_ids)
 
 
 async def _handle_broadcast(ws: WebSocket, from_slug: str, frame: SendMessageFrame) -> None:

@@ -16,6 +16,7 @@ from app.models.hub_state import HubState
 from app.models.kanban import (
     KanbanAgentGrant,
     KanbanBoard,
+    KanbanBoardMember,
     KanbanCard,
     KanbanCardComment,
     KanbanCardDep,
@@ -473,6 +474,7 @@ class FakeKanbanRepository:
         self._cards: dict[int, KanbanCard] = {}
         self._comments: dict[int, KanbanCardComment] = {}
         self._grants: dict[int, KanbanAgentGrant] = {}
+        self._members: dict[int, KanbanBoardMember] = {}
         self._deps: list[KanbanCardDep] = []
         self._dep_seq = 0
         self._board_seq = 0
@@ -480,6 +482,7 @@ class FakeKanbanRepository:
         self._card_seq = 0
         self._comment_seq = 0
         self._grant_seq = 0
+        self._member_seq = 0
 
     # ---- boards ----
 
@@ -503,10 +506,14 @@ class FakeKanbanRepository:
         return found[0] if found else None
 
     async def list_visible_boards(self, user_id: int, *, is_admin: bool) -> list[KanbanBoard]:
+        member_board_ids = {m.board_id for m in self._members.values() if m.user_id == user_id}
         found = [
             b
             for b in self._boards.values()
-            if is_admin or b.owner_id == user_id or b.visibility == "team"
+            if is_admin
+            or b.owner_id == user_id
+            or b.visibility == "team"
+            or b.id in member_board_ids
         ]
         found.sort(key=lambda b: (b.created_at, b.id), reverse=True)
         return found
@@ -521,6 +528,7 @@ class FakeKanbanRepository:
         self._comments = {k: v for k, v in self._comments.items() if v.card_id not in card_ids}
         self._columns = {k: v for k, v in self._columns.items() if v.board_id != board.id}
         self._grants = {k: v for k, v in self._grants.items() if v.board_id != board.id}
+        self._members = {k: v for k, v in self._members.items() if v.board_id != board.id}
         self._boards.pop(board.id, None)
 
     # ---- columns ----
@@ -713,6 +721,35 @@ class FakeKanbanRepository:
 
     async def delete_grant(self, grant: KanbanAgentGrant) -> None:
         self._grants.pop(grant.id, None)
+
+    # ---- members (Epic 10) ----
+
+    async def is_member(self, board_id: int, user_id: int) -> bool:
+        return any(m.board_id == board_id and m.user_id == user_id for m in self._members.values())
+
+    async def get_member(self, board_id: int, user_id: int) -> KanbanBoardMember | None:
+        return next(
+            (m for m in self._members.values() if m.board_id == board_id and m.user_id == user_id),
+            None,
+        )
+
+    async def list_members(self, board_id: int) -> list[KanbanBoardMember]:
+        found = [m for m in self._members.values() if m.board_id == board_id]
+        found.sort(key=lambda m: (m.created_at, m.id))
+        return found
+
+    async def member_user_ids(self, board_id: int) -> list[int]:
+        return [m.user_id for m in self._members.values() if m.board_id == board_id]
+
+    async def add_member(self, member: KanbanBoardMember) -> KanbanBoardMember:
+        self._member_seq += 1
+        member.id = self._member_seq
+        _default(member, "created_at", utcnow())
+        self._members[member.id] = member
+        return member
+
+    async def delete_member(self, member: KanbanBoardMember) -> None:
+        self._members.pop(member.id, None)
 
 
 class FakeMessageRepository:

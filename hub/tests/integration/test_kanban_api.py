@@ -2,7 +2,7 @@
 plus the cross-user authorization convention (invisible board → 404, visible
 but non-owner governance → 403)."""
 
-from tests.helpers import auth, create_agent, create_key, do_setup, register_member
+from tests.helpers import MEMBER, auth, create_agent, create_key, do_setup, register_member
 
 
 def _agent_auth(slug: str, key: str) -> dict[str, str]:
@@ -348,3 +348,112 @@ class TestAgentReads:
             "/api/kanban/agent/boards", headers=_agent_auth("backend-ana", "amp_wrong")
         )
         assert resp.status_code == 401, resp.text
+
+
+def _user_id(client, admin_token: str, email: str) -> int:
+    users = client.get("/api/users", headers=auth(admin_token)).json()
+    return next(u["id"] for u in users if u["email"] == email)
+
+
+def _board_status(client, token: str, board_id: int) -> int:
+    return client.get(f"/api/kanban/boards/{board_id}", headers=auth(token)).status_code
+
+
+class TestMembers:
+    """Per-user board sharing (Epic 10): share a private board with specific
+    people; a member sees/edits it and grants their OWN agents."""
+
+    def test_share_private_board_with_specific_person(self, client):
+        admin = do_setup(client)
+        member = register_member(client, admin)
+        member_id = _user_id(client, admin, MEMBER["email"])
+        board = _create_board(client, admin, visibility="private")
+        # not shared yet → invisible
+        assert _board_status(client, member, board["id"]) == 404
+        resp = client.post(
+            f"/api/kanban/boards/{board['id']}/members",
+            json={"user_id": member_id},
+            headers=auth(admin),
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["email"] == MEMBER["email"]
+        # now visible + listed
+        assert _board_status(client, member, board["id"]) == 200
+        members = client.get(
+            f"/api/kanban/boards/{board['id']}/members", headers=auth(admin)
+        ).json()
+        assert [m["user_id"] for m in members] == [member_id]
+
+    def test_member_management_is_owner_only(self, client):
+        admin = do_setup(client)
+        member = register_member(client, admin)
+        member_id = _user_id(client, admin, MEMBER["email"])
+        board = _create_board(client, admin, visibility="team")  # visible to member
+        # a team-visible non-owner still cannot manage the sharing list (governance)
+        list_resp = client.get(f"/api/kanban/boards/{board['id']}/members", headers=auth(member))
+        assert list_resp.status_code == 403
+        assert (
+            client.post(
+                f"/api/kanban/boards/{board['id']}/members",
+                json={"user_id": member_id},
+                headers=auth(member),
+            ).status_code
+            == 403
+        )
+
+    def test_add_member_unknown_user_is_404(self, client):
+        admin = do_setup(client)
+        board = _create_board(client, admin, visibility="private")
+        resp = client.post(
+            f"/api/kanban/boards/{board['id']}/members",
+            json={"user_id": 9999},
+            headers=auth(admin),
+        )
+        assert resp.status_code == 404, resp.text
+
+    def test_member_grants_own_agent_but_not_others(self, client):
+        admin = do_setup(client)
+        member = register_member(client, admin)
+        member_id = _user_id(client, admin, MEMBER["email"])
+        create_agent(client, admin, "admin-ana")
+        create_agent(client, member, "dev-bob")
+        board = _create_board(client, admin, visibility="private")
+        client.post(
+            f"/api/kanban/boards/{board['id']}/members",
+            json={"user_id": member_id},
+            headers=auth(admin),
+        )
+        # member grants THEIR own agent → ok
+        ok = client.put(
+            f"/api/kanban/boards/{board['id']}/grants",
+            json={"agent_slug": "dev-bob", "role": "contributor"},
+            headers=auth(member),
+        )
+        assert ok.status_code == 200, ok.text
+        # member cannot grant the admin's agent → 403
+        denied = client.put(
+            f"/api/kanban/boards/{board['id']}/grants",
+            json={"agent_slug": "admin-ana", "role": "viewer"},
+            headers=auth(member),
+        )
+        assert denied.status_code == 403, denied.text
+
+    def test_remove_member_revokes_visibility(self, client):
+        admin = do_setup(client)
+        member = register_member(client, admin)
+        member_id = _user_id(client, admin, MEMBER["email"])
+        board = _create_board(client, admin, visibility="private")
+        client.post(
+            f"/api/kanban/boards/{board['id']}/members",
+            json={"user_id": member_id},
+            headers=auth(admin),
+        )
+        assert _board_status(client, member, board["id"]) == 200
+        assert (
+            client.delete(
+                f"/api/kanban/boards/{board['id']}/members/{member_id}", headers=auth(admin)
+            ).status_code
+            == 204
+        )
+        # access revoked → 404 again
+        assert _board_status(client, member, board["id"]) == 404

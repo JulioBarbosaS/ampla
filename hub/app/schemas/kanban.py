@@ -198,6 +198,26 @@ class GrantOut(BaseModel):
     role: str
 
 
+# ---- board members (per-user sharing — Epic 10) ----
+
+
+class MemberAdd(BaseModel):
+    """Share a board with a specific person (owner/admin only)."""
+
+    user_id: int
+
+
+class MemberOut(BaseModel):
+    """A board member, enriched with the person's name/email so the panel can
+    render the sharing list without a second lookup."""
+
+    board_id: int
+    user_id: int
+    name: str
+    email: str
+    created_at: datetime
+
+
 # ---- aggregate (initial render) ----
 
 

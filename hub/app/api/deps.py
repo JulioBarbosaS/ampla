@@ -146,6 +146,7 @@ def build_kanban_service(session: AsyncSession, settings=None, manager=None) -> 
         audit=AuditRepository(session),
         agents=AgentRepository(session),
         notifications=notifications,
+        users=UserRepository(session),
     )
 
 

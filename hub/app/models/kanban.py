@@ -99,6 +99,22 @@ class KanbanAgentGrant(Base):
     role: Mapped[str] = mapped_column(String(12))
 
 
+class KanbanBoardMember(Base):
+    """A human shared onto a board (Epic 10). A member sees and edits the board
+    like a team member would, and may grant their OWN agents a role on it; board
+    governance (settings, members, delete) stays owner/admin only. Membership is
+    what lets a *private* board be shared with specific people instead of the
+    whole team. Unique per (board, user)."""
+
+    __tablename__ = "kanban_board_members"
+    __table_args__ = (Index("ix_kanban_board_members_pair", "board_id", "user_id", unique=True),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    board_id: Mapped[int] = mapped_column(ForeignKey("kanban_boards.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class KanbanCardDep(Base):
     """A blocking dependency between cards (Epic 06 · 6.7 DAG): `card_id` is
     blocked until `depends_on_id` reaches a `is_done` column. Both cards live on

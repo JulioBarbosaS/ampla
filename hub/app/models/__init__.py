@@ -9,6 +9,7 @@ from app.models.hub_state import HubState
 from app.models.kanban import (
     KanbanAgentGrant,
     KanbanBoard,
+    KanbanBoardMember,
     KanbanCard,
     KanbanCardComment,
     KanbanCardDep,
@@ -33,6 +34,7 @@ __all__ = [
     "HubState",
     "KanbanAgentGrant",
     "KanbanBoard",
+    "KanbanBoardMember",
     "KanbanCard",
     "KanbanCardComment",
     "KanbanCardDep",

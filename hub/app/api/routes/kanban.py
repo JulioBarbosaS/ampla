@@ -31,6 +31,8 @@ from app.schemas.kanban import (
     DepCreate,
     GrantOut,
     GrantSet,
+    MemberAdd,
+    MemberOut,
 )
 from app.services.kanban_service import KanbanService
 from app.services.message_service import MessageService
@@ -323,3 +325,50 @@ async def remove_grant(
     svc: KanbanService = Depends(get_kanban_service),
 ) -> None:
     await svc.remove_grant(user, board_id, agent_slug)
+
+
+# ---- board members (per-user sharing — Epic 10) ----
+#
+# Sharing a board with specific people. Management is owner/admin only; once
+# shared, a member sees + edits the board like a team member and may grant their
+# OWN agents a role on it (the grant routes above enforce that authority).
+
+
+def _member_out(member, target) -> MemberOut:
+    return MemberOut(
+        board_id=member.board_id,
+        user_id=member.user_id,
+        name=target.name,
+        email=target.email,
+        created_at=member.created_at,
+    )
+
+
+@router.get("/boards/{board_id}/members", response_model=list[MemberOut])
+async def list_members(
+    board_id: int,
+    user: User = Depends(get_current_user),
+    svc: KanbanService = Depends(get_kanban_service),
+) -> list[MemberOut]:
+    return [_member_out(m, u) for m, u in await svc.list_members(user, board_id)]
+
+
+@router.post("/boards/{board_id}/members", response_model=MemberOut, status_code=201)
+async def add_member(
+    board_id: int,
+    body: MemberAdd,
+    user: User = Depends(get_current_user),
+    svc: KanbanService = Depends(get_kanban_service),
+) -> MemberOut:
+    member, target = await svc.add_member(user, board_id, body.user_id)
+    return _member_out(member, target)
+
+
+@router.delete("/boards/{board_id}/members/{user_id}", status_code=204)
+async def remove_member(
+    board_id: int,
+    user_id: int,
+    user: User = Depends(get_current_user),
+    svc: KanbanService = Depends(get_kanban_service),
+) -> None:
+    await svc.remove_member(user, board_id, user_id)

@@ -116,12 +116,14 @@ class TestGrantManagement:
         with pytest.raises(NotFoundError):
             await svc.set_grant(owner, board.id, "ghost-agent", "viewer")
 
-    async def test_grant_management_is_owner_only(self):
+    async def test_member_cannot_grant_someone_elses_agent(self):
         svc, _boards, _audit, users, owner = await _setup()
         member = await users.add(User(email="m@amp.local", name="M", password_hash="x"))
         board = await svc.create_board(owner, BoardCreate(name="B", visibility="team"))
-        # a team member can see the board but cannot manage its grants
+        # a board-visible user may NOT grant an agent they don't own (backend-ana
+        # belongs to the owner) — relaxed grants only cover one's OWN agents (Epic 10).
         with pytest.raises(PermissionDeniedError):
             await svc.set_grant(member, board.id, "backend-ana", "viewer")
-        with pytest.raises(PermissionDeniedError):
-            await svc.list_grants(member, board.id)
+        # but reading the grant list is open to any board-visible user (Epic 10:
+        # members manage their own agents, so they need to see the list).
+        assert await svc.list_grants(member, board.id) == []

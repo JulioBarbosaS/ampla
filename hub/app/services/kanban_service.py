@@ -3,8 +3,10 @@ routes and the WS handler only ever call this layer (docs/ARCHITECTURE.md).
 
 Authorization (6.1, humans): the board owner has full control; on a `team`
 board every member is editor-equivalent (manage columns + cards); a `private`
-board is owner-only for humans. Board governance (settings, delete, grants) is
-owner/admin only. Per-agent grants restrict AGENTS and are layered on in 6.3.
+board is owner-only for humans, plus anyone it was explicitly shared with
+(Epic 10 membership). Board governance (settings, delete, members) is owner/admin
+only. Per-agent grants restrict AGENTS (§6.3); the owner/admin may grant any
+agent, and a board-visible user may grant only their OWN agents (Epic 10).
 
 Security: `created_by`/`author`/`assignee` are stamped from the AUTHENTICATED
 actor, never trusted from the client (anti-spoof). Every mutation is audited.
@@ -14,6 +16,7 @@ from app.core.mentions import parse_mentions
 from app.models.kanban import (
     KanbanAgentGrant,
     KanbanBoard,
+    KanbanBoardMember,
     KanbanCard,
     KanbanCardComment,
     KanbanCardDep,
@@ -23,6 +26,7 @@ from app.models.user import User, utcnow
 from app.repositories.agent_repo import AgentRepository
 from app.repositories.audit_repo import AuditRepository
 from app.repositories.kanban_repo import KanbanRepository
+from app.repositories.user_repo import UserRepository
 from app.schemas.kanban import (
     GRANTABLE_ROLES,
     BoardCreate,
@@ -88,6 +92,7 @@ class KanbanService:
         audit: AuditRepository,
         agents: AgentRepository | None = None,
         notifications: NotificationService | None = None,
+        users: UserRepository | None = None,
     ) -> None:
         self._boards = boards
         self._audit = audit
@@ -96,6 +101,8 @@ class KanbanService:
         # Drives the Inbox integration (Epic 06 · 6.5): assignment / move / comment
         # notifications. Optional so read-only builds stay lightweight.
         self._notifications = notifications
+        # Validates board-member targets (Epic 10 · per-user board sharing).
+        self._users = users
 
     # ---- boards ----
 
@@ -599,6 +606,12 @@ class KanbanService:
         card = await self._boards.get_card(card_id)
         return await self._boards.get_board(card.board_id) if card else None
 
+    async def board_member_ids(self, board_id: int) -> list[int]:
+        """User ids explicitly shared onto a board (Epic 10) — for the WS layer to
+        also route a `kanban_delta` to a private board's members. No authz; never
+        returned to a client."""
+        return await self._boards.member_user_ids(board_id)
+
     # ---- Inbox integration (Epic 06 · 6.5) ----
 
     async def _resolve_user_id(self, identity: str | None) -> int | None:
@@ -899,19 +912,76 @@ class KanbanService:
                 out.append(dep)
         return out
 
-    # ---- grants & capability (per-agent, per-board — Epic 06 · 6.3) ----
+    # ---- members (per-user board sharing — Epic 10) ----
+
+    async def list_members(self, user: User, board_id: int) -> list[tuple[KanbanBoardMember, User]]:
+        """The board's shared members, enriched with each member's user record.
+        Owner/admin only (governance) — a member can see the board but not its
+        sharing list."""
+        await self._owned_board(user, board_id)
+        members = await self._boards.list_members(board_id)
+        out: list[tuple[KanbanBoardMember, User]] = []
+        for member in members:
+            target = await self._users.get_by_id(member.user_id) if self._users else None
+            if target is not None:
+                out.append((member, target))
+        return out
+
+    async def add_member(
+        self, user: User, board_id: int, target_user_id: int
+    ) -> tuple[KanbanBoardMember, User]:
+        """Share a board with a specific person (owner/admin). Idempotent: a repeat
+        add returns the existing membership. Audited `kanban_member_added`."""
+        await self._owned_board(user, board_id)
+        if self._users is None:
+            raise InvalidInputError("Gestão de membros indisponível.")
+        target = await self._users.get_by_id(target_user_id)
+        if target is None:
+            raise NotFoundError("Usuário não encontrado.")
+        member = await self._boards.get_member(board_id, target_user_id)
+        if member is None:
+            member = await self._boards.add_member(
+                KanbanBoardMember(board_id=board_id, user_id=target_user_id)
+            )
+            await self._audit.record(
+                "kanban_member_added",
+                actor=user.email,
+                detail={"board_id": board_id, "user_id": target_user_id},
+            )
+        return member, target
+
+    async def remove_member(self, user: User, board_id: int, target_user_id: int) -> None:
+        """Stop sharing the board with a person (owner/admin). Idempotent. Their
+        agents' grants are left as-is — revoke those separately if needed. Audited
+        `kanban_member_removed`."""
+        await self._owned_board(user, board_id)
+        member = await self._boards.get_member(board_id, target_user_id)
+        if member is None:
+            return  # idempotent
+        await self._boards.delete_member(member)
+        await self._audit.record(
+            "kanban_member_removed",
+            actor=user.email,
+            detail={"board_id": board_id, "user_id": target_user_id},
+        )
+
+    # ---- grants & capability (per-agent, per-board — Epic 06 · 6.3 / Epic 10) ----
 
     async def list_grants(self, user: User, board_id: int) -> list[KanbanAgentGrant]:
-        await self._owned_board(user, board_id)  # governance: owner/admin only
+        # Any board-visible user may read the grants (so a shared member can manage
+        # their own agents' access, Epic 10); writes are still authority-checked.
+        await self._visible_board(user, board_id)
         return await self._boards.list_grants(board_id)
 
     async def set_grant(
         self, user: User, board_id: int, agent_slug: str, role: str
     ) -> KanbanAgentGrant:
-        """Grant an agent a role on a board (owner/admin). A privileged action —
-        granting write to an AI is treated like relaxing a guardrail: audited as
-        `kanban_grant_set` (and behind the danger-zone confirm in the UI, §6.6)."""
-        await self._owned_board(user, board_id)
+        """Grant an agent a role on a board. A privileged action — granting write
+        to an AI is treated like relaxing a guardrail: audited as `kanban_grant_set`
+        (and behind the danger-zone confirm in the UI, §6.6). Authority (Epic 10):
+        the owner/admin may grant ANY agent; any other board-visible user may grant
+        only an agent they own."""
+        await self._authorize_grant(user, board_id, agent_slug)
         if role not in GRANTABLE_ROLES:
             raise InvalidInputError(f"Papel inválido: {role!r}.")
         if self._agents is not None and await self._agents.get(agent_slug) is None:
@@ -932,7 +1002,7 @@ class KanbanService:
         return grant
 
     async def remove_grant(self, user: User, board_id: int, agent_slug: str) -> None:
-        await self._owned_board(user, board_id)
+        await self._authorize_grant(user, board_id, agent_slug)
         grant = await self._boards.get_grant(board_id, agent_slug)
         if grant is None:
             return  # idempotent
@@ -942,6 +1012,20 @@ class KanbanService:
             actor=user.email,
             detail={"board_id": board_id, "agent": agent_slug},
         )
+
+    async def _authorize_grant(self, user: User, board_id: int, agent_slug: str) -> KanbanBoard:
+        """Who may grant/revoke a given agent on a board (Epic 10): the owner/admin
+        for any agent; any other board-visible user only for an agent they own. A
+        404 first (board not visible) never leaks the board's existence."""
+        board = await self._visible_board(user, board_id)
+        if board.owner_id == user.id or user.role == "admin":
+            return board
+        agent = await self._agents.get(agent_slug) if self._agents else None
+        if agent is None or agent.user_id != user.id:
+            raise PermissionDeniedError(
+                "Você só pode gerenciar o acesso dos seus próprios agentes."
+            )
+        return board
 
     async def agent_role(self, board: KanbanBoard, agent_slug: str) -> str:
         """The agent's effective role on a board: an explicit grant, else the
@@ -957,12 +1041,21 @@ class KanbanService:
     # ---- internals ----
 
     def _human_can_see(self, user: User, board: KanbanBoard) -> bool:
+        """Cheap, sync visibility: admin, owner, or a team board. A private board
+        shared with specific people needs the async membership check (Epic 10)."""
         return user.role == "admin" or board.owner_id == user.id or board.visibility == "team"
+
+    async def _can_see(self, user: User, board: KanbanBoard) -> bool:
+        """Full human visibility: the cheap cases, else an explicit board membership
+        (a private board shared with this person — Epic 10)."""
+        if self._human_can_see(user, board):
+            return True
+        return await self._boards.is_member(board.id, user.id)
 
     async def _visible_board(self, user: User, board_id: int) -> KanbanBoard:
         """The board if the human may access it, else 404 (never leak existence)."""
         board = await self._boards.get_board(board_id)
-        if board is None or not self._human_can_see(user, board):
+        if board is None or not await self._can_see(user, board):
             raise NotFoundError("Quadro não encontrado.")
         return board
 
