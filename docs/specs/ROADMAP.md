@@ -23,10 +23,27 @@ code is written until an epic is approved.
 | [05](05-account-auth.md) | Account & Auth | `PATCH /api/auth/me` (name) · change password · avatar upload (server-side) · forgot-password reset | **yes** | Med |
 | [06](06-kanban.md) | Kanban / Task Board | Boards/columns/cards + comments · fractional-rank ordering w/ concurrency control · per-agent per-board role grants (dev-only default) · `amp_kanban_*` MCP · WS deltas + inbox notifications · live board view | **yes** | Med–High |
 
+### Proposed follow-ups (from the project-suggestions list)
+
+These three are **proposals** drafted after Epics 01–06 shipped; numbers in
+parentheses map to the project-suggestions list discussed with the maintainer.
+
+| # | Epic | Features | From | Risk |
+|---|---|---|---|---|
+| [07](07-kanban-lifecycle.md) | Kanban Lifecycle & Origin Linking | delegation-complete → card to Done · escalation resolution → Done · `origin` surfacing (card ↔ conversation) · conversation → card (fills `message`/`thread` kinds) | #10 | Med |
+| [08](08-scheduled-agent-tasks.md) | Scheduled Agent Tasks | real scheduler engine (cron/interval) · maintenance sweeps folded in · `agent_schedules` model + CRUD · `scheduled_task` frame → daemon runs the agent · schedule UI | #9 (+#5) | Med–High |
+| [09](09-release-engineering.md) | Release Engineering & Dev Hooks | version single-source + sync gate · pre-commit format + commit-msg validator · `release.sh` (cut/changelog/tag) · GitHub Release from CHANGELOG | #8 | Low–Med |
+
 > Epics 01–06 are **done**. Epic 06 shipped 6.1–6.6 (core data, race-safe
 > ordering, per-agent permissions, MCP + agent-key reads, inbox integration,
-> live board UI); event-driven cards + the grants/danger-zone UI + card-detail +
-> drag-and-drop are deferred follow-ups (see the Epic 06 checklist).
+> live board UI) plus the deferred follow-ups (event cards, grants/danger-zone
+> UI, card detail + comments, full board/column management, card dependencies/
+> DAG). Epics **07–09 are proposals** — no code until approved.
+>
+> CI/CD (suggestion #1) is partly in place already: `.github/workflows/ci.yml` +
+> `release.yml` + `dependabot.yml` exist, and `scripts/ci.sh` + `.githooks/pre-push`
+> run the same gates on plain local git today. Epic 09 builds the release ritual
+> on top.
 
 ## Suggested sequencing & why
 
