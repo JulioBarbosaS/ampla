@@ -251,23 +251,34 @@ the endpoint; disable toggles without delete.
 
 ## Epic 08 milestone checklist
 
-- [ ] 8.1 Scheduler engine (tick loop, claim-before-fire, catch-up collapse, pure
-  `next_run` helper) — unit + engine tests
-- [ ] 8.2 Maintenance sweeps folded in as internal recurring jobs (startup
-  catch-up retained) — audited counts
-- [ ] 8.3 `agent_schedules` model + CRUD + ownership authz + min-interval + golden
-  openapi
-- [ ] 8.4 `scheduled_task` / `scheduled_task_report` frames (mirror + ws_frames
-  golden); daemon reuses the claude runner + guardrails; offline/kill-switch/pause
-  gates; full-stack e2e
-- [ ] 8.5 Per-agent schedule UI + cron/interval picker + danger-zone for tool
-  access + run-now
-- [ ] Every fire audited; trusted-prompt vs. tool-grant boundary enforced; the
-  `[auto]` anti-loop prefix on scheduled sends
-- [ ] UI exposes the full schedule surface (standing "UI covers backend" rule)
+- [x] 8.1 `next_run` algebra (interval/once/cron, pure + deterministic) +
+  `SchedulerEngine` tick loop (claim-before-fire, catch-up collapse) — unit +
+  engine tests (`93fe75e`, `b90abb3`)
+- [x] 8.2 Maintenance sweeps folded into the engine as a recurring job (startup
+  catch-up retained) (`b90abb3`)
+- [x] 8.3 `agent_schedules` model + CRUD + ownership authz + interval floor +
+  golden openapi (`c354596`)
+- [x] 8.4 `scheduled_task` / `scheduled_task_report` frames (mirror + ws_frames
+  golden); daemon reuses the claude runner + guardrails (`AutoResponder.runTask`);
+  offline/kill-switch/pause gates (`b90abb3`, `35e19a0`)
+- [x] 8.5 Per-agent "Agendamentos" UI + cron/interval/once picker + danger-zone
+  confirm for write + run-now (`cdd3abf`)
+- [x] Every fire audited (`scheduled_task_fired` / `scheduled_task_run`);
+  trusted-prompt vs. write-grant boundary enforced (read-only default)
+- [x] UI exposes the full schedule surface (standing "UI covers backend" rule)
 
-Recommended order: 8.1 → 8.2 (proves the engine on safe internal jobs) → 8.3 →
-8.4 (the hard, security-critical slice) → 8.5.
+Built in order: 8.1 → 8.3 → 8.2/engine + 8.4 → 8.5.
+
+### Deferred to a follow-up (not built)
+
+- **Full-stack e2e** (real hub fires a real daemon with a fake claude runner):
+  covered at the seam by the engine integration test + the daemon `runTask`
+  unit test + the protocol mirror; the end-to-end lane needs time control over
+  the tick and is left out.
+- **MCP-enabled scheduled tasks** (post to the board / message via `ampla` MCP):
+  v1 runs the prompt with filesystem read/write guardrails only — the runner
+  still uses `--strict-mcp-config`. Granting `ampla` MCP to a scheduled (trusted)
+  run is the natural next step, paired with the kanban `origin` `{kind:schedule}`.
 
 ---
 
