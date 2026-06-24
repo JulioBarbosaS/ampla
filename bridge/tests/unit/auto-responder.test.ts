@@ -101,6 +101,15 @@ describe("AutoResponder.runTask (Epic 08 · scheduled tasks)", () => {
     expect(res.status).toBe("failed");
     expect(res.summary).toContain("claude caiu");
   });
+
+  it("reports blocked when the output leaks a secret (never echoed back)", async () => {
+    // Same output guard as auto-respond: a scheduled run whose result contains a
+    // secret is reported `blocked`, and the secret never appears in the summary.
+    const runner = vi.fn().mockResolvedValue("a chave é sk-ant-api03-abcdefghijklmnopqrst");
+    const res = await makeResponder(runner).runTask("vasculhe o repo", settings(), false);
+    expect(res.status).toBe("blocked");
+    expect(res.summary).not.toContain("sk-ant-api03");
+  });
 });
 
 describe("withinSchedule (availability window)", () => {

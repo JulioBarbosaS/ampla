@@ -12,8 +12,9 @@ function statusChip(status: string | null): { label: string; cls: string } {
   if (!status) return { label: "nunca executou", cls: "bg-zinc-800 text-zinc-400" };
   if (status === "ok") return { label: "ok", cls: "bg-emerald-900/50 text-emerald-300" };
   if (status === "running") return { label: "executando…", cls: "bg-amber-900/50 text-amber-300" };
-  if (status === "failed" || status === "blocked")
-    return { label: status, cls: "bg-red-900/50 text-red-300" };
+  if (status === "failed") return { label: "falhou", cls: "bg-red-900/50 text-red-300" };
+  if (status === "blocked")
+    return { label: "bloqueado (segredo)", cls: "bg-red-900/50 text-red-300" };
   return { label: status.replace("skipped_", "pulado: "), cls: "bg-zinc-800 text-zinc-400" };
 }
 

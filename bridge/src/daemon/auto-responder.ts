@@ -521,7 +521,7 @@ export class AutoResponder {
     prompt: string,
     settings: AgentSettings,
     writable: boolean,
-  ): Promise<{ status: "ok" | "failed"; summary: string }> {
+  ): Promise<{ status: "ok" | "failed" | "blocked"; summary: string }> {
     const guardrails = buildGuardrails({ ...settings, allow_write: writable }, "__scheduler__");
     const cwd = this.opts.projectDir;
     let raw: string;
@@ -541,7 +541,14 @@ export class AutoResponder {
     }
     const parsed = parseClaudeOutput(raw, false);
     if (!parsed.ok) return { status: "failed", summary: parsed.reason };
-    return { status: "ok", summary: (parsed.text ?? "").slice(0, 280) };
+    const text = parsed.text ?? "";
+    // Same output guard as auto-respond (Threat 1): a scheduled run whose output
+    // leaks a secret is reported `blocked`, never echoed back in the summary.
+    const scan = scanForSecrets(text);
+    if (!scan.clean) {
+      return { status: "blocked", summary: `filtro de segredos: ${scan.matches.join(", ")}` };
+    }
+    return { status: "ok", summary: text.slice(0, 280) };
   }
 
   private allowByRate(maxPerHour: number): boolean {
