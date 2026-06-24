@@ -1028,10 +1028,33 @@ class KanbanService:
         return board
 
     async def agent_role(self, board: KanbanBoard, agent_slug: str) -> str:
-        """The agent's effective role on a board: an explicit grant, else the
-        board's `default_agent_role` (`none` = dev-only)."""
+        """The agent's effective role on a board: an explicit grant wins; otherwise
+        the board's `default_agent_role` — but a non-`team` default only applies to
+        agents whose OWNER can see the board (Epic 10). Without that gate, a private
+        board with a non-`none` default would be open to every agent of every user,
+        broader than "members bring their own agents". `none` = dev-only."""
         grant = await self._boards.get_grant(board.id, agent_slug)
-        return grant.role if grant else board.default_agent_role
+        if grant is not None:
+            return grant.role
+        if board.default_agent_role == "none":
+            return "none"
+        if await self._default_role_applies(board, agent_slug):
+            return board.default_agent_role
+        return "none"
+
+    async def _default_role_applies(self, board: KanbanBoard, agent_slug: str) -> bool:
+        """Whether `board.default_agent_role` reaches this agent: always on a `team`
+        board; on a private board only when the agent's owner can see it (owner /
+        admin / shared member)."""
+        if board.visibility == "team":
+            return True
+        if self._agents is None or self._users is None:
+            return False
+        agent = await self._agents.get(agent_slug)
+        if agent is None:
+            return False
+        owner = await self._users.get_by_id(agent.user_id)
+        return owner is not None and await self._can_see(owner, board)
 
     @staticmethod
     def _agent_owns(card: KanbanCard, agent_slug: str) -> bool:

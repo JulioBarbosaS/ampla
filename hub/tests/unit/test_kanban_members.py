@@ -155,3 +155,36 @@ class TestMemberGrantAuthority:
         # João is a member of `shared` only → cannot grant on `other`
         with pytest.raises(NotFoundError):
             await svc.set_grant(joao, other.id, "joao-backend", "viewer")
+
+
+class TestDefaultRoleVisibility:
+    """`default_agent_role` must not be a backdoor: on a private board it reaches
+    only agents whose owner can see the board (Epic 10), not every agent."""
+
+    async def test_default_role_on_private_board_only_for_visible_owners(self):
+        svc, _audit, owner, joao, maria = await _setup()
+        board = await svc.create_board(
+            owner, BoardCreate(name="P", visibility="private", default_agent_role="viewer")
+        )
+        # João/Maria aren't members → their agents get NONE despite the default
+        assert await svc.agent_role(board, "joao-backend") == "none"
+        assert await svc.agent_role(board, "maria-front") == "none"
+        # share with João → his agent now inherits the board default; Maria's not
+        await svc.add_member(owner, board.id, joao.id)
+        assert await svc.agent_role(board, "joao-backend") == "viewer"
+        assert await svc.agent_role(board, "maria-front") == "none"
+
+    async def test_default_role_on_team_board_applies_to_all_agents(self):
+        svc, _audit, owner, _joao, _maria = await _setup()
+        board = await svc.create_board(
+            owner, BoardCreate(name="T", visibility="team", default_agent_role="viewer")
+        )
+        assert await svc.agent_role(board, "joao-backend") == "viewer"
+        assert await svc.agent_role(board, "maria-front") == "viewer"
+
+    async def test_explicit_grant_bypasses_the_visibility_gate(self):
+        svc, _audit, owner, _joao, _maria = await _setup()
+        board = await svc.create_board(owner, BoardCreate(name="P", visibility="private"))
+        # the owner may grant ANY agent, even one whose owner can't see the board
+        await svc.set_grant(owner, board.id, "maria-front", "editor")
+        assert await svc.agent_role(board, "maria-front") == "editor"
