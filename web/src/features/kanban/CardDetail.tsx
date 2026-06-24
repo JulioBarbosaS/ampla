@@ -17,11 +17,15 @@ const PRIORITIES = ["urgent", "high", "normal", "low"] as const;
 export function CardDetail({
   card,
   boardCards,
+  liveComments,
   onClose,
   onChanged,
 }: {
   card: KanbanCard;
   boardCards: KanbanCard[];
+  /** Comments arriving live for any card (from kanban_delta); CardDetail merges
+   * the ones for THIS card, deduped by id, so an open thread stays current. */
+  liveComments?: KanbanComment[];
   onClose: () => void;
   onChanged: (card: KanbanCard | null) => void;
 }) {
@@ -136,6 +140,15 @@ export function CardDetail({
       setBusy(false);
     }
   }
+
+  // Loaded comments are the base; live ones for THIS card (e.g. an agent
+  // commented while the panel is open) are overlaid at render, deduped by id, so
+  // an async (re)load can't clobber them and a duplicate delta is harmless.
+  const seenIds = new Set(comments.map((c) => c.id));
+  const shownComments = [
+    ...comments,
+    ...(liveComments ?? []).filter((c) => c.card_id === card.id && !seenIds.has(c.id)),
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -283,10 +296,10 @@ export function CardDetail({
 
         <h3 className="text-sm font-medium text-zinc-300">Comentários</h3>
         <ul className="flex flex-col gap-2">
-          {comments.length === 0 && (
+          {shownComments.length === 0 && (
             <li className="text-xs text-zinc-500">Nenhum comentário ainda.</li>
           )}
-          {comments.map((c) => (
+          {shownComments.map((c) => (
             <li key={c.id} className="rounded bg-zinc-800 p-2 text-sm text-zinc-100">
               <p className="mb-1 text-xs text-zinc-400">{c.author}</p>
               <Markdown>{c.body}</Markdown>

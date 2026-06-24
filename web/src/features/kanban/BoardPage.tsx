@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "../../lib/api/client";
 import { cardsOf, kanbanApi, sortColumns } from "../../lib/api/kanban";
-import type { KanbanBoard, KanbanBoardFull, KanbanCard, KanbanColumn } from "../../lib/api/types";
+import type {
+  KanbanBoard,
+  KanbanBoardFull,
+  KanbanCard,
+  KanbanColumn,
+  KanbanComment,
+} from "../../lib/api/types";
 import { connectObserver } from "../../lib/ws/observer";
 import { useAuthStore } from "../../stores/auth";
 import { BoardSettings } from "./BoardSettings";
@@ -24,6 +30,9 @@ export function BoardPage() {
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [openCardId, setOpenCardId] = useState<number | null>(null);
+  // Comments arriving live (agent comments come as kanban_delta) — forwarded to
+  // an open CardDetail so its thread stays current without a reopen.
+  const [liveComments, setLiveComments] = useState<KanbanComment[]>([]);
   const [newBoardName, setNewBoardName] = useState("");
   const [showNewBoard, setShowNewBoard] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
@@ -61,7 +70,13 @@ export function BoardPage() {
       onOnlineList: () => {},
       onKanbanDelta: (delta) => {
         if (delta.board_id !== boardId) return;
-        if (delta.op === "comment_added") return; // comments aren't shown in v1
+        if (delta.op === "comment_added") {
+          // Forward to the open CardDetail (capped); the board list shows no
+          // comments. CardDetail dedups by id against what it already loaded.
+          const added = delta.comment;
+          if (added) setLiveComments((cur) => [...cur, added].slice(-200));
+          return;
+        }
         setFull((cur) => {
           if (!cur) return cur;
           if (delta.op === "card_deleted" && delta.card) {
@@ -403,6 +418,7 @@ export function BoardPage() {
         <CardDetail
           card={openCard}
           boardCards={full?.cards ?? []}
+          liveComments={liveComments}
           onClose={() => setOpenCardId(null)}
           onChanged={(updated) => {
             setFull((cur) =>

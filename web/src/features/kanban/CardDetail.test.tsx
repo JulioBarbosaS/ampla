@@ -142,4 +142,25 @@ describe("CardDetail", () => {
     await userEvent.click(screen.getByRole("button", { name: "Fechar" }));
     expect(onClose).toHaveBeenCalled();
   });
+
+  it("merges a live comment for this card (deduped), ignoring others", async () => {
+    const live = [
+      { id: 1, card_id: 7, author: "user:1", body: "primeiro comentario", created_at: "" }, // dup of loaded → skipped
+      { id: 5, card_id: 7, author: "backend-ana", body: "ao vivo", created_at: "" }, // shown
+      { id: 6, card_id: 99, author: "x", body: "de outro card", created_at: "" }, // other card → ignored
+    ];
+    render(
+      <CardDetail
+        card={card()}
+        boardCards={[]}
+        liveComments={live}
+        onClose={vi.fn()}
+        onChanged={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText("ao vivo")).toBeInTheDocument();
+    expect(screen.queryByText("de outro card")).not.toBeInTheDocument();
+    // the loaded comment isn't duplicated
+    expect(screen.getAllByText("primeiro comentario")).toHaveLength(1);
+  });
 });
