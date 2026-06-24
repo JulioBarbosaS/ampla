@@ -127,6 +127,11 @@ class FakeUserRepository:
     async def save_reset(self, reset: PasswordReset) -> None:
         self._resets[reset.token_hash] = reset
 
+    async def invalidate_resets_for(self, user_id: int) -> None:
+        for r in self._resets.values():
+            if r.user_id == user_id and r.used_at is None:
+                r.used_at = utcnow()
+
 
 class FakeHubStateRepository:
     def __init__(self) -> None:

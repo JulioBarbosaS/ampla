@@ -140,6 +140,9 @@ class AuthService:
             raise NotFoundError("Usuário não encontrado.")
         token = security.generate_reset_token()
         expires_at = utcnow() + timedelta(hours=self._settings.invite_expires_hours)
+        # Retire any prior outstanding token for this user so only the newest link
+        # is ever valid (single active reset).
+        await self._users.invalidate_resets_for(target.id)
         await self._users.add_reset(
             PasswordReset(
                 user_id=target.id,
@@ -166,6 +169,9 @@ class AuthService:
         reset.used_at = utcnow()
         await self._users.save(user)
         await self._users.save_reset(reset)
+        # A completed reset retires every other outstanding token for this user —
+        # a leaked-but-unused link can't survive the reset it should have voided.
+        await self._users.invalidate_resets_for(user.id)
         await self._audit.record("password_reset", actor=user.email)
 
     # ---- login with incremental lockout (Threat 2) ----

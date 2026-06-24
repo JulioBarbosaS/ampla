@@ -247,6 +247,18 @@ class TestPasswordReset:
         with pytest.raises(InvalidInputError):
             await service.reset_password("token-que-nao-existe", "senha-redefinida-1")
 
+    async def test_issuing_a_new_token_invalidates_the_previous_one(self, service):
+        from app.services.errors import InvalidInputError
+
+        admin, _ = await make_admin(service)
+        first, _ = await service.issue_password_reset(admin, admin.id)
+        second, _ = await service.issue_password_reset(admin, admin.id)
+        # single active reset: only the newest link works; the older is retired,
+        # so a leaked-but-unused earlier link can't survive a re-issue.
+        with pytest.raises(InvalidInputError):
+            await service.reset_password(first, "senha-redefinida-1")
+        await service.reset_password(second, "senha-redefinida-2")
+
 
 class TestToken:
     async def test_invalid_token_returns_none(self, service):

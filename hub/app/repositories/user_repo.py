@@ -81,3 +81,14 @@ class UserRepository:
     async def save_reset(self, reset: PasswordReset) -> None:
         self._session.add(reset)
         await self._session.commit()
+
+    async def invalidate_resets_for(self, user_id: int) -> None:
+        """Mark every still-unused password-reset for a user as used, so only the
+        newest issued token is ever valid and a completed reset retires all other
+        outstanding reset paths (single active reset)."""
+        await self._session.execute(
+            PasswordReset.__table__.update()
+            .where(PasswordReset.user_id == user_id, PasswordReset.used_at.is_(None))
+            .values(used_at=utcnow())
+        )
+        await self._session.commit()
