@@ -62,7 +62,11 @@ class TestSendAsUser:
                 headers=auth(token),
             )
             assert response.status_code == 201
-            assert response.json()["delivered_at"] is not None
+            # At-least-once: the REST send pushes in real time but `delivered_at`
+            # stays null until the recipient acks (same contract as the WS path);
+            # marking on push would lose the message if the daemon dies first. The
+            # ack→delivered flow itself is covered by the WS integration tests.
+            assert response.json()["delivered_at"] is None
 
             frame = recv_until(ws, "message")
             assert frame["message"]["body"] == "olá!"
@@ -82,3 +86,34 @@ class TestSendAsUser:
             headers=auth(token),
         )
         assert response.status_code == 403
+
+
+class TestBroadcastAuthz:
+    def test_spoofed_broadcast_is_denied_without_consuming_the_owner_bucket(self, client):
+        """A user can't exhaust another agent's broadcast bucket by naming it:
+        ownership is checked BEFORE the per-agent rate limiter (cap 5/min). A
+        storm of spoof attempts must all 403 (never 429) and leave the real
+        owner's budget intact."""
+        admin = do_setup(client)
+        member = register_member(client, admin)
+        create_agent(client, admin, "admin-bot")
+        create_agent(client, member, "member-bot")  # gives @all a recipient
+
+        # Member spoofs the admin's agent 6× (> the cap of 5). With authz first,
+        # every attempt is 403 — the limiter is never touched. (Pre-fix, the 6th
+        # would be 429 and the bucket would be full.)
+        for _ in range(6):
+            resp = client.post(
+                "/api/messages/broadcast",
+                json={"from": "admin-bot", "group": "@all", "body": "spoof"},
+                headers=auth(member),
+            )
+            assert resp.status_code == 403, resp.text
+
+        # The real owner can still broadcast — its bucket wasn't consumed.
+        ok = client.post(
+            "/api/messages/broadcast",
+            json={"from": "admin-bot", "group": "@all", "body": "real"},
+            headers=auth(admin),
+        )
+        assert ok.status_code == 201, ok.text

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_current_user, get_group_service, get_message_service
-from app.models.user import User, utcnow
+from app.models.user import User
 from app.schemas.group import BroadcastResult
 from app.schemas.message import PRIORITY_PATTERN, TYPE_PATTERN, ConversationPartner, MessageOut
 from app.services.group_service import GroupService
@@ -48,9 +48,11 @@ async def send_message(
     manager = request.app.state.manager
     out = MessageOut.model_validate(msg)
     frame = {"type": "message", "message": out.model_dump(mode="json", by_alias=True)}
-    if await manager.send_to_agent(payload.to_agent, frame):
-        await svc.mark_delivered([msg.id])
-        out.delivered_at = utcnow()  # reflect the update in the response
+    # Push in real time + mirror to observers, but DON'T mark delivered here:
+    # `delivered_at` means the recipient confirmed (at-least-once), driven by the
+    # recipient's `ack` — same contract as the WS send path (ws.py `_dispatch`).
+    # Marking on push would lose a message if the daemon dies before processing it.
+    await manager.send_to_agent(payload.to_agent, frame)
     await manager.notify_message(frame, payload.from_agent, payload.to_agent)
     return out
 
@@ -74,6 +76,10 @@ async def broadcast(
     groups: GroupService = Depends(get_group_service),
 ) -> BroadcastResult:
     """Panel: fan-out to @group or @all on behalf of the agent's own owner."""
+    # Authorize the sender BEFORE touching the per-agent broadcast limiter, so a
+    # client can't exhaust another agent's bucket by naming an agent it doesn't
+    # own (anti-spoof). `send_message` already keys its limiter on the user.
+    await svc.assert_sender_owned(user, payload.from_agent)
     if not request.app.state.broadcast_limiter.allow(payload.from_agent):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -90,15 +96,13 @@ async def broadcast(
         priority=payload.priority,
     )
     manager = request.app.state.manager
-    delivered_ids: list[int] = []
+    # Real-time push + observer mirror; delivery is confirmed by each recipient's
+    # `ack` (at-least-once), not by the push — same contract as the WS path.
     for msg in sent:
         out = MessageOut.model_validate(msg)
         frame = {"type": "message", "message": out.model_dump(mode="json", by_alias=True)}
-        if await manager.send_to_agent(msg.to_agent, frame):
-            delivered_ids.append(msg.id)
+        await manager.send_to_agent(msg.to_agent, frame)
         await manager.notify_message(frame, payload.from_agent, msg.to_agent)
-    if delivered_ids:
-        await svc.mark_delivered(delivered_ids)
     return BroadcastResult(
         group=payload.group,
         sent=[m.to_agent for m in sent],

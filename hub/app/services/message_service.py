@@ -282,6 +282,12 @@ class MessageService:
             from_slug, group_ref, recipients, body, type=type, priority=priority
         )
 
+    async def assert_sender_owned(self, actor: User, from_slug: str) -> None:
+        """Public: authorize that `actor` owns `from_slug` (or is admin). Lets a
+        route verify ownership BEFORE consuming a per-agent rate limit, so a client
+        can't exhaust another agent's bucket by naming it (anti-spoof)."""
+        await self._assert_sender_owned(actor, from_slug)
+
     async def _assert_sender_owned(self, actor: User, from_slug: str) -> None:
         sender = await self._agents.get(from_slug)
         if sender is None:

@@ -183,8 +183,9 @@ def _approval_sender(session: AsyncSession, settings, manager):
         if manager is not None:
             out = MessageOut.model_validate(msg)
             frame = {"type": "message", "message": out.model_dump(mode="json", by_alias=True)}
-            if await manager.send_to_agent(to_slug, frame):
-                await messages.mark_delivered([msg.id])
+            # Push only; delivery is confirmed by the recipient's ack (at-least-once),
+            # like the REST/WS send paths — not marked on push.
+            await manager.send_to_agent(to_slug, frame)
             await manager.notify_message(frame, from_slug, to_slug)
         return msg
 
@@ -214,8 +215,8 @@ def _delegation_sender(session: AsyncSession, settings, manager):
         if manager is not None:
             out = MessageOut.model_validate(msg)
             frame = {"type": "message", "message": out.model_dump(mode="json", by_alias=True)}
-            if await manager.send_to_agent(to_slug, frame):
-                await messages.mark_delivered([msg.id])
+            # Push only; delivery is confirmed by the delegate's ack (at-least-once).
+            await manager.send_to_agent(to_slug, frame)
             await manager.notify_message(frame, from_slug, to_slug)
         return msg
 
