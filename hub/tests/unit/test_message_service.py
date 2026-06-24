@@ -78,6 +78,32 @@ class TestSend:
             await service.send("backend-julio", "backend-julio", "eco")
 
 
+class TestSendAudit:
+    """Only security-weight sends hit the audit log (option C): an alert or a
+    cross-owner message. Routine same-owner DMs are not audited (the `messages`
+    table is their record)."""
+
+    async def test_cross_owner_send_is_audited(self, service, audit):
+        # backend-julio (owner 1) → mobile-eduardo (owner 2): crosses ownership
+        await service.send("backend-julio", "mobile-eduardo", "oi")
+        assert audit.has("message_sent")
+
+    async def test_same_owner_routine_dm_is_not_audited(self, service, agents, audit):
+        await agents.add(Agent(slug="api-julio", user_id=JULIO.id, display_name="A"))
+        await service.send("backend-julio", "api-julio", "status?")  # same owner, type=request
+        assert not audit.has("message_sent")
+
+    async def test_alert_is_audited_even_same_owner(self, service, agents, audit):
+        await agents.add(Agent(slug="api-julio", user_id=JULIO.id, display_name="A"))
+        await service.send("backend-julio", "api-julio", "caiu!", type="alert")
+        assert audit.has("message_sent")
+
+    async def test_broadcast_member_send_is_not_double_audited(self, service, audit):
+        # a fan-out message carries group_slug → covered by broadcast_sent, not message_sent
+        await service.send("backend-julio", "mobile-eduardo", "aviso", group="@all")
+        assert not audit.has("message_sent")
+
+
 class TestAllowlist:
     async def test_blocks_sender_not_in_the_list(self, service, agents, audit):
         backend = await agents.get("backend-julio")

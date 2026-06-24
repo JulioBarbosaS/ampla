@@ -102,11 +102,28 @@ class MessageService:
                 expires_at=utcnow() + timedelta(days=self._settings.pending_ttl_days),
             )
         )
+        await self._audit_security_send(message, recipient)
         await self._generate_notifications(message, recipient)
         # A reply may answer a delegated task (Epic 04 · 4.4) — close the loop.
         if in_reply_to is not None:
             await self._maybe_complete_delegation(message)
         return message
+
+    async def _audit_security_send(self, message: Message, recipient: Agent) -> None:
+        """Audit only sends with security weight (audit_log = the trail of notable
+        actions, not raw traffic): an `alert`, or a message crossing ownership
+        boundaries (one user's agent → another's). Routine same-owner DMs live in
+        the `messages` table alone; broadcast is already audited as `broadcast_sent`."""
+        if message.group_slug is not None:
+            return  # broadcast — covered by broadcast_sent
+        sender = await self._agents.get(message.from_agent)
+        cross_owner = sender is not None and sender.user_id != recipient.user_id
+        if message.type == "alert" or cross_owner:
+            await self._audit.record(
+                "message_sent",
+                actor=message.from_agent,
+                detail={"to": message.to_agent, "type": message.type, "cross_owner": cross_owner},
+            )
 
     async def _maybe_complete_delegation(self, message: Message) -> None:
         """If this reply answers a delegated task (delegate → delegator, in the

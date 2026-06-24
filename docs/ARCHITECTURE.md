@@ -181,7 +181,7 @@ An attacker sends a malicious message to an agent in `auto` mode; the victim's h
 ### Cross-cutting
 
 - Strict validation of all input (Pydantic, size limits, slug `^[a-z][a-z0-9-]{1,48}[a-z0-9]$`).
-- Auditing: the `audit_log` table in the hub — login (success/failure), setup, registration, key creation/revocation, settings change, messages blocked by allowlist or secret filter.
+- Auditing: the `audit_log` table in the hub — login (success/failure), setup, registration, key creation/revocation, settings change, messages blocked by allowlist or secret filter, and security-weight sends (an `alert`, or a message crossing ownership boundaries). Routine same-owner DMs are not audited — the `messages` table is their record — to keep `audit_log` a trail of notable actions rather than raw traffic.
 - CORS restricted to the dashboard's origin; security headers on responses.
 - Networked production: the hub behind a TLS reverse proxy (`wss://`); default bind `127.0.0.1`.
 
