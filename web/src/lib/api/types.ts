@@ -158,6 +158,27 @@ export interface KillSwitchState {
 
 export type NotificationStatus = "inbox" | "saved" | "done";
 
+/**
+ * Why a notification exists — mirrors the hub's `REASONS` frozenset
+ * (hub/app/schemas/notification.py). Keep the two in sync: a `Record<…>` over
+ * this union makes the panel fail the build if a reason loses its label.
+ */
+export type NotificationReason =
+  | "mention"
+  | "direct_message"
+  | "task_assigned"
+  | "approval_requested"
+  | "autorespond_completed"
+  | "autorespond_blocked"
+  | "broadcast"
+  | "team_mention"
+  | "participating"
+  | "subscribed"
+  | "state_change"
+  | "security_alert"
+  | "escalation"
+  | "system";
+
 /** Coarse delivery gate (the GitHub repo-watch analog). */
 export type NotifyLevel = "all" | "mentions_and_direct" | "mute";
 
@@ -178,7 +199,7 @@ export interface AppNotification {
   subject_type: string;
   subject_key: string;
   agent_slug: string | null;
-  reason: string;
+  reason: NotificationReason;
   title: string;
   link: string;
   actor: string;

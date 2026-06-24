@@ -78,6 +78,16 @@ describe("InboxPage", () => {
     expect(notificationsApi.list).toHaveBeenCalledWith({ status: "inbox" });
   });
 
+  it("labels a previously-unlabeled reason in pt-BR (no raw English chip)", async () => {
+    vi.mocked(notificationsApi.list).mockResolvedValue([
+      notif({ reason: "escalation", title: "agente escalou para você" }),
+    ]);
+    renderInbox();
+    expect(await screen.findByText("agente escalou para você")).toBeInTheDocument();
+    expect(screen.getByText("escalação")).toBeInTheDocument(); // not the raw "escalation"
+    expect(screen.queryByText("escalation")).not.toBeInTheDocument();
+  });
+
   it("switches to the Saved view", async () => {
     renderInbox();
     await screen.findByText(/enviou uma mensagem/);

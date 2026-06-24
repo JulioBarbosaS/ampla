@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FormError } from "../../components/forms";
 import { type NotificationFilter, notificationsApi } from "../../lib/api/notifications";
-import type { AppNotification, NotificationStatus, NotifyLevel } from "../../lib/api/types";
+import type {
+  AppNotification,
+  NotificationReason,
+  NotificationStatus,
+  NotifyLevel,
+} from "../../lib/api/types";
 import { useInboxStore } from "../../stores/inbox";
 
 /** Delivery gate options (pt-BR for the operator). */
@@ -12,8 +17,10 @@ const NOTIFY_LEVELS: { value: NotifyLevel; label: string }[] = [
   { value: "mute", label: "Silenciar" },
 ];
 
-/** Reason → chip. Plain, glanceable; an audit/triage surface. */
-const REASON_CHIP: Record<string, { label: string; cls: string }> = {
+/** Reason → chip. Plain, glanceable; an audit/triage surface. Typed as a total
+ * map over NotificationReason: if the hub adds a reason and we forget its label
+ * here, the build fails (instead of a raw English chip slipping into the UI). */
+const REASON_CHIP: Record<NotificationReason, { label: string; cls: string }> = {
   mention: { label: "menção", cls: "bg-amber-900/50 text-amber-300" },
   direct_message: { label: "mensagem", cls: "bg-zinc-800 text-zinc-300" },
   task_assigned: { label: "tarefa", cls: "bg-emerald-900/50 text-emerald-300" },
@@ -21,6 +28,13 @@ const REASON_CHIP: Record<string, { label: string; cls: string }> = {
   approval_requested: { label: "aprovação", cls: "bg-red-900/50 text-red-300" },
   autorespond_completed: { label: "auto-resposta", cls: "bg-zinc-800 text-zinc-300" },
   autorespond_blocked: { label: "auto bloqueada", cls: "bg-red-900/50 text-red-300" },
+  team_mention: { label: "menção ao time", cls: "bg-amber-900/50 text-amber-300" },
+  participating: { label: "participando", cls: "bg-zinc-800 text-zinc-300" },
+  subscribed: { label: "inscrito", cls: "bg-zinc-800 text-zinc-300" },
+  state_change: { label: "atualização", cls: "bg-zinc-800 text-zinc-300" },
+  security_alert: { label: "alerta de segurança", cls: "bg-red-900/50 text-red-300" },
+  escalation: { label: "escalação", cls: "bg-red-900/50 text-red-300" },
+  system: { label: "sistema", cls: "bg-zinc-800 text-zinc-300" },
 };
 
 /** Built-in views: triage states + canned reason filters (the server already
