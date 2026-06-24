@@ -74,9 +74,15 @@ class SchedulerEngine:
                 # firing, so a slow/again-due run can't double-fire next tick.
                 s.next_run_at = next_run(s.kind, s.spec, now)
                 s.last_run_at = now
-                agent = await agents.get(s.agent_slug)
-                s.last_status = await self._fire(s, agent, kill_enabled)
                 s.updated_at = now
+                # A throwing job is recorded `failed` and never kills the loop or
+                # aborts the other due schedules in this tick (spec 8.1).
+                try:
+                    agent = await agents.get(s.agent_slug)
+                    s.last_status = await self._fire(s, agent, kill_enabled)
+                except Exception:
+                    logger.warning("scheduled task %s failed to fire", s.id, exc_info=True)
+                    s.last_status = "failed"
                 await repo.save(s)
                 await audit.record(
                     "scheduled_task_fired",
@@ -115,15 +121,21 @@ class SchedulerEngine:
             return
         self._last_sweep = now
         async with self._sf() as session:
+            audit = AuditRepository(session)
             try:
                 pruned = await build_notification_service(session, self._settings).prune_done(
                     self._settings.notification_done_ttl_days
                 )
                 if pruned:
                     logger.info("retention: pruned %s done notifications", pruned)
+                    # The prune deletes rows — an auditable mutation (spec 8.2).
+                    await audit.record(
+                        "notifications_pruned", actor="scheduler", detail={"count": pruned}
+                    )
             except Exception:
                 logger.warning("scheduled notification prune failed", exc_info=True)
             try:
+                # expire_pending already records its own `approvals_expired` audit.
                 expired = await build_approval_service(session, self._settings).expire_pending(
                     self._settings.approval_ttl_hours
                 )

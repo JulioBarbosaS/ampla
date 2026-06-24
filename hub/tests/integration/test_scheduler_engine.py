@@ -8,10 +8,13 @@ import pytest_asyncio
 
 from app.core.db import build_engine, build_session_factory, create_tables
 from app.models.agent import Agent
+from app.models.notification import Notification
 from app.models.schedule import AgentSchedule
 from app.models.user import User, utcnow
 from app.repositories.agent_repo import AgentRepository
+from app.repositories.audit_repo import AuditRepository
 from app.repositories.hub_state_repo import HubStateRepository
+from app.repositories.notification_repo import NotificationRepository
 from app.repositories.schedule_repo import ScheduleRepository
 from app.repositories.user_repo import UserRepository
 from app.services.scheduler_engine import SchedulerEngine
@@ -29,6 +32,16 @@ class FakeManager:
     async def send_to_agent(self, slug: str, frame: dict) -> bool:
         self.sent.append((slug, frame))
         return slug in self._online
+
+
+class RaisingManager:
+    """Online, but dispatch blows up — to exercise the per-job failure path."""
+
+    def is_online(self, slug: str) -> bool:
+        return True
+
+    async def send_to_agent(self, slug: str, frame: dict) -> bool:
+        raise RuntimeError("boom")
 
 
 @pytest_asyncio.fixture
@@ -126,3 +139,40 @@ async def test_once_schedule_disarms_after_firing(setup):
     s = await _get(factory, sid)
     assert s.last_status == "running"
     assert s.next_run_at is None  # a past 'once' has no next occurrence
+
+
+async def test_failing_fire_is_recorded_failed_without_aborting_the_tick(setup):
+    # A job that throws is recorded `failed` and never aborts the loop — the
+    # other due schedules in the same tick still run (spec 8.1).
+    factory, owner_id = setup
+    sid1 = await _add_due(factory, owner_id, name="a")
+    sid2 = await _add_due(factory, owner_id, name="b")
+    await SchedulerEngine(factory, RaisingManager(), make_settings()).tick(utcnow())
+    assert (await _get(factory, sid1)).last_status == "failed"
+    assert (await _get(factory, sid2)).last_status == "failed"  # 2nd still processed
+    async with factory() as s:
+        events = [e.event for e in await AuditRepository(s).list_recent(50)]
+    assert events.count("scheduled_task_fired") == 2  # both fires audited
+
+
+async def test_notification_prune_is_audited(setup):
+    # The retention sweep deletes rows — an auditable mutation (spec 8.2).
+    factory, owner_id = setup
+    async with factory() as s:
+        old = utcnow() - timedelta(days=400)
+        await NotificationRepository(s).add(
+            Notification(
+                user_id=owner_id,
+                subject_type="dm",
+                subject_key="dm:a:b",
+                reason="direct_message",
+                title="velha",
+                status="done",
+                created_at=old,
+                updated_at=old,
+            )
+        )
+    await SchedulerEngine(factory, FakeManager(), make_settings()).tick(utcnow())
+    async with factory() as s:
+        events = [e.event for e in await AuditRepository(s).list_recent(50)]
+    assert "notifications_pruned" in events

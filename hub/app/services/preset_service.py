@@ -47,9 +47,15 @@ class PresetService:
     async def create(self, user: User, data: PresetCreate) -> GuardrailPreset:
         if await self._presets.get_by_owner_name(user.id, data.name) is not None:
             raise ConflictError("Você já tem um preset com este nome.")
-        return await self._presets.add(
+        preset = await self._presets.add(
             GuardrailPreset(owner_id=user.id, name=data.name, settings=data.settings.model_dump())
         )
+        await self._audit.record(
+            "preset_created",
+            actor=user.email,
+            detail={"preset_id": preset.id, "name": preset.name},
+        )
+        return preset
 
     async def _mutable(self, user: User, preset_id: int) -> GuardrailPreset:
         preset = await self._presets.get(preset_id)
@@ -77,11 +83,22 @@ class PresetService:
         if data.settings is not None:
             preset.settings = data.settings.model_dump()
         await self._presets.save(preset)
+        await self._audit.record(
+            "preset_updated",
+            actor=user.email,
+            detail={"preset_id": preset.id, "name": preset.name},
+        )
         return preset
 
     async def delete(self, user: User, preset_id: int) -> None:
         preset = await self._mutable(user, preset_id)
+        name = preset.name
         await self._presets.delete(preset)
+        await self._audit.record(
+            "preset_deleted",
+            actor=user.email,
+            detail={"preset_id": preset_id, "name": name},
+        )
 
     async def apply(self, user: User, slug: str, preset_id: int) -> Agent:
         """Copies a (readable) preset's settings onto an owned agent. Audited —

@@ -72,6 +72,18 @@ class TestCrud:
         with pytest.raises(PermissionDeniedError):
             await svc.update(make_user(2), mine.id, PresetUpdate(name="B"))
 
+    async def test_create_update_delete_are_audited(self):
+        # Presets centralize the most dangerous knobs (trusted_senders/allow_write),
+        # so every mutation must leave an audit trail.
+        svc, _p, _a, audit = await _setup()
+        owner = make_user(1)
+        p = await svc.create(owner, PresetCreate(name="Meu", settings=PresetSettings()))
+        assert audit.has("preset_created")
+        await svc.update(owner, p.id, PresetUpdate(name="Renomeado"))
+        assert audit.has("preset_updated")
+        await svc.delete(owner, p.id)
+        assert audit.has("preset_deleted")
+
 
 class TestApply:
     async def test_apply_copies_settings_onto_the_agent(self):
