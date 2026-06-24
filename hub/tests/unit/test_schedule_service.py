@@ -84,12 +84,16 @@ class TestUpdateDelete:
         with pytest.raises(InvalidInputError):
             await svc.update(owner, s.id, ScheduleUpdate(spec="5"))  # below floor
 
-    async def test_non_owner_cannot_touch(self):
+    async def test_non_owner_gets_404_not_403(self):
+        # Accessing another user's schedule by id is 404 (never 403): a 403 would
+        # confirm the id exists and let someone enumerate other users' schedules.
         svc, owner, other, _ = await _service()
         s = await svc.create(owner, "backend-julio", _create())
-        with pytest.raises(PermissionDeniedError):
+        with pytest.raises(NotFoundError):
+            await svc.get(other, s.id)
+        with pytest.raises(NotFoundError):
             await svc.update(other, s.id, ScheduleUpdate(name="x"))
-        with pytest.raises(PermissionDeniedError):
+        with pytest.raises(NotFoundError):
             await svc.delete(other, s.id)
 
     async def test_run_now_arms_immediately_and_reenables(self):

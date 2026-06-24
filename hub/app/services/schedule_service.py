@@ -165,8 +165,9 @@ class ScheduleService:
 
     async def _owned_schedule(self, user: User, schedule_id: int) -> AgentSchedule:
         schedule = await self._schedules.get(schedule_id)
-        if schedule is None:
+        # 404 (not 403) for another user's schedule: a 403 would confirm the id
+        # exists, letting someone enumerate other users' schedules. Same
+        # never-leak-existence convention as notifications and private boards.
+        if schedule is None or (schedule.owner_id != user.id and user.role != "admin"):
             raise NotFoundError("Agendamento não encontrado.")
-        if schedule.owner_id != user.id and user.role != "admin":
-            raise PermissionDeniedError("Este agendamento não é seu.")
         return schedule
