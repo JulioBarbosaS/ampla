@@ -71,6 +71,8 @@ export function BoardPage() {
       onMessage: () => {},
       onPresence: () => {},
       onOnlineList: () => {},
+      // After a drop, live deltas during the gap are lost — refetch the board.
+      onReconnect: () => reload(boardId),
       onKanbanDelta: (delta) => {
         if (delta.board_id !== boardId) return;
         if (delta.op === "comment_added") {
@@ -91,7 +93,7 @@ export function BoardPage() {
         });
       },
     });
-  }, [boardId]);
+  }, [boardId, reload]);
 
   async function createCard() {
     if (boardId === null || !newTitle.trim()) return;

@@ -25,9 +25,16 @@ export interface ObserverHandlers {
   onNotificationRead?: (ids: number[] | "all", unreadCount: number) => void;
   /** A live Kanban board change for a board this user can see (Epic 06 · 6.5). */
   onKanbanDelta?: (delta: KanbanDelta) => void;
+  /** Fired after the socket recovers from a drop (a hello_ack on a re-opened
+   * socket, never the first connect). The consumer should re-fetch to catch up
+   * on frames that arrived while the socket was down — they are NOT replayed. */
+  onReconnect?: () => void;
 }
 
-const RECONNECT_MS = 3000;
+// Exponential backoff with 50–100% jitter — same shape as the bridge's
+// ws-client, capped tighter since a human is watching this tab.
+const BACKOFF_BASE_MS = 1_000;
+const BACKOFF_MAX_MS = 30_000;
 
 /** Connects as observer; returns a cleanup function. The session rides on the
  * HttpOnly cookie carried with the WS upgrade (same origin) — no token in JS. */
@@ -35,6 +42,14 @@ export function connectObserver(handlers: ObserverHandlers): () => void {
   let ws: WebSocket | null = null;
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let attempts = 0;
+  let connectedOnce = false;
+
+  function nextDelay(): number {
+    const exp = Math.min(BACKOFF_BASE_MS * 2 ** attempts, BACKOFF_MAX_MS);
+    attempts += 1;
+    return Math.round(exp / 2 + Math.random() * (exp / 2));
+  }
 
   function open(): void {
     ws = new WebSocket(wsUrl());
@@ -47,10 +62,14 @@ export function connectObserver(handlers: ObserverHandlers): () => void {
         return;
       }
       if (frame.type === "hello_ack") {
+        attempts = 0; // a healthy connection resets the backoff
         handlers.onStatus?.(true);
         handlers.onOnlineList((frame.online as string[]) ?? []);
         // absent on older hubs → treat as enabled (normal operation)
         handlers.onKillSwitch?.(frame.auto_responder_enabled !== false);
+        // A hello_ack on any socket after the first means we just recovered.
+        if (connectedOnce) handlers.onReconnect?.();
+        connectedOnce = true;
       } else if (frame.type === "kill_switch") {
         handlers.onKillSwitch?.(frame.auto_responder_enabled === true);
       } else if (frame.type === "notification") {
@@ -73,7 +92,7 @@ export function connectObserver(handlers: ObserverHandlers): () => void {
     ws.onclose = () => {
       handlers.onStatus?.(false);
       if (!stopped) {
-        timer = setTimeout(open, RECONNECT_MS);
+        timer = setTimeout(open, nextDelay());
       }
     };
   }

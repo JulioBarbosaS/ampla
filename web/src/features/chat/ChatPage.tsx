@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { agentsApi } from "../../lib/api/agents";
 import { messagesApi } from "../../lib/api/messages";
+import { notificationsApi } from "../../lib/api/notifications";
 import type { AppNotification } from "../../lib/api/types";
 import { connectObserver } from "../../lib/ws/observer";
 import { useAuthStore } from "../../stores/auth";
@@ -61,6 +62,22 @@ export function ChatPage() {
       .catch(() => {});
   }, [setDirectory, setPerspective]);
 
+  // After a reconnection, re-fetch what the socket couldn't replay: the open
+  // conversation and the inbox badge (live frames during the gap are lost).
+  const onReconnect = useCallback(() => {
+    const { perspective: p, partner: pt } = useChatStore.getState();
+    if (p && pt) {
+      messagesApi
+        .conversation(p, pt)
+        .then((m) => useChatStore.getState().setConversation(p, pt, m))
+        .catch(() => {});
+    }
+    notificationsApi
+      .unreadCount()
+      .then((r) => useInboxStore.getState().setUnreadCount(r.unread_count))
+      .catch(() => {});
+  }, []);
+
   // real time (WS observer)
   useEffect(() => {
     if (!authed) return;
@@ -74,6 +91,7 @@ export function ChatPage() {
       onKillSwitch: setAutoResponderEnabled,
       onNotification,
       onNotificationRead,
+      onReconnect,
     });
   }, [
     authed,
@@ -86,6 +104,7 @@ export function ChatPage() {
     setAutoResponderEnabled,
     onNotification,
     onNotificationRead,
+    onReconnect,
   ]);
 
   // history of the selected conversation

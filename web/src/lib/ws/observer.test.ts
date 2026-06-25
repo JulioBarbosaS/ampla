@@ -36,6 +36,7 @@ function setup() {
     onNotification: vi.fn(),
     onNotificationRead: vi.fn(),
     onKanbanDelta: vi.fn(),
+    onReconnect: vi.fn(),
   };
   const stop = connectObserver(handlers as unknown as ObserverHandlers);
   const ws = MockWebSocket.instances.at(-1) as MockWebSocket;
@@ -43,7 +44,11 @@ function setup() {
   return { handlers, ws, recv, stop };
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("connectObserver frame routing (panel WS contract)", () => {
   it("says hello on open and dispatches hello_ack (online + kill switch)", () => {
@@ -103,5 +108,40 @@ describe("connectObserver frame routing (panel WS contract)", () => {
     const { ws, stop } = setup();
     stop();
     expect(ws.closed).toBe(true);
+  });
+
+  it("reconnects with exponential backoff, not a fixed delay", () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0); // jitter floor → delay = exp/2
+    const { ws } = setup();
+    expect(MockWebSocket.instances).toHaveLength(1);
+
+    ws.onclose?.(); // 1st drop: exp=1000 → 500ms
+    vi.advanceTimersByTime(499);
+    expect(MockWebSocket.instances).toHaveLength(1); // not yet
+    vi.advanceTimersByTime(1);
+    expect(MockWebSocket.instances).toHaveLength(2);
+
+    MockWebSocket.instances.at(-1)?.onclose?.(); // 2nd drop backs off further: exp=2000 → 1000ms
+    vi.advanceTimersByTime(999);
+    expect(MockWebSocket.instances).toHaveLength(2);
+    vi.advanceTimersByTime(1);
+    expect(MockWebSocket.instances).toHaveLength(3);
+  });
+
+  it("fires onReconnect after recovering from a drop, never on the first connect", () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const { handlers } = setup();
+    const first = MockWebSocket.instances.at(-1) as MockWebSocket;
+    first.onmessage?.({ data: JSON.stringify({ type: "hello_ack", online: [] }) });
+    expect(handlers.onReconnect).not.toHaveBeenCalled(); // first connect is not a reconnect
+
+    first.onclose?.();
+    vi.advanceTimersByTime(500); // backoff fires → a fresh socket opens
+    const second = MockWebSocket.instances.at(-1) as MockWebSocket;
+    expect(second).not.toBe(first);
+    second.onmessage?.({ data: JSON.stringify({ type: "hello_ack", online: [] }) });
+    expect(handlers.onReconnect).toHaveBeenCalledTimes(1);
   });
 });
