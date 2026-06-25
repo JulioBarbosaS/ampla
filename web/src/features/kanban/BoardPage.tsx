@@ -15,12 +15,10 @@ import { CardDetail } from "./CardDetail";
 
 /**
  * Kanban board view (Epic 06 · 6.6). Reads via src/lib/api, lives via the
- * observer's kanban_delta (never fetches directly). v1 uses explicit move
- * actions (← →) on the anchor-based API — drag-and-drop is a later refinement on
- * the same endpoint. A move is optimistic and rolls back (refetch) on a 409.
- *
- * This is the minimal functional slice; the richer grants/danger-zone panel and
- * card detail come in the dedicated UI pass.
+ * observer's kanban_delta (never fetches directly). Cards move by HTML5
+ * drag-and-drop OR the explicit ← → ↑ ↓ buttons (the keyboard-accessible
+ * fallback) — both drive the same anchor-based move endpoint. A move is
+ * optimistic and rolls back (refetch) on a 409.
  */
 export function BoardPage() {
   const [boards, setBoards] = useState<KanbanBoard[] | null>(null);
@@ -36,6 +34,11 @@ export function BoardPage() {
   const [newBoardName, setNewBoardName] = useState("");
   const [showNewBoard, setShowNewBoard] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
+  // HTML5 drag-and-drop: the card being dragged + the column under the cursor
+  // (for the drop-target highlight). The ← → ↑ ↓ buttons remain as the
+  // keyboard-accessible fallback; both call the same applyMove.
+  const [dragCardId, setDragCardId] = useState<number | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<number | null>(null);
   const user = useAuthStore((s) => s.user);
   const canManage = !!full && !!user && (user.id === full.board.owner_id || user.role === "admin");
 
@@ -147,6 +150,34 @@ export function BoardPage() {
     // moving up: land between the card two-up and the one-up; down: mirror.
     const [before, after] = dir < 0 ? [col[j - 1], col[j]] : [col[j], col[j + 1]];
     applyMove(card, card.column_id, before?.id, after?.id);
+  }
+
+  /** Drop the dragged card immediately before `target`, into its column. */
+  function dropOnCard(target: KanbanCard) {
+    const dragId = dragCardId;
+    setDragCardId(null);
+    setDragOverCol(null);
+    if (!full || dragId === null || dragId === target.id) return;
+    const dragged = full.cards.find((c) => c.id === dragId);
+    if (!dragged) return;
+    const colCards = cardsOf(full.cards, target.column_id).filter((c) => c.id !== dragId);
+    const idx = colCards.findIndex((c) => c.id === target.id);
+    applyMove(dragged, target.column_id, colCards[idx - 1]?.id, target.id);
+  }
+
+  /** Drop the dragged card at the end of `column` (its empty-space target). */
+  function dropOnColumn(column: KanbanColumn) {
+    const dragId = dragCardId;
+    setDragCardId(null);
+    setDragOverCol(null);
+    if (!full || dragId === null) return;
+    const dragged = full.cards.find((c) => c.id === dragId);
+    if (!dragged) return;
+    const inCol = cardsOf(full.cards, column.id);
+    // no-op: already the last card of this very column
+    if (dragged.column_id === column.id && inCol[inCol.length - 1]?.id === dragId) return;
+    const others = inCol.filter((c) => c.id !== dragId);
+    applyMove(dragged, column.id, others[others.length - 1]?.id, undefined);
   }
 
   async function addBoard() {
@@ -303,7 +334,20 @@ export function BoardPage() {
             <section
               key={col.id}
               aria-label={col.name}
-              className="flex w-64 shrink-0 flex-col gap-2 rounded bg-zinc-900/60 p-2"
+              className={`flex w-64 shrink-0 flex-col gap-2 rounded p-2 transition-colors ${
+                dragOverCol === col.id
+                  ? "bg-zinc-800/80 ring-2 ring-indigo-500/60"
+                  : "bg-zinc-900/60"
+              }`}
+              onDragOver={(e) => {
+                if (dragCardId === null) return;
+                e.preventDefault();
+                setDragOverCol(col.id);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                dropOnColumn(col);
+              }}
             >
               <ColumnHeader
                 column={col}
@@ -315,7 +359,29 @@ export function BoardPage() {
                 onDelete={() => removeColumn(col.id)}
               />
               {colCards.map((card, ci) => (
-                <article key={card.id} className="rounded bg-zinc-800 p-2 text-sm text-zinc-100">
+                <article
+                  key={card.id}
+                  draggable
+                  className={`cursor-grab rounded bg-zinc-800 p-2 text-sm text-zinc-100 active:cursor-grabbing ${
+                    dragCardId === card.id ? "opacity-50" : ""
+                  }`}
+                  onDragStart={(e) => {
+                    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+                    setDragCardId(card.id);
+                  }}
+                  onDragEnd={() => {
+                    setDragCardId(null);
+                    setDragOverCol(null);
+                  }}
+                  onDragOver={(e) => {
+                    if (dragCardId !== null) e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropOnCard(card);
+                  }}
+                >
                   <button
                     type="button"
                     className="block w-full text-left hover:text-indigo-300"

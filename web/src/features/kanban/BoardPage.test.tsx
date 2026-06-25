@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../lib/api/client";
@@ -177,6 +177,44 @@ describe("BoardPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Configurar coluna Fazendo" }));
     await userEvent.click(screen.getByRole("button", { name: "Excluir coluna Fazendo" }));
     expect(kanbanApi.deleteColumn).toHaveBeenCalledWith(1, 20);
+  });
+
+  it("moves a card across columns by dragging it onto another column", async () => {
+    vi.mocked(kanbanApi.moveCard).mockResolvedValue(card({ column_id: 20, version: 2 }));
+    render(<BoardPage />);
+    const article = (await screen.findByText("Card X")).closest("article") as HTMLElement;
+    fireEvent.dragStart(article);
+    fireEvent.drop(screen.getByRole("region", { name: "Fazendo" }));
+    // dropped on the empty "Fazendo" column → no anchors, just the destination
+    await waitFor(() =>
+      expect(kanbanApi.moveCard).toHaveBeenCalledWith(100, {
+        to_column_id: 20,
+        expected_version: 1,
+      }),
+    );
+  });
+
+  it("reorders within a column by dropping a card onto a sibling", async () => {
+    const two: KanbanBoardFull = {
+      ...structuredClone(FULL),
+      cards: [card({ id: 100, rank: "a" }), card({ id: 101, title: "Card Y", rank: "b" })],
+    };
+    vi.mocked(kanbanApi.getBoardFull).mockResolvedValue(two);
+    vi.mocked(kanbanApi.moveCard).mockResolvedValue(card({ id: 101, rank: "c" }));
+    render(<BoardPage />);
+    await screen.findByText("Card Y");
+    const dragged = screen.getByText("Card Y").closest("article") as HTMLElement;
+    const target = screen.getByText("Card X").closest("article") as HTMLElement;
+    fireEvent.dragStart(dragged);
+    fireEvent.drop(target);
+    // Y dropped onto X → Y lands immediately before X (after_id=X, no before)
+    await waitFor(() =>
+      expect(kanbanApi.moveCard).toHaveBeenCalledWith(101, {
+        to_column_id: 10,
+        after_id: 100,
+        expected_version: 1,
+      }),
+    );
   });
 
   it("reorders a card within its column via the anchor API", async () => {
