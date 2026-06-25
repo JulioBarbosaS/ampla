@@ -245,9 +245,7 @@ class TestAuthorization:
         private = _create_board(client, admin, name="Privado", visibility="private")
         team = _create_board(client, admin, name="Time", visibility="team")
         assert (
-            client.delete(
-                f"/api/kanban/boards/{private['id']}", headers=auth(member)
-            ).status_code
+            client.delete(f"/api/kanban/boards/{private['id']}", headers=auth(member)).status_code
             == 404
         )
         assert (
