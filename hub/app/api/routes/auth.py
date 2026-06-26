@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
 
 from app.api.deps import auth_rate_limit, get_app_settings, get_auth_service, get_current_user
 from app.core.config import Settings
@@ -33,36 +33,39 @@ async def setup_status(auth: AuthService = Depends(get_auth_service)) -> SetupSt
 @router.post("/setup", response_model=TokenResponse, dependencies=[Depends(auth_rate_limit)])
 async def setup(
     body: SetupRequest,
+    request: Request,
     response: Response,
     auth: AuthService = Depends(get_auth_service),
     settings: Settings = Depends(get_app_settings),
 ) -> TokenResponse:
     user, token = await auth.setup_admin(body.email, body.name, body.password)
-    set_session_cookie(response, token, settings)
+    set_session_cookie(response, token, settings, request)
     return TokenResponse(token=token, user=UserOut.model_validate(user))
 
 
 @router.post("/register", response_model=TokenResponse, dependencies=[Depends(auth_rate_limit)])
 async def register(
     body: RegisterRequest,
+    request: Request,
     response: Response,
     auth: AuthService = Depends(get_auth_service),
     settings: Settings = Depends(get_app_settings),
 ) -> TokenResponse:
     user, token = await auth.register(body.invite_code, body.email, body.name, body.password)
-    set_session_cookie(response, token, settings)
+    set_session_cookie(response, token, settings, request)
     return TokenResponse(token=token, user=UserOut.model_validate(user))
 
 
 @router.post("/login", response_model=TokenResponse, dependencies=[Depends(auth_rate_limit)])
 async def login(
     body: LoginRequest,
+    request: Request,
     response: Response,
     auth: AuthService = Depends(get_auth_service),
     settings: Settings = Depends(get_app_settings),
 ) -> TokenResponse:
     user, token = await auth.login(body.email, body.password)
-    set_session_cookie(response, token, settings)
+    set_session_cookie(response, token, settings, request)
     return TokenResponse(token=token, user=UserOut.model_validate(user))
 
 
@@ -82,12 +85,12 @@ async def reset_password(
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
+    request: Request,
     response: Response,
-    settings: Settings = Depends(get_app_settings),
 ) -> None:
     # Idempotent and unauthenticated: it just expires the cookie. SameSite=Strict
     # already blocks a cross-site forced logout from carrying the session.
-    clear_session_cookie(response, settings)
+    clear_session_cookie(response, request)
 
 
 @router.get("/me", response_model=UserOut)
