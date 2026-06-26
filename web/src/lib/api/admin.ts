@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { AutorespondRun, KillSwitchState } from "./types";
+import type { AutorespondRun, InstanceMetrics, KillSwitchState } from "./types";
 
 /** Instance-wide admin controls (admin-only on the hub). */
 export const adminApi = {
@@ -9,4 +9,6 @@ export const adminApi = {
   // Instance-wide auto-respond transcript across every agent (admin oversight).
   autorespondRuns: (limit = 50) =>
     api.get<AutorespondRun[]>(`/api/admin/autorespond-runs?limit=${limit}`),
+  // Windowed observability roll-up (cost/result/throughput) over `days`.
+  metrics: (days = 7) => api.get<InstanceMetrics>(`/api/admin/metrics?days=${days}`),
 };

@@ -17,7 +17,12 @@ vi.mock("../../lib/api/auth", () => ({
 }));
 
 vi.mock("../../lib/api/admin", () => ({
-  adminApi: { getKillSwitch: vi.fn(), setKillSwitch: vi.fn(), autorespondRuns: vi.fn() },
+  adminApi: {
+    getKillSwitch: vi.fn(),
+    setKillSwitch: vi.fn(),
+    autorespondRuns: vi.fn(),
+    metrics: vi.fn(),
+  },
 }));
 
 const ADMIN = {
@@ -43,6 +48,22 @@ beforeEach(() => {
   vi.mocked(adminApi.getKillSwitch).mockResolvedValue({ auto_responder_enabled: true });
   vi.mocked(adminApi.setKillSwitch).mockResolvedValue({ auto_responder_enabled: false });
   vi.mocked(adminApi.autorespondRuns).mockResolvedValue([]);
+  vi.mocked(adminApi.metrics).mockResolvedValue({
+    window_days: 7,
+    generated_at: "2026-06-26T12:00:00Z",
+    messages_total: 0,
+    autorespond: {
+      total_runs: 0,
+      by_result: {},
+      timed_out: 0,
+      total_cost_usd: 0,
+      total_output_tokens: 0,
+      total_input_tokens: 0,
+      avg_duration_ms: 0,
+    },
+    autorespond_daily: [],
+    audit_events: [],
+  });
   vi.mocked(usersApi.auditLog).mockResolvedValue([]);
 });
 

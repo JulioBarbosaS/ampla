@@ -9,6 +9,7 @@ import { useAuthStore } from "../../stores/auth";
 import { useKillSwitchStore } from "../../stores/killSwitch";
 import { AdminAutorespondRuns } from "./AdminAutorespondRuns";
 import { AuditLog } from "./AuditLog";
+import { InstanceMetrics } from "./InstanceMetrics";
 
 /** Invite state, derived from the dates (there is no backend field). */
 function inviteState(invite: Invite): { label: string; cls: string } {
@@ -275,6 +276,8 @@ export function TeamPage() {
           Não é possível rebaixar o último administrador.
         </p>
       </section>
+
+      <InstanceMetrics />
 
       <AdminAutorespondRuns />
 

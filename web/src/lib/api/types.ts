@@ -236,6 +236,37 @@ export interface AgentKey {
   revoked_at: string | null;
 }
 
+/** Instance observability snapshot (admin-only — GET /api/admin/metrics). */
+export interface AutorespondMetrics {
+  total_runs: number;
+  by_result: Record<string, number>; // replied|blocked|failed|skipped → count
+  timed_out: number;
+  total_cost_usd: number;
+  total_output_tokens: number;
+  total_input_tokens: number;
+  avg_duration_ms: number;
+}
+
+export interface MetricsDailyPoint {
+  date: string; // YYYY-MM-DD (UTC)
+  runs: number;
+  cost_usd: number;
+}
+
+export interface MetricsEventCount {
+  event: string;
+  count: number;
+}
+
+export interface InstanceMetrics {
+  window_days: number;
+  generated_at: string;
+  messages_total: number;
+  autorespond: AutorespondMetrics;
+  autorespond_daily: MetricsDailyPoint[];
+  audit_events: MetricsEventCount[];
+}
+
 /** One row of the instance audit trail (admin-only — GET /api/users/audit). */
 export interface AuditEntry {
   id: number;
