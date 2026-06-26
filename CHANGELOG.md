@@ -6,6 +6,10 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Bump the hub runtime image to `python:3.14-slim` (matches the dev/CI Python).
+
 ## [0.1.1] - 2026-06-26
 
 ### Security
