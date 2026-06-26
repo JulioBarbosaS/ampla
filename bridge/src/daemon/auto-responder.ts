@@ -118,6 +118,29 @@ export function buildGuardrails(settings: AgentSettings, sender: string): Guardr
   };
 }
 
+/**
+ * Advisory shown when an agent auto-responds WITHOUT the sandbox. On the host,
+ * the only filesystem limit is the deny-rules above — self-policed, not
+ * kernel-enforced (a determined model can work around them; see
+ * docs/ARCHITECTURE.md · Threat 1). The ephemeral container is the recommended
+ * posture for `auto`. Returns null when no advisory is warranted (inbox mode,
+ * or already sandboxed). pt-BR: this is operator output.
+ */
+export function sandboxAdvisory(opts: {
+  mode: string;
+  sandbox: string;
+  dockerAvailable: boolean;
+}): string | null {
+  if (opts.mode !== "auto" || opts.sandbox === "docker") return null;
+  const base =
+    "⚠ auto-resposta SEM sandbox: o claude -p roda no host com apenas deny-rules " +
+    "(autopoliciadas, não impostas pelo kernel). Para confinamento real, suba a imagem " +
+    "e reconecte com --sandbox:\n" +
+    "    cd bridge && docker build -t ampla/claude-runner:latest -f sandbox/Dockerfile sandbox\n" +
+    "    amp connect <token> --sandbox";
+  return opts.dockerAvailable ? `${base}\n  (Docker detectado nesta máquina — é um passo.)` : base;
+}
+
 export type AutoRespondResult =
   | { kind: "replied"; reply: string; usage?: UsageDelta | null }
   | { kind: "needs_approval"; draft: string; usage?: UsageDelta | null }

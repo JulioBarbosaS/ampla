@@ -111,7 +111,7 @@ cd bridge && docker build -t ampla/claude-runner:latest -f sandbox/Dockerfile sa
 amp connect <token> --sandbox          # or set "sandbox": "docker" in ~/.amp/<agent>/config.json
 ```
 
-Requires Docker on the dev's machine. Without it, the daemon runs `claude -p` on the host with the in-process deny-rules only (still read-only, still blocks `~/.ssh`/dotfiles, but self-policed rather than kernel-enforced). Details and threat model in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Threat 1.
+The ephemeral container is the **recommended** posture for `auto` mode. Without Docker, the daemon runs `claude -p` on the host with the in-process deny-rules only (still read-only, still blocks `~/.ssh`/dotfiles, but self-policed rather than kernel-enforced) — and prints a one-time advisory the first time an agent auto-responds on the host, so you're never silently unprotected. Details and threat model in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Threat 1.
 
 The two installed hooks (`amp-session-start.sh` and `amp-inbox.sh`) make Claude "wake up" aware that it is an agent on the network and see unread messages on each prompt — they fail silently if the daemon is not running.
 

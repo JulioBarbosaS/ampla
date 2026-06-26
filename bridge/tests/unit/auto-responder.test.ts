@@ -6,6 +6,7 @@ import {
   buildPrompt,
   type ClaudeRunner,
   parseClaudeOutput,
+  sandboxAdvisory,
   withinSchedule,
 } from "../../src/daemon/auto-responder.js";
 import type { DailyUsageTracker, UsageDelta } from "../../src/daemon/usage-tracker.js";
@@ -501,5 +502,27 @@ describe("conversation memory (history in the prompt)", () => {
     const prompt = runner.mock.calls[0]?.[0] as string;
     expect(prompt).toContain("<amp-history>");
     expect(prompt).toContain("Existe endpoint de reset?");
+  });
+});
+
+describe("sandboxAdvisory", () => {
+  it("is silent for inbox mode (no auto-respond runs)", () => {
+    expect(sandboxAdvisory({ mode: "inbox", sandbox: "host", dockerAvailable: true })).toBeNull();
+  });
+
+  it("is silent when already sandboxed", () => {
+    expect(sandboxAdvisory({ mode: "auto", sandbox: "docker", dockerAvailable: false })).toBeNull();
+  });
+
+  it("warns when auto-responding on the host (deny-rules only)", () => {
+    const msg = sandboxAdvisory({ mode: "auto", sandbox: "host", dockerAvailable: false });
+    expect(msg).toContain("SEM sandbox");
+    expect(msg).toContain("--sandbox");
+    expect(msg).not.toContain("Docker detectado");
+  });
+
+  it("nudges that Docker is available when it is", () => {
+    const msg = sandboxAdvisory({ mode: "auto", sandbox: "host", dockerAvailable: true });
+    expect(msg).toContain("Docker detectado");
   });
 });

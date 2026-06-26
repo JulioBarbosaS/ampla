@@ -3,6 +3,7 @@
  * Owner of the WS connection to the hub; local inbox; auto-respond; local API for MCP.
  */
 
+import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -23,6 +24,7 @@ import {
   type ClaudeRunner,
   defaultClaudeRunner,
   makeDockerRunner,
+  sandboxAdvisory,
 } from "./auto-responder.js";
 import { buildLocalApi } from "./local-api.js";
 import { MessageStore } from "./message-store.js";
@@ -90,6 +92,8 @@ export function createDaemon(
   // concurrent triggers read the store count BEFORE any of them persists the
   // reply and all pass the hop guard (read-then-await-then-write).
   const inFlightByThread = new Map<number, number>();
+  // One-time advisory the first time this agent auto-responds on the host runner.
+  let warnedHostAuto = false;
 
   hub.on("message", (message: WireMessage) => {
     store.append({
@@ -177,6 +181,18 @@ export function createDaemon(
       .filter((m) => m.id !== message.id)
       .slice(-HISTORY_LIMIT)
       .map((m) => ({ from: m.from, body: m.body, ts: m.ts }));
+
+    // The recommended posture for `auto` is the ephemeral container; warn once
+    // per session if this agent auto-responds on the host (deny-rules only).
+    if (settings.mode === "auto" && !warnedHostAuto) {
+      warnedHostAuto = true;
+      const advisory = sandboxAdvisory({
+        mode: settings.mode,
+        sandbox: config.sandbox,
+        dockerAvailable: dockerAvailable(),
+      });
+      if (advisory) console.error(`[amp] ${advisory}`);
+    }
 
     // "responding…" indicator: only in auto mode (inbox returns skipped without
     // running the model). A rate-limited run flickers responding→idle briefly,
@@ -353,6 +369,16 @@ export function createDaemon(
       await api.close();
     },
   };
+}
+
+/** Whether `docker` is runnable on this machine (cached). Used only to enrich
+ * the host-mode advisory — never to gate behaviour. */
+let _dockerChecked: boolean | null = null;
+function dockerAvailable(): boolean {
+  if (_dockerChecked === null) {
+    _dockerChecked = spawnSync("docker", ["--version"], { stdio: "ignore" }).status === 0;
+  }
+  return _dockerChecked;
 }
 
 /** Picks the auto-respond runner from config: the host runner, or the
