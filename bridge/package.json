@@ -1,6 +1,6 @@
 {
   "name": "ampla-bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Ampla Bridge — daemon local + servidor MCP para o Claude Code",
   "type": "module",
   "private": true,

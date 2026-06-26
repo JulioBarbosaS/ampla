@@ -1,6 +1,6 @@
 {
   "name": "ampla-web",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Ampla Web — painel de conversas e gestão de agentes",
   "type": "module",
   "private": true,
