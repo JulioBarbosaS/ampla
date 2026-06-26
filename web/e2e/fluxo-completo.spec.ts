@@ -55,8 +55,10 @@ test("conversation via the panel: perspective, send and pending bubble", async (
   await page.getByLabel("Senha").fill("senha-muito-segura-1");
   await page.getByRole("button", { name: "Entrar" }).click();
 
-  // perspective selected automatically (the user's first agent)
-  await expect(page.getByLabel("Conversando como")).toHaveValue("backend-julio");
+  // perspective selected automatically (the user's first agent). The selector is
+  // a custom Dropdown (a labeled <button> showing the option), not a native
+  // <select>, so assert its text rather than a form value.
+  await expect(page.getByLabel("Conversando como")).toContainText("backend-julio");
 
   // select the partner and send
   await page.getByRole("button", { name: /mobile-eduardo/ }).click();
