@@ -3,6 +3,13 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
 
+// Pin the test timezone so time-formatting (toLocaleTimeString) is deterministic
+// across machines and CI — otherwise snapshots frozen on a dev's local TZ break
+// on the UTC runner. Set on the config (main process) so it propagates to every
+// vitest worker, regardless of whether it's invoked via the npm script or
+// `vitest run` directly.
+process.env.TZ = "UTC";
+
 // Config is env-driven so nothing machine-specific is committed. Values come
 // from the shell or a gitignored `.env.local` (loadEnv reads both):
 //

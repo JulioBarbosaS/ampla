@@ -18,7 +18,7 @@ exports[`snapshots > MessageBubble received 1`] = `
       class="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-zinc-500"
     >
       <span>
-        11:30
+        15:30
       </span>
     </p>
   </div>
@@ -43,7 +43,7 @@ exports[`snapshots > MessageBubble sent (delivered) 1`] = `
       class="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-emerald-200/70"
     >
       <span>
-        11:30
+        15:30
          · entregue
       </span>
     </p>
