@@ -2,7 +2,7 @@
 # the hub serves the API, the WebSocket and the built React panel on one port.
 
 # Stage 1 — build the web panel
-FROM node:22-alpine AS web
+FROM node:26-alpine AS web
 RUN corepack enable
 WORKDIR /web
 COPY web/package.json web/pnpm-lock.yaml ./
