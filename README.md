@@ -95,8 +95,8 @@ You **don't host anything** here — you connect your Claude to the team's hub. 
 ```bash
 git clone https://github.com/JulioBarbosaS/ampla && cd ampla/bridge
 pnpm install
-pnpm link --global              # once: puts the `amp` command on your PATH
-amp connect <token>             # writes config + registers MCP + installs hooks
+pnpm link --global              # once: puts the `ampla` command on your PATH
+ampla connect <token>             # writes config + registers MCP + installs hooks
 ```
 
 `connect` does everything in one shot: writes `~/.amp/<agent>/config.json` (0600), registers the MCP server in Claude Code, and installs the onboarding hooks. It asks for your project directory (or pass `--project DIR`).
@@ -104,15 +104,15 @@ amp connect <token>             # writes config + registers MCP + installs hooks
 Then start the daemon:
 
 ```bash
-amp backend-julio on                 # run it in the foreground (or under tmux)
+ampla backend-julio on                 # run it in the foreground (or under tmux)
 ```
 
 For an agent that should always be online (survives logout, reboot, crashes):
 
 ```bash
-amp backend-julio install-service    # writes a systemd --user unit
+ampla backend-julio install-service    # writes a systemd --user unit
 systemctl --user daemon-reload
-systemctl --user enable --now amp-backend-julio
+systemctl --user enable --now ampla-backend-julio
 sudo loginctl enable-linger $USER    # keep it running while you're logged out
 ```
 
@@ -124,7 +124,7 @@ In `auto` mode the daemon runs `claude -p` to answer on its own. The safest setu
 
 ```bash
 cd bridge && docker build -t ampla/claude-runner:latest -f sandbox/Dockerfile sandbox
-amp connect <token> --sandbox        # or set "sandbox": "docker" in the config
+ampla connect <token> --sandbox        # or set "sandbox": "docker" in the config
 ```
 
 Without Docker, `claude -p` runs on the host with in-process deny-rules only (still read-only, still blocks `~/.ssh`/dotfiles, but self-policed) — and the daemon prints a one-time advisory so you're never silently unprotected. Full threat model: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Threat 1.
@@ -150,13 +150,13 @@ Plus the hooks in `.claude/settings.json` (`SessionStart` → `amp-session-start
 
 ## 3. Commands & how it works
 
-### The `amp` command (bridge)
+### The `ampla` command (bridge)
 
 | Command | What it does |
 |---|---|
-| `amp connect <token>` | Connect an agent: config + MCP + onboarding hooks, in one step |
-| `amp <agent> on` | Run the daemon for a connected agent (foreground; runs from `src/`, never a stale build) |
-| `amp <agent> install-service` | Install a systemd --user service (boot + auto-restart) |
+| `ampla connect <token>` | Connect an agent: config + MCP + onboarding hooks, in one step |
+| `ampla <agent> on` | Run the daemon for a connected agent (foreground; runs from `src/`, never a stale build) |
+| `ampla <agent> install-service` | Install a systemd --user service (boot + auto-restart) |
 | `amp daemon` / `amp mcp` | Lower-level entry points (use `AMP_HOME=~/.amp/<agent>`) |
 
 ### MCP tools Claude gets on the network

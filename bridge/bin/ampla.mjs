@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * `amp` — thin bridge wrapper. Dispatches subcommands to the entries
+ * `ampla` — thin bridge wrapper. Dispatches subcommands to the entries
  * via the local tsx (runs from src/, no build). Install globally with:
- *   cd bridge && pnpm link --global      # then: amp connect <token>
+ *   cd bridge && pnpm link --global      # then: ampla connect <token>
  */
 
 import { spawnSync } from "node:child_process";
@@ -35,26 +35,26 @@ function runEntry(entry, args, extraEnv) {
 }
 
 function usage(code) {
-  console.error("Uso: amp <connect|daemon|mcp> [args]");
-  console.error("  amp connect <token>          conecta um agente (config + MCP + hooks)");
-  console.error("  amp <agente> on              roda o daemon do agente (ex.: amp backend-julio on)");
-  console.error("  amp <agente> install-service instala serviço systemd --user (boot + restart)");
-  console.error("  amp daemon                   roda o daemon (use AMP_HOME=~/.amp/<agente>)");
-  console.error("  amp mcp                      roda o servidor MCP (normalmente via claude mcp)");
+  console.error("Uso: ampla <connect|daemon|mcp> [args]");
+  console.error("  ampla connect <token>          conecta um agente (config + MCP + hooks)");
+  console.error("  ampla <agente> on              roda o daemon do agente (ex.: ampla backend-julio on)");
+  console.error("  ampla <agente> install-service instala serviço systemd --user (boot + restart)");
+  console.error("  ampla daemon                   roda o daemon (use AMP_HOME=~/.amp/<agente>)");
+  console.error("  ampla mcp                      roda o servidor MCP (normalmente via claude mcp)");
   process.exit(code);
 }
 
 const [first, ...rest] = process.argv.slice(2);
 
-// `amp <agente> install-service` — write the systemd --user unit for the agent
-// (mirrors the `amp <agente> on` shape). The entry validates the slug + config.
+// `ampla <agente> install-service` — write the systemd --user unit for the agent
+// (mirrors the `ampla <agente> on` shape). The entry validates the slug + config.
 if (first && !ENTRIES[first] && rest[0] === "install-service") {
   runEntry(ENTRIES["install-service"], [first]);
 }
 
-// `amp <agente> on` — start the daemon for an agent already connected with
-// `amp connect`. Sugar for `AMP_HOME=~/.amp/<agente> amp daemon`. Only when the
-// first arg is NOT a known subcommand, so `amp daemon`/`amp mcp` keep working.
+// `ampla <agente> on` — start the daemon for an agent already connected with
+// `ampla connect`. Sugar for `AMP_HOME=~/.amp/<agente> ampla daemon`. Only when
+// the first arg is NOT a known subcommand, so `ampla daemon`/`mcp` keep working.
 if (first && !ENTRIES[first] && rest[0] === "on") {
   if (!SLUG_RE.test(first)) {
     console.error(`Slug de agente inválido: ${first}`);
@@ -63,7 +63,7 @@ if (first && !ENTRIES[first] && rest[0] === "on") {
   const ampHome = join(homedir(), ".amp", first);
   if (!existsSync(join(ampHome, "config.json"))) {
     console.error(`Agente "${first}" não conectado (${join(ampHome, "config.json")} não existe).`);
-    console.error("Conecte primeiro: amp connect <token>");
+    console.error("Conecte primeiro: ampla connect <token>");
     process.exit(1);
   }
   runEntry(ENTRIES.daemon, [], { AMP_HOME: ampHome });

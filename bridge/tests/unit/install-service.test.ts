@@ -5,11 +5,13 @@ describe("buildServiceUnit", () => {
   const unit = buildServiceUnit({
     agent: "backend-julio",
     nodeBin: "/usr/bin/node",
-    ampScript: "/opt/amp/bridge/bin/amp.mjs",
+    ampScript: "/opt/amp/bridge/bin/ampla.mjs",
   });
 
-  it("runs `amp <agent> on` (tsx from src/ — always a fresh build)", () => {
-    expect(unit).toContain("ExecStart=/usr/bin/node /opt/amp/bridge/bin/amp.mjs backend-julio on");
+  it("runs `ampla <agent> on` (tsx from src/ — always a fresh build)", () => {
+    expect(unit).toContain(
+      "ExecStart=/usr/bin/node /opt/amp/bridge/bin/ampla.mjs backend-julio on",
+    );
   });
 
   it("restarts on failure and starts on boot", () => {

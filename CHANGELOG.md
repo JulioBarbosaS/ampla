@@ -11,7 +11,7 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - One-image install (hub serves the API, WebSocket and the React panel on one
   URL); multi-arch image published to `ghcr.io` on version tags, so operators
   run it without cloning. TLS via a Caddy overlay.
-- `amp connect <token>` — one command to wire a developer's daemon (config +
+- `ampla connect <token>` — one command to wire a developer's daemon (config +
   MCP registration + hooks), like registering a GitLab Runner.
 - Alembic migrations, applied automatically on container start.
 - Admin audit endpoint (`GET /api/users/audit`).

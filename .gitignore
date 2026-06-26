@@ -31,7 +31,7 @@ coverage/
 *.swp
 .DS_Store
 
-# Claude Code — config local/por-máquina (amp connect grava hooks com caminhos absolutos)
+# Claude Code — config local/por-máquina (ampla connect grava hooks com caminhos absolutos)
 .claude/
 
 # Playwright

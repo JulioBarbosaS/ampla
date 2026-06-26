@@ -1,7 +1,7 @@
 /**
- * The `amp` bin (global wrapper): dispatches subcommands to the local tsx.
+ * The `ampla` bin (global wrapper): dispatches subcommands to the local tsx.
  * Runs the bin as a real subprocess — proves the wiring that `pnpm link --global`
- * exposes as the `amp` command.
+ * exposes as the `ampla` command.
  */
 
 import { spawnSync } from "node:child_process";
@@ -10,18 +10,18 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-const BIN = resolve(import.meta.dirname, "../../bin/amp.mjs");
+const BIN = resolve(import.meta.dirname, "../../bin/ampla.mjs");
 const token = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
 
 function amp(args: string[], env: NodeJS.ProcessEnv = {}) {
   return spawnSync("node", [BIN, ...args], { env: { ...process.env, ...env }, encoding: "utf-8" });
 }
 
-describe("bin amp", () => {
+describe("bin ampla", () => {
   it("with no arguments prints usage and exits 0", () => {
     const r = amp([]);
     expect(r.status).toBe(0);
-    expect(r.stderr).toMatch(/amp connect/);
+    expect(r.stderr).toMatch(/ampla connect/);
   });
 
   it("invalid subcommand exits 1", () => {
@@ -35,7 +35,7 @@ describe("bin amp", () => {
     });
     afterEach(() => rmSync(home, { recursive: true, force: true }));
 
-    it("amp connect <token> writes the config (dispatches to the CLI)", () => {
+    it("ampla connect <token> writes the config (dispatches to the CLI)", () => {
       const tok = token({
         hub_url: "ws://localhost:8000/ws",
         agent_id: "backend-julio",
@@ -49,7 +49,7 @@ describe("bin amp", () => {
     });
   });
 
-  describe("amp <agente> on (start the daemon)", () => {
+  describe("ampla <agente> on (start the daemon)", () => {
     let home: string;
     beforeEach(() => {
       home = mkdtempSync(join(tmpdir(), "amp-bin-on-"));

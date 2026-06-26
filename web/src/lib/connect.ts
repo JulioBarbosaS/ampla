@@ -1,5 +1,5 @@
 /**
- * Connection token read by the bridge's `amp connect <token>`: base64url of
+ * Connection token read by the bridge's `ampla connect <token>`: base64url of
  * {hub_url, agent_id, key}. Packed client-side — the hub does not change.
  * Format mirrored in bridge/src/cli/connect.ts (connectTokenSchema).
  */

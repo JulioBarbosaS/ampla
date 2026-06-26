@@ -1,5 +1,5 @@
 /**
- * `amp connect <token>`: token decode/validation, non-destructive merge
+ * `ampla connect <token>`: token decode/validation, non-destructive merge
  * of the hooks and the integration that writes the config (0600) + installs the hooks.
  * MCP is skipped (--no-mcp) so as not to depend on the real `claude`.
  */

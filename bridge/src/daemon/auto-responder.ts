@@ -137,7 +137,7 @@ export function sandboxAdvisory(opts: {
     "(autopoliciadas, não impostas pelo kernel). Para confinamento real, suba a imagem " +
     "e reconecte com --sandbox:\n" +
     "    cd bridge && docker build -t ampla/claude-runner:latest -f sandbox/Dockerfile sandbox\n" +
-    "    amp connect <token> --sandbox";
+    "    ampla connect <token> --sandbox";
   return opts.dockerAvailable ? `${base}\n  (Docker detectado nesta máquina — é um passo.)` : base;
 }
 

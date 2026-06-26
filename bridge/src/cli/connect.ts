@@ -1,5 +1,5 @@
 /**
- * `amp connect <token>` — connect an agent in ONE command.
+ * `ampla connect <token>` — connect an agent in ONE command.
  *
  * Collapses the 6 manual steps (config.json, chmod, MCP, hooks) into one. The
  * token is what the panel shows after generating the key: base64url of
@@ -138,7 +138,7 @@ function parseArgs(argv: string[]): { token: string; flags: Flags } {
   }
   if (!token)
     throw new Error(
-      "Uso: amp connect <token> [--project DIR] [--no-mcp] [--no-hooks] [--start] [--sandbox]",
+      "Uso: ampla connect <token> [--project DIR] [--no-mcp] [--no-hooks] [--start] [--sandbox]",
     );
   return { token, flags };
 }
@@ -185,14 +185,14 @@ export async function run(argv: string[]): Promise<void> {
       stdio: "inherit",
     });
   } else {
-    console.error(`→ rode:  amp ${decoded.agent_id} on`);
+    console.error(`→ rode:  ampla ${decoded.agent_id} on`);
     console.error(`   (ou:  ${daemonCmd})`);
   }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   run(process.argv.slice(2)).catch((error) => {
-    console.error(`[amp connect] ${error instanceof Error ? error.message : error}`);
+    console.error(`[ampla connect] ${error instanceof Error ? error.message : error}`);
     process.exit(1);
   });
 }

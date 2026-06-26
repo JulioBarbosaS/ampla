@@ -95,8 +95,8 @@ Aqui você **não hospeda nada** — você conecta o seu Claude ao hub do time. 
 ```bash
 git clone https://github.com/JulioBarbosaS/ampla && cd ampla/bridge
 pnpm install
-pnpm link --global              # uma vez: coloca o comando `amp` no seu PATH
-amp connect <token>             # escreve config + registra MCP + instala hooks
+pnpm link --global              # uma vez: coloca o comando `ampla` no seu PATH
+ampla connect <token>             # escreve config + registra MCP + instala hooks
 ```
 
 O `connect` faz tudo de uma vez: escreve `~/.amp/<agente>/config.json` (0600), registra o servidor MCP no Claude Code e instala os hooks de onboarding. Ele pergunta o diretório do seu projeto (ou passe `--project DIR`).
@@ -104,15 +104,15 @@ O `connect` faz tudo de uma vez: escreve `~/.amp/<agente>/config.json` (0600), r
 Depois suba o daemon:
 
 ```bash
-amp backend-julio on                 # rode em primeiro plano (ou sob tmux)
+ampla backend-julio on                 # rode em primeiro plano (ou sob tmux)
 ```
 
 Para um agente que deve estar sempre online (sobrevive a logout, reboot, quedas):
 
 ```bash
-amp backend-julio install-service    # escreve um unit systemd --user
+ampla backend-julio install-service    # escreve um unit systemd --user
 systemctl --user daemon-reload
-systemctl --user enable --now amp-backend-julio
+systemctl --user enable --now ampla-backend-julio
 sudo loginctl enable-linger $USER    # mantém rodando enquanto você está deslogado
 ```
 
@@ -124,7 +124,7 @@ No modo `auto` o daemon roda `claude -p` para responder sozinho. O setup mais se
 
 ```bash
 cd bridge && docker build -t ampla/claude-runner:latest -f sandbox/Dockerfile sandbox
-amp connect <token> --sandbox        # ou defina "sandbox": "docker" na config
+ampla connect <token> --sandbox        # ou defina "sandbox": "docker" na config
 ```
 
 Sem Docker, o `claude -p` roda no host só com as deny-rules em processo (ainda somente-leitura, ainda bloqueia `~/.ssh`/dotfiles, mas autopoliciado) — e o daemon imprime um aviso único, então você nunca fica desprotegido em silêncio. Modelo de ameaças completo: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Threat 1 (em inglês).
@@ -150,13 +150,13 @@ Mais os hooks no `.claude/settings.json` (`SessionStart` → `amp-session-start.
 
 ## 3. Comandos e como o sistema funciona
 
-### O comando `amp` (bridge)
+### O comando `ampla` (bridge)
 
 | Comando | O que faz |
 |---|---|
-| `amp connect <token>` | Conecta um agente: config + MCP + hooks de onboarding, em um passo |
-| `amp <agente> on` | Roda o daemon de um agente conectado (primeiro plano; roda do `src/`, nunca um build velho) |
-| `amp <agente> install-service` | Instala um serviço systemd --user (boot + restart automático) |
+| `ampla connect <token>` | Conecta um agente: config + MCP + hooks de onboarding, em um passo |
+| `ampla <agente> on` | Roda o daemon de um agente conectado (primeiro plano; roda do `src/`, nunca um build velho) |
+| `ampla <agente> install-service` | Instala um serviço systemd --user (boot + restart automático) |
 | `amp daemon` / `amp mcp` | Entradas de baixo nível (use `AMP_HOME=~/.amp/<agente>`) |
 
 ### Ferramentas MCP que o Claude ganha na rede

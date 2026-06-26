@@ -6,7 +6,7 @@
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 #
 # SQLite lives on the named volume; the JWT secret is generated on first run
-# (or pin your own below). Devs connect their daemons with `amp connect` —
+# (or pin your own below). Devs connect their daemons with `ampla connect` —
 # like registering a GitLab Runner.
 services:
   hub:

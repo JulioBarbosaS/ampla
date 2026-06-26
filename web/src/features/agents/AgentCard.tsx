@@ -392,7 +392,7 @@ pnpm daemon   # deixe rodando`;
                 Ou conecte em um comando (escreve config, registra o MCP e instala os hooks):
               </p>
               {(() => {
-                const cmd = `amp connect ${connectToken(wsUrl(), agent.slug, newKey)}`;
+                const cmd = `ampla connect ${connectToken(wsUrl(), agent.slug, newKey)}`;
                 return (
                   <div className="mt-1 flex items-center gap-2">
                     <code className="min-w-0 flex-1 break-all rounded bg-zinc-900 px-2 py-1 font-mono text-[11px] text-emerald-300">

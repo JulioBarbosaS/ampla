@@ -7,7 +7,7 @@
   "license": "MIT",
   "packageManager": "pnpm@10.33.0",
   "bin": {
-    "amp": "bin/amp.mjs"
+    "ampla": "bin/ampla.mjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

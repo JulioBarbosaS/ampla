@@ -97,12 +97,12 @@ describe("AgentCard", () => {
     expect(agentsApi.listKeys).toHaveBeenCalledWith("backend-julio");
   });
 
-  it("on key generation, shows the one-command 'amp connect' command", async () => {
+  it("on key generation, shows the one-command 'ampla connect' command", async () => {
     vi.mocked(agentsApi.createKey).mockResolvedValue({ id: 1, label: "", key: "amp_chave123" });
     render(<AgentCard agent={AGENT} groups={[]} onChanged={() => {}} />);
     await userEvent.click(screen.getByRole("button", { name: "Gerar chave" }));
-    const code = await screen.findByText(/amp connect /);
-    expect(code.textContent).toMatch(/^amp connect [A-Za-z0-9_-]+$/); // base64url token
+    const code = await screen.findByText(/ampla connect /);
+    expect(code.textContent).toMatch(/^ampla connect [A-Za-z0-9_-]+$/); // base64url token
   });
 
   it("saving the rules sends the filesystem guardrails", async () => {

@@ -1,8 +1,8 @@
 /**
- * `amp <agent> install-service` — write a systemd --user unit so an agent's
+ * `ampla <agent> install-service` — write a systemd --user unit so an agent's
  * daemon survives logout, reboot and crashes (instead of "leave it in tmux").
  *
- * The unit runs `amp <agent> on`, which runs the daemon via tsx from src/ — so
+ * The unit runs `ampla <agent> on`, which runs the daemon via tsx from src/ — so
  * the service always starts from the current code, never a stale dist/ build.
  */
 
@@ -43,22 +43,22 @@ export function run(argv: string[]): void {
   }
   const home = join(homedir(), ".amp", agent);
   if (!existsSync(join(home, "config.json"))) {
-    throw new Error(`Agente "${agent}" não conectado. Conecte primeiro: amp connect <token>`);
+    throw new Error(`Agente "${agent}" não conectado. Conecte primeiro: ampla connect <token>`);
   }
   const unit = buildServiceUnit({
     agent,
     nodeBin: process.execPath,
-    ampScript: join(BRIDGE_DIR, "bin", "amp.mjs"),
+    ampScript: join(BRIDGE_DIR, "bin", "ampla.mjs"),
   });
   const dir = join(homedir(), ".config", "systemd", "user");
   mkdirSync(dir, { recursive: true });
-  const path = join(dir, `amp-${agent}.service`);
+  const path = join(dir, `ampla-${agent}.service`);
   writeFileSync(path, unit);
 
   console.error(`✓ serviço escrito → ${path}`);
   console.error("Ative (sobe agora e a cada boot):");
   console.error("    systemctl --user daemon-reload");
-  console.error(`    systemctl --user enable --now amp-${agent}`);
+  console.error(`    systemctl --user enable --now ampla-${agent}`);
   console.error("Para que rode sem você estar logado:");
   console.error("    sudo loginctl enable-linger $USER");
 }
@@ -67,7 +67,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   try {
     run(process.argv.slice(2));
   } catch (error) {
-    console.error(`[amp install-service] ${error instanceof Error ? error.message : error}`);
+    console.error(`[ampla install-service] ${error instanceof Error ? error.message : error}`);
     process.exit(1);
   }
 }
