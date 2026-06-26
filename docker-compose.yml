@@ -10,7 +10,7 @@
 # like registering a GitLab Runner.
 services:
   hub:
-    image: ghcr.io/juliobarbosaci/ampla:${AMPLA_TAG:-latest}
+    image: ghcr.io/juliobarbosas/ampla:${AMPLA_TAG:-latest}
     ports:
       - "${AMPLA_PORT:-4455}:4455"
     volumes:

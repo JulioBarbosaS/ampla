@@ -28,7 +28,7 @@ Pulls the published image from `ghcr.io` — no clone, no build:
 
 ```bash
 docker run -d --name ampla -p 4455:4455 -v amp-data:/data \
-  ghcr.io/juliobarbosaci/ampla:latest
+  ghcr.io/juliobarbosas/ampla:latest
 ```
 
 Or with Compose (recommended — manages the volume and secret for you): download [`docker-compose.yml`](docker-compose.yml) and run `docker compose up -d`. Pin a version with `AMPLA_TAG=v1.2.3`.

@@ -28,7 +28,7 @@ Puxa a imagem publicada do `ghcr.io` — sem clonar, sem buildar:
 
 ```bash
 docker run -d --name ampla -p 4455:4455 -v amp-data:/data \
-  ghcr.io/juliobarbosaci/ampla:latest
+  ghcr.io/juliobarbosas/ampla:latest
 ```
 
 Ou com Compose (recomendado — cuida do volume e do segredo para você): baixe o [`docker-compose.yml`](docker-compose.yml) e rode `docker compose up -d`. Fixe uma versão com `AMPLA_TAG=v1.2.3`.
