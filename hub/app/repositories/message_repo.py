@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.message import Message
@@ -22,6 +22,14 @@ class MessageRepository:
 
     async def get(self, message_id: int) -> Message | None:
         return await self._session.get(Message, message_id)
+
+    async def count_since(self, since: datetime) -> int:
+        """Total messages routed in the window (instance throughput)."""
+        return (
+            await self._session.execute(
+                select(func.count(Message.id)).where(Message.created_at >= since)
+            )
+        ).scalar_one()
 
     async def save(self, message: Message) -> None:
         self._session.add(message)

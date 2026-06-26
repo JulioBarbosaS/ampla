@@ -1,4 +1,6 @@
-from sqlalchemy import select
+from datetime import datetime
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit import AuditLog
@@ -17,3 +19,16 @@ class AuditRepository:
             select(AuditLog).order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(limit)
         )
         return list(result.scalars())
+
+    async def event_counts(self, since: datetime, limit: int = 20) -> list[dict]:
+        """Counts per event over the window (the instance activity view), busiest
+        first."""
+        count = func.count(AuditLog.id)
+        rows = await self._session.execute(
+            select(AuditLog.event, count)
+            .where(AuditLog.created_at >= since)
+            .group_by(AuditLog.event)
+            .order_by(count.desc())
+            .limit(limit)
+        )
+        return [{"event": event, "count": n} for event, n in rows]

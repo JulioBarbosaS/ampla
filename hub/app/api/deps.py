@@ -38,6 +38,7 @@ from app.services.delegation_service import DelegationService
 from app.services.group_service import GroupService
 from app.services.kanban_service import KanbanService
 from app.services.message_service import MessageService
+from app.services.metrics_service import MetricsService
 from app.services.notification_service import NotificationService
 from app.services.preset_service import PresetService
 from app.services.schedule_service import ScheduleService
@@ -124,6 +125,14 @@ def build_preset_service(session: AsyncSession) -> PresetService:
 
 def build_admin_service(session: AsyncSession) -> AdminService:
     return AdminService(state=HubStateRepository(session), audit=AuditRepository(session))
+
+
+def build_metrics_service(session: AsyncSession) -> MetricsService:
+    return MetricsService(
+        runs=AutorespondRunRepository(session),
+        audit=AuditRepository(session),
+        messages=MessageRepository(session),
+    )
 
 
 def build_schedule_service(session: AsyncSession, settings=None) -> ScheduleService:
@@ -259,6 +268,10 @@ def get_message_service(
 
 def get_admin_service(session: AsyncSession = Depends(get_session)) -> AdminService:
     return build_admin_service(session)
+
+
+def get_metrics_service(session: AsyncSession = Depends(get_session)) -> MetricsService:
+    return build_metrics_service(session)
 
 
 def get_kanban_service(

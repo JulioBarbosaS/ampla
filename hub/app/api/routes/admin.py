@@ -2,13 +2,20 @@
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from app.api.deps import get_admin_service, get_autorespond_service, require_admin
+from app.api.deps import (
+    get_admin_service,
+    get_autorespond_service,
+    get_metrics_service,
+    require_admin,
+)
 from app.models.user import User
 from app.schemas.admin import KillSwitchState, KillSwitchUpdate
 from app.schemas.autorespond import AutorespondRunOut
+from app.schemas.metrics import MetricsOut
 from app.schemas.ws import KillSwitchFrame
 from app.services.admin_service import AdminService
 from app.services.autorespond_service import AutorespondService
+from app.services.metrics_service import MetricsService
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -45,3 +52,14 @@ async def all_autorespond_runs(
 ) -> list[AutorespondRunOut]:
     """Instance-wide transcript across every agent (admin only)."""
     return [AutorespondRunOut.model_validate(r) for r in await ar_svc.list_all(limit)]
+
+
+@router.get("/metrics", response_model=MetricsOut)
+async def metrics(
+    days: int = Query(default=7, ge=1, le=90),
+    _admin: User = Depends(require_admin),
+    svc: MetricsService = Depends(get_metrics_service),
+) -> MetricsOut:
+    """Instance observability: windowed auto-respond cost/result roll-up, a daily
+    series, message throughput and audit event families (admin only, read-only)."""
+    return await svc.snapshot(days)

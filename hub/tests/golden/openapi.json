@@ -657,6 +657,53 @@
         "title": "AutoSchedule",
         "type": "object"
       },
+      "AutorespondMetrics": {
+        "description": "Windowed roll-up of auto-respond activity (cost + security posture).",
+        "properties": {
+          "avg_duration_ms": {
+            "title": "Avg Duration Ms",
+            "type": "integer"
+          },
+          "by_result": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Result",
+            "type": "object"
+          },
+          "timed_out": {
+            "title": "Timed Out",
+            "type": "integer"
+          },
+          "total_cost_usd": {
+            "title": "Total Cost Usd",
+            "type": "number"
+          },
+          "total_input_tokens": {
+            "title": "Total Input Tokens",
+            "type": "integer"
+          },
+          "total_output_tokens": {
+            "title": "Total Output Tokens",
+            "type": "integer"
+          },
+          "total_runs": {
+            "title": "Total Runs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_runs",
+          "by_result",
+          "timed_out",
+          "total_cost_usd",
+          "total_output_tokens",
+          "total_input_tokens",
+          "avg_duration_ms"
+        ],
+        "title": "AutorespondMetrics",
+        "type": "object"
+      },
       "AutorespondRunOut": {
         "description": "One stored auto-respond run, for the agent's 'Atividade automática' tab.",
         "properties": {
@@ -1564,6 +1611,29 @@
         "title": "ConversationPartner",
         "type": "object"
       },
+      "DailyPoint": {
+        "properties": {
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "runs": {
+            "title": "Runs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "runs",
+          "cost_usd"
+        ],
+        "title": "DailyPoint",
+        "type": "object"
+      },
       "DelegationOut": {
         "properties": {
           "created_at": {
@@ -1668,6 +1738,24 @@
           "online"
         ],
         "title": "DirectoryEntry",
+        "type": "object"
+      },
+      "EventCount": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "event": {
+            "title": "Event",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event",
+          "count"
+        ],
+        "title": "EventCount",
         "type": "object"
       },
       "GrantOut": {
@@ -2058,6 +2146,50 @@
           "expires_at"
         ],
         "title": "MessageOut",
+        "type": "object"
+      },
+      "MetricsOut": {
+        "properties": {
+          "audit_events": {
+            "items": {
+              "$ref": "#/components/schemas/EventCount"
+            },
+            "title": "Audit Events",
+            "type": "array"
+          },
+          "autorespond": {
+            "$ref": "#/components/schemas/AutorespondMetrics"
+          },
+          "autorespond_daily": {
+            "items": {
+              "$ref": "#/components/schemas/DailyPoint"
+            },
+            "title": "Autorespond Daily",
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "messages_total": {
+            "title": "Messages Total",
+            "type": "integer"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "window_days",
+          "generated_at",
+          "messages_total",
+          "autorespond",
+          "autorespond_daily",
+          "audit_events"
+        ],
+        "title": "MetricsOut",
         "type": "object"
       },
       "NotificationOut": {
@@ -3155,6 +3287,57 @@
           }
         ],
         "summary": "Set Kill Switch",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/metrics": {
+      "get": {
+        "description": "Instance observability: windowed auto-respond cost/result roll-up, a daily\nseries, message throughput and audit event families (admin only, read-only).",
+        "operationId": "metrics_api_admin_metrics_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Metrics",
         "tags": [
           "admin"
         ]
