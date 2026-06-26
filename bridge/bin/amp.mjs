@@ -16,6 +16,7 @@ const ENTRIES = {
   connect: "src/cli/connect.ts",
   daemon: "src/daemon/index.ts",
   mcp: "src/mcp/index.ts",
+  "install-service": "src/cli/install-service.ts",
 };
 
 // Same shape the connection token enforces (src/cli/connect.ts).
@@ -35,14 +36,21 @@ function runEntry(entry, args, extraEnv) {
 
 function usage(code) {
   console.error("Uso: amp <connect|daemon|mcp> [args]");
-  console.error("  amp connect <token>   conecta um agente (config + MCP + hooks)");
-  console.error("  amp <agente> on       roda o daemon do agente (ex.: amp backend-julio on)");
-  console.error("  amp daemon            roda o daemon (use AMP_HOME=~/.amp/<agente>)");
-  console.error("  amp mcp               roda o servidor MCP (normalmente via claude mcp)");
+  console.error("  amp connect <token>          conecta um agente (config + MCP + hooks)");
+  console.error("  amp <agente> on              roda o daemon do agente (ex.: amp backend-julio on)");
+  console.error("  amp <agente> install-service instala serviço systemd --user (boot + restart)");
+  console.error("  amp daemon                   roda o daemon (use AMP_HOME=~/.amp/<agente>)");
+  console.error("  amp mcp                      roda o servidor MCP (normalmente via claude mcp)");
   process.exit(code);
 }
 
 const [first, ...rest] = process.argv.slice(2);
+
+// `amp <agente> install-service` — write the systemd --user unit for the agent
+// (mirrors the `amp <agente> on` shape). The entry validates the slug + config.
+if (first && !ENTRIES[first] && rest[0] === "install-service") {
+  runEntry(ENTRIES["install-service"], [first]);
+}
 
 // `amp <agente> on` — start the daemon for an agent already connected with
 // `amp connect`. Sugar for `AMP_HOME=~/.amp/<agente> amp daemon`. Only when the

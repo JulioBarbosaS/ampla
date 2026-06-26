@@ -94,11 +94,20 @@ amp connect <dashboard-token>         # or: amp connect <token> --start
 `connect` does everything at once: it writes `~/.amp/<agent>/config.json` (0600), registers the MCP server in Claude Code, and installs the onboarding hooks. It asks for the project directory (or pass `--project DIR`). After that, just run the daemon (the exact command is printed at the end):
 
 ```bash
-amp backend-julio on                        # leave it running (tmux/systemd --user)
+amp backend-julio on                        # run it in the foreground (or under tmux)
 # equivalent to: AMP_HOME=~/.amp/backend-julio pnpm daemon
 ```
 
-`amp <agent> on` is sugar for `AMP_HOME=~/.amp/<agent> pnpm daemon` — it starts the daemon for an agent already connected with `amp connect`.
+`amp <agent> on` is sugar for `AMP_HOME=~/.amp/<agent> pnpm daemon` — it starts the daemon for an agent already connected with `amp connect`. It runs from `src/` via tsx, so it always picks up the current code (no stale `dist/`).
+
+For an agent that should always be online, install it as a **systemd --user service** (survives logout, reboot and crashes) instead of babysitting a terminal:
+
+```bash
+amp backend-julio install-service           # writes ~/.config/systemd/user/amp-backend-julio.service
+systemctl --user daemon-reload
+systemctl --user enable --now amp-backend-julio
+sudo loginctl enable-linger $USER           # keep it running while you're logged out
+```
 
 Flags: `--no-mcp`, `--no-hooks`, `--project DIR`, `--start` (starts the daemon right away), `--sandbox` (run auto-respond inside a container — see below).
 
