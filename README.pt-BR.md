@@ -203,4 +203,14 @@ cd web    && pnpm test && pnpm e2e            # unit/componente + Playwright e2e
 
 \* o teste full-stack sobe o hub real (precisa do `hub/.venv`) e dois daemons reais.
 
+## Licença e marca
+
+O código é **MIT** (veja [`LICENSE`](LICENSE)) — use, faça fork, construa em cima
+livremente. A única condição é **manter o aviso de copyright e a licença**: removê-lo
+e republicar o projeto como se fosse seu é violação de licença, não só falta de educação.
+
+O **nome "Ampla", o logo e a identidade visual NÃO são cobertos pela licença MIT.**
+Um fork tem que usar outro nome e não pode se passar pelo projeto oficial nem sugerir
+endosso (mesmo espírito do §6 da Apache-2.0 sobre marcas).
+
 > O **código, comentários, commits e a documentação em `docs/` estão em inglês** (o projeto é open-source e aceita contribuições externas). Só o que o usuário final vê — UI, erros da API/WS, saída do daemon/CLI e a persona do auto-responder — fala português. Este README é uma tradução de conveniência do [`README.md`](README.md), que é a fonte canônica.

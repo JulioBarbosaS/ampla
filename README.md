@@ -202,4 +202,14 @@ cd web    && pnpm test && pnpm e2e            # unit/component + Playwright e2e
 ```
 
 \* the full-stack test spins up the real hub (needs `hub/.venv`) and two real daemons.
+
+## License & trademark
+
+The code is **MIT** (see [`LICENSE`](LICENSE)) — use it, fork it, build on it freely.
+The one condition is that you **keep the copyright and license notice**: stripping it
+and republishing the project as your own is a license violation, not just bad manners.
+
+The **name "Ampla", the logo and the visual identity are NOT covered by the MIT
+license.** A fork must use a different name and must not present itself as the official
+project or imply endorsement (same spirit as Apache-2.0 §6 on trademarks).
 </content>

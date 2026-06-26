@@ -4,6 +4,7 @@
   "description": "Ampla Bridge — daemon local + servidor MCP para o Claude Code",
   "type": "module",
   "private": true,
+  "license": "MIT",
   "packageManager": "pnpm@10.33.0",
   "bin": {
     "amp": "bin/amp.mjs"

@@ -2,6 +2,7 @@
 name = "ampla-hub"
 version = "0.1.0"
 description = "Ampla Hub — servidor central de mensagens entre agentes Claude Code"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
