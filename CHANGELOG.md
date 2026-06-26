@@ -6,6 +6,26 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Bump the hub runtime image to `python:3.14-slim` (matches the dev/CI Python).
+
+## [0.1.1] - 2026-06-26
+
+### Security
+
+- Bump `undici` to ≥7.28.0 (TLS certificate-validation bypass, WebSocket DoS and
+  cross-origin request routing — GHSA) and force the transitive `hono` to ≥4.12.25
+  via a pnpm override (CORS reflection). `pnpm audit --prod` is clean again.
+
+### Fixed
+
+- Pin the test timezone to UTC so `MessageBubble` time snapshots are deterministic
+  across a developer's machine and the CI runner (they diverged — local TZ vs UTC);
+  snapshots regenerated.
+- `scripts/ci.sh` now runs the web suite with coverage (`test:cov`), matching the
+  GitHub workflow, so the coverage gate and the snapshots are caught pre-push.
+
 ## [0.1.0] - 2026-06-26
 
 ### Added

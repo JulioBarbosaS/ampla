@@ -113,7 +113,9 @@ if [ "$RUN_CORE" = 1 ]; then
   section "web · lint + tipos + testes"
   run "biome ci" web pnpm exec biome ci .
   run "tsc -b" web pnpm exec tsc -b
-  run "vitest" web pnpm exec vitest run
+  # coverage on: matches the GitHub `test:cov`, so the coverage gate (and the
+  # TZ-pinned snapshots) are exercised pre-push, not just on CI.
+  run "vitest (coverage)" web pnpm test:cov
 fi
 
 # ── tooling (release scripts + git hooks — Epic 09) ──────────────────────────

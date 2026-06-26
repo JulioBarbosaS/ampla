@@ -12,7 +12,7 @@ COPY web/ ./
 RUN pnpm build
 
 # Stage 2 — hub runtime, serving the panel built above
-FROM python:3.12-slim AS hub
+FROM python:3.14-slim AS hub
 WORKDIR /app
 
 # Static metadata for local builds; the release workflow's metadata-action

@@ -52,16 +52,22 @@ def test_bearer_still_authenticates_without_a_cookie(client):
     assert client.get("/api/auth/me").status_code == 401
 
 
-def test_session_cookie_is_secure_in_production():
+def test_session_cookie_secure_follows_the_request_scheme():
+    # Secure tracks the CONNECTION, not the env: it is dropped over plain
+    # http://localhost (the URL the quickstart opens) and set over HTTPS — so a
+    # production image still lets you log in on localhost while real TLS gets it.
     settings = make_settings(
         environment="production",
         jwt_secret="prod-secret-com-32-bytes-no-minimo!",
     )
-    app = create_app(settings)
-    with TestClient(app) as client:
-        response = client.post("/api/auth/setup", json=ADMIN)
-        assert response.status_code == 200
-        assert "secure" in response.headers["set-cookie"].lower()
+    with TestClient(create_app(settings), base_url="http://testserver") as http_client:
+        r = http_client.post("/api/auth/setup", json=ADMIN)
+        assert r.status_code == 200
+        assert "secure" not in r.headers["set-cookie"].lower()  # http → not Secure
+    with TestClient(create_app(settings), base_url="https://testserver") as https_client:
+        r = https_client.post("/api/auth/setup", json=ADMIN)
+        assert r.status_code == 200
+        assert "secure" in r.headers["set-cookie"].lower()  # https → Secure
 
 
 def test_observer_connects_via_session_cookie(client):
