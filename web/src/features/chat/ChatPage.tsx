@@ -1,8 +1,10 @@
 import { useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { agentsApi } from "../../lib/api/agents";
 import { messagesApi } from "../../lib/api/messages";
 import { notificationsApi } from "../../lib/api/notifications";
 import type { AppNotification } from "../../lib/api/types";
+import { showDesktopNotification } from "../../lib/notify/desktop";
 import { connectObserver } from "../../lib/ws/observer";
 import { useAuthStore } from "../../stores/auth";
 import { useChatStore } from "../../stores/chat";
@@ -26,21 +28,28 @@ export function ChatPage() {
     setActivity,
   } = useChatStore();
   const setAutoResponderEnabled = useKillSwitchStore((s) => s.setAutoResponderEnabled);
+  const navigate = useNavigate();
 
   // Inbox deltas (Epic 02 · slice b). Handlers read/write the store via getState
   // so they stay stable (no re-subscribe churn on the observer effect).
-  const onNotification = useCallback((n: AppNotification) => {
-    const s = useInboxStore.getState();
-    const was = s.items.find((i) => i.id === n.id);
-    s.upsert(n);
-    // The badge counts unread items STILL IN THE INBOX (matches the server's
-    // unread_count). +1 only when this item (re)enters that set — not on an
-    // already-counted bump, and not for saved/done re-bumps.
-    const counted = (x?: AppNotification) => !!x?.unread && x.status === "inbox";
-    if (counted(n) && !counted(was)) {
-      s.setUnreadCount(useInboxStore.getState().unreadCount + 1);
-    }
-  }, []);
+  const onNotification = useCallback(
+    (n: AppNotification) => {
+      const s = useInboxStore.getState();
+      const was = s.items.find((i) => i.id === n.id);
+      s.upsert(n);
+      // The badge counts unread items STILL IN THE INBOX (matches the server's
+      // unread_count). +1 only when this item (re)enters that set — not on an
+      // already-counted bump, and not for saved/done re-bumps.
+      const counted = (x?: AppNotification) => !!x?.unread && x.status === "inbox";
+      if (counted(n) && !counted(was)) {
+        s.setUnreadCount(useInboxStore.getState().unreadCount + 1);
+        // Mirror only genuinely-new inbox arrivals to the OS (and only when the
+        // tab is in the background — the gate lives in showDesktopNotification).
+        showDesktopNotification(n, navigate);
+      }
+    },
+    [navigate],
+  );
   const onNotificationRead = useCallback((ids: number[] | "all", unreadCount: number) => {
     const s = useInboxStore.getState();
     s.markRead(ids);

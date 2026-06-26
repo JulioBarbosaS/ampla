@@ -8,6 +8,13 @@ import type {
   NotificationStatus,
   NotifyLevel,
 } from "../../lib/api/types";
+import {
+  type DesktopPermission,
+  desktopNotifyEnabled,
+  desktopPermission,
+  requestDesktopPermission,
+  setDesktopNotifyEnabled,
+} from "../../lib/notify/desktop";
 import { useInboxStore } from "../../stores/inbox";
 
 /** Delivery gate options (pt-BR for the operator). */
@@ -172,6 +179,8 @@ export function InboxPage() {
   const [searchInput, setSearchInput] = useState("");
   const [appliedQ, setAppliedQ] = useState("");
   const [notifyLevel, setNotifyLevel] = useState<NotifyLevel>("mentions_and_direct");
+  const [desktopOn, setDesktopOn] = useState(() => desktopNotifyEnabled());
+  const [desktopPerm, setDesktopPerm] = useState<DesktopPermission>(() => desktopPermission());
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -271,6 +280,19 @@ export function InboxPage() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [selected, bulkTriage, bulkIgnore]);
+
+  // Desktop toggle: turning it on asks the browser for permission (a denial
+  // leaves it off); turning it off just clears the local opt-in.
+  async function toggleDesktop(on: boolean) {
+    if (on) {
+      const perm = await requestDesktopPermission();
+      setDesktopPerm(perm);
+      setDesktopOn(perm === "granted");
+    } else {
+      setDesktopNotifyEnabled(false);
+      setDesktopOn(false);
+    }
+  }
 
   async function changeLevel(level: NotifyLevel) {
     setNotifyLevel(level); // optimistic
@@ -394,6 +416,25 @@ export function InboxPage() {
             ))}
           </select>
         </label>
+        {desktopPerm !== "unsupported" && (
+          <label
+            className="flex items-center gap-1.5 text-xs text-zinc-500"
+            title={
+              desktopPerm === "denied"
+                ? "Permissão de notificações bloqueada no navegador"
+                : "Avisar no desktop quando a aba não estiver em foco"
+            }
+          >
+            <input
+              type="checkbox"
+              aria-label="Notificações no desktop"
+              checked={desktopOn}
+              disabled={desktopPerm === "denied"}
+              onChange={(e) => toggleDesktop(e.target.checked)}
+            />
+            Desktop
+          </label>
+        )}
         <button
           type="button"
           onClick={readAll}

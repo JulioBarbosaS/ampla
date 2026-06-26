@@ -181,6 +181,24 @@ describe("InboxPage", () => {
     );
   });
 
+  it("offers a desktop-notifications opt-in and requests permission on enable", async () => {
+    const requestPermission = vi.fn().mockResolvedValue("granted");
+    // The toggle flow only reads permission + requestPermission (never `new
+    // Notification`), so a plain object stub suffices.
+    vi.stubGlobal("Notification", { permission: "default", requestPermission });
+    localStorage.clear();
+    renderInbox();
+    await screen.findByText(/enviou uma mensagem/);
+    const toggle = screen.getByLabelText("Notificações no desktop") as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+    await userEvent.click(toggle);
+    expect(requestPermission).toHaveBeenCalled();
+    await waitFor(() => expect(toggle.checked).toBe(true));
+    // Restore "unsupported" so the toggle is hidden for the other tests (and its
+    // checkbox doesn't shift indices in the bulk-selection test).
+    vi.stubGlobal("Notification", undefined);
+  });
+
   it("shows the inbox-zero empty state", async () => {
     vi.mocked(notificationsApi.list).mockResolvedValue([]);
     vi.mocked(notificationsApi.unreadCount).mockResolvedValue({ unread_count: 0 });
